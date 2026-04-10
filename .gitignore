@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vscode-test/
+*.vsix
+webview-ui/node_modules/
+webview-ui/dist/
+.pixel-squad/

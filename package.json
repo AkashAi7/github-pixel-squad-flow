@@ -1,0 +1,63 @@
+{
+  "name": "pixel-squad",
+  "displayName": "Pixel Squad",
+  "description": "Pixel-art multi-agent workspace for GitHub Copilot and Claude Code inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "akashai7",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AkashAi7/Pixel-Squad.git"
+  },
+  "homepage": "https://github.com/AkashAi7/Pixel-Squad",
+  "bugs": {
+    "url": "https://github.com/AkashAi7/Pixel-Squad/issues"
+  },
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "pixelSquad",
+          "title": "Pixel Squad",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pixelSquad": [
+        {
+          "id": "pixelSquad.factoryView",
+          "name": "Agent Factory"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pixelSquad.showFactory",
+        "title": "Pixel Squad: Show Agent Factory"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "npm run build:webview && npm run build:extension",
+    "build:extension": "node ./esbuild.mjs",
+    "build:webview": "npm --prefix webview-ui run build",
+    "package:vsix": "npm run build && npx @vscode/vsce package --out pixel-squad.vsix",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "watch:webview": "npm --prefix webview-ui run dev"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.2",
+    "@types/node": "^24.0.1",
+    "@types/vscode": "^1.105.0",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
+  }
+}

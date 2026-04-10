@@ -1,0 +1,7 @@
+src/**
+webview-ui/**
+node_modules/**/.cache/**
+.github/**
+.gitignore
+tsconfig.json
+esbuild.mjs
