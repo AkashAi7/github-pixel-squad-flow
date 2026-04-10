@@ -19,7 +19,19 @@ Set-Location .\webview-ui; npm install
 Set-Location ..
 npm run build
 npm run typecheck
+npm run package:vsix
 ```
+
+## GitHub Release Flow
+
+- Repository: https://github.com/AkashAi7/Pixel-Squad
+- Pushes to `main` run the CI workflow.
+- Pushing a tag like `v0.0.2` runs the `Release VSIX` workflow.
+- The release workflow builds the extension, packages a `.vsix`, and attaches it to the matching GitHub Release.
+
+The first release is available at:
+
+- https://github.com/AkashAi7/Pixel-Squad/releases/tag/v0.0.1
 
 ## Next Slice
 
