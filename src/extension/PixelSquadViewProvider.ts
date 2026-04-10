@@ -34,23 +34,54 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       unsubscribe();
     });
 
-    webviewView.webview.onDidReceiveMessage((message: WebviewMessage) => {
+    webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
       if (message.type === 'webviewReady') {
         this.coordinator.notifyWebviewConnected();
-        this.postMessage({
-          type: 'bootstrapState',
-          snapshot: this.coordinator.getSnapshot()
-        });
+        this.syncSnapshot();
       }
 
       if (message.type === 'showAgent') {
         this.coordinator.selectAgent(message.agentId);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'createTask') {
+        const summary = await this.coordinator.createTask(message.prompt);
+        this.syncSnapshot();
+        void vscode.window.showInformationMessage(summary);
+      }
+
+      if (message.type === 'resetWorkspace') {
+        this.coordinator.resetWorkspace();
+        this.syncSnapshot();
       }
     });
   }
 
   private postMessage(message: ExtensionMessage): void {
     this.view?.webview.postMessage(message);
+  }
+
+  async createTaskFromPrompt(
+    prompt: string,
+    model?: vscode.LanguageModelChat,
+    token?: vscode.CancellationToken,
+  ): Promise<string> {
+    const summary = await this.coordinator.createTask(prompt, model, token);
+    this.syncSnapshot();
+    return summary;
+  }
+
+  resetWorkspace(): void {
+    this.coordinator.resetWorkspace();
+    this.syncSnapshot();
+  }
+
+  private syncSnapshot(): void {
+    this.postMessage({
+      type: 'bootstrapState',
+      snapshot: this.coordinator.getSnapshot(),
+    });
   }
 
   private getHtml(webview: vscode.Webview): string {

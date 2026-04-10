@@ -6,10 +6,11 @@ Pixel Squad is a VS Code extension scaffold for a pixel-art multi-agent workspac
 
 This bootstrap includes:
 - A VS Code panel contribution named `Agent Factory`
-- A typed extension host with an in-memory coordinator
+- A typed extension host with a persisted coordinator
 - Shared workspace and protocol models
-- Stub provider adapters for Claude and Copilot paths
+- A real extension-owned GitHub-model planning path with deterministic fallback routing
 - A React/Vite webview that renders rooms, agents, tasks, provider health, and an inspector
+- A `@pixel-squad` chat participant for Copilot Chat-driven routing
 
 ## Commands
 
@@ -21,6 +22,15 @@ npm run build
 npm run typecheck
 npm run package:vsix
 ```
+
+## Using Pixel Squad
+
+- Open the `Agent Factory` panel.
+- Enter a task in the factory composer and route it through the squad.
+- Or use `Pixel Squad: Create Routed Task` from the Command Palette.
+- Or open GitHub Copilot Chat and invoke `@pixel-squad` with a software task.
+
+When a GitHub Copilot chat model is available, Pixel Squad will use it to plan persona assignments. If not, it falls back to local routing heuristics and still updates the factory.
 
 ## GitHub Release Flow
 
@@ -36,6 +46,5 @@ The first release is available at:
 ## Next Slice
 
 - Replace the Claude stub with terminal spawning and live session observation
-- Persist room/task state under a project-local Pixel Squad folder
-- Add extension-owned GitHub-model orchestration flows
+- Evolve the current task router into multi-step task execution with richer room state
 - Evolve the room view into a true factory editor

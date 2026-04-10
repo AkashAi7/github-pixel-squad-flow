@@ -9,7 +9,20 @@ export interface ShowAgentMessage {
   agentId: string;
 }
 
-export type WebviewMessage = WebviewReadyMessage | ShowAgentMessage;
+export interface CreateTaskMessage {
+  type: 'createTask';
+  prompt: string;
+}
+
+export interface ResetWorkspaceMessage {
+  type: 'resetWorkspace';
+}
+
+export type WebviewMessage =
+  | WebviewReadyMessage
+  | ShowAgentMessage
+  | CreateTaskMessage
+  | ResetWorkspaceMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

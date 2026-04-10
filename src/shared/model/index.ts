@@ -1,5 +1,6 @@
 export type AgentStatus = 'idle' | 'planning' | 'executing' | 'waiting' | 'blocked';
 export type TaskStatus = 'queued' | 'active' | 'review' | 'done';
+export type ProviderState = 'ready' | 'stub' | 'unavailable';
 
 export interface PersonaTemplate {
   id: string;
@@ -38,7 +39,7 @@ export interface TaskCard {
 
 export interface ProviderHealth {
   provider: 'claude' | 'copilot';
-  state: 'ready' | 'stub';
+  state: ProviderState;
   detail: string;
 }
 

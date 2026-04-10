@@ -14,6 +14,8 @@ function App() {
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [activity, setActivity] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -21,6 +23,7 @@ function App() {
         setSnapshot(event.data.snapshot);
         setActivity(event.data.snapshot.activityFeed);
         setSelectedAgentId(event.data.snapshot.agents[0]?.id ?? null);
+        setIsSubmitting(false);
       }
 
       if (event.data.type === 'activity') {
@@ -64,10 +67,44 @@ function App() {
           <p className="hero-copy">
             A squad-style orchestration surface with rooms, role-driven agents, and provider-aware task routing.
           </p>
+          <div className="task-composer">
+            <label className="composer-label" htmlFor="task-prompt">Route a new task</label>
+            <textarea
+              id="task-prompt"
+              className="composer-input"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="Build a settings screen, persist preferences, and add a validation pass."
+            />
+            <div className="composer-actions">
+              <button
+                type="button"
+                className="composer-button"
+                disabled={isSubmitting || prompt.trim().length === 0}
+                onClick={() => {
+                  setIsSubmitting(true);
+                  vscode.postMessage({ type: 'createTask', prompt: prompt.trim() });
+                  setPrompt('');
+                }}
+              >
+                {isSubmitting ? 'Routing...' : 'Route Task'}
+              </button>
+              <button
+                type="button"
+                className="composer-button composer-button--ghost"
+                onClick={() => {
+                  setPrompt('');
+                  vscode.postMessage({ type: 'resetWorkspace' });
+                }}
+              >
+                Reset Demo State
+              </button>
+            </div>
+          </div>
         </div>
         <div className="provider-strip">
           {snapshot.providers.map((provider) => (
-            <article key={provider.provider} className="provider-chip">
+            <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
               <span>{provider.provider}</span>
               <strong>{provider.state}</strong>
               <p>{provider.detail}</p>
