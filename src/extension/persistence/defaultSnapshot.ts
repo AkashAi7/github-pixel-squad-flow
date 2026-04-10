@@ -28,7 +28,7 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         id: 'engine',
         name: 'Backend Engine',
         theme: 'Grid floor with relay lights',
-        purpose: 'Coordinator and adapter implementation.',
+        purpose: 'Coordinator, API, and persistence work.',
         agentIds: ['backend-1', 'tester-1']
       }
     ],
@@ -47,27 +47,27 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         name: 'Nova',
         personaId: 'frontend',
         provider: 'copilot',
-        status: 'executing',
+        status: 'idle',
         roomId: 'forge',
-        summary: 'Building the first room visualization and inspector surface.'
+        summary: 'Ready for UI and webview tasks.'
       },
       {
         id: 'backend-1',
         name: 'Tern',
         personaId: 'backend',
-        provider: 'claude',
+        provider: 'copilot',
         status: 'idle',
         roomId: 'engine',
-        summary: 'Waiting for real Claude session management to replace the stub.'
+        summary: 'Ready for API and runtime tasks.'
       },
       {
         id: 'tester-1',
         name: 'Mica',
         personaId: 'tester',
-        provider: 'claude',
-        status: 'waiting',
+        provider: 'copilot',
+        status: 'idle',
         roomId: 'engine',
-        summary: 'Tracking bootstrap gaps and future adapter risks.'
+        summary: 'Ready for verification and testing tasks.'
       }
     ],
     tasks: [
@@ -83,7 +83,7 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       {
         id: 'task-2',
         title: 'Render first agent factory',
-        status: 'active',
+        status: 'done',
         assigneeId: 'frontend-1',
         provider: 'copilot',
         source: 'factory',
@@ -91,30 +91,29 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       },
       {
         id: 'task-3',
-        title: 'Prepare Claude adapter seam',
-        status: 'review',
-        assigneeId: 'tester-1',
-        provider: 'claude',
+        title: 'Wire Copilot planning pipeline',
+        status: 'done',
+        assigneeId: 'lead-1',
+        provider: 'copilot',
         source: 'factory',
-        detail: 'Provider API is stable enough to swap in real spawning next.'
+        detail: 'Task routing uses GitHub Copilot model for planning.'
       }
     ],
     providers: [
       {
-        provider: 'claude',
-        state: 'stub',
-        detail: 'Claude terminal spawning and transcript observation will land in the next slice.'
-      },
-      {
         provider: 'copilot',
-        state: 'stub',
-        detail: 'GitHub-model orchestration will be owned by Pixel Squad first; native Copilot mirroring stays experimental.'
+        state: 'ready',
+        detail: 'GitHub Copilot powers all planning and task execution.'
       }
     ],
     activityFeed: [
       'Pixel Squad coordinator online.',
-      'Webview handshake ready to receive state.',
-      'Provider adapters registered in stub mode.'
-    ]
+      'All agents powered by GitHub Copilot.',
+      'Factory ready — route a task to begin.'
+    ],
+    settings: {
+      autoExecute: false,
+      modelFamily: 'copilot',
+    }
   };
 }

@@ -1,6 +1,6 @@
-export type AgentStatus = 'idle' | 'planning' | 'executing' | 'waiting' | 'blocked';
-export type TaskStatus = 'queued' | 'active' | 'review' | 'done';
-export type ProviderState = 'ready' | 'stub' | 'unavailable';
+export type AgentStatus = 'idle' | 'planning' | 'executing' | 'waiting' | 'blocked' | 'paused' | 'completed' | 'failed';
+export type TaskStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
+export type ProviderState = 'ready' | 'unavailable';
 
 export interface PersonaTemplate {
   id: string;
@@ -13,7 +13,7 @@ export interface SquadAgent {
   id: string;
   name: string;
   personaId: string;
-  provider: 'claude' | 'copilot';
+  provider: 'copilot';
   status: AgentStatus;
   roomId: string;
   summary: string;
@@ -32,15 +32,21 @@ export interface TaskCard {
   title: string;
   status: TaskStatus;
   assigneeId: string;
-  provider: 'claude' | 'copilot';
+  provider: 'copilot';
   source: 'factory' | 'copilot-chat';
   detail: string;
+  output?: string;
 }
 
 export interface ProviderHealth {
-  provider: 'claude' | 'copilot';
+  provider: 'copilot';
   state: ProviderState;
   detail: string;
+}
+
+export interface SquadSettings {
+  autoExecute: boolean;
+  modelFamily: string;
 }
 
 export interface WorkspaceSnapshot {
@@ -51,4 +57,5 @@ export interface WorkspaceSnapshot {
   tasks: TaskCard[];
   providers: ProviderHealth[];
   activityFeed: string[];
+  settings: SquadSettings;
 }

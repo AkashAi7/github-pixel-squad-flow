@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { WorkspaceSnapshot, SquadAgent } from '../../src/shared/model/index.js';
+import type { WorkspaceSnapshot, SquadAgent, TaskCard } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
@@ -11,9 +11,44 @@ const vscode = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (_message: unknown) => undefined };
 
+function agentActions(agent: SquadAgent): Array<{ label: string; action: string }> {
+  switch (agent.status) {
+    case 'executing':
+    case 'planning':
+      return [{ label: '⏸ Pause', action: 'pause' }, { label: '✓ Complete', action: 'complete' }];
+    case 'paused':
+      return [{ label: '▶ Resume', action: 'resume' }, { label: '✓ Complete', action: 'complete' }];
+    case 'failed':
+    case 'blocked':
+      return [{ label: '↻ Retry', action: 'retry' }];
+    case 'waiting':
+      return [{ label: '✓ Complete', action: 'complete' }];
+    default:
+      return [];
+  }
+}
+
+function taskActions(task: TaskCard): Array<{ label: string; action: string }> {
+  switch (task.status) {
+    case 'queued':
+      return [{ label: '▶ Execute', action: 'execute' }];
+    case 'active':
+      return [{ label: '▶ Execute', action: 'execute' }, { label: '✗ Fail', action: 'fail' }];
+    case 'review':
+      return [{ label: '✓ Approve', action: 'complete' }, { label: '✗ Reject', action: 'fail' }];
+    case 'failed':
+      return [{ label: '↻ Retry', action: 'retry' }];
+    case 'done':
+      return [{ label: '↻ Re-open', action: 'retry' }];
+    default:
+      return [];
+  }
+}
+
 function App() {
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [activity, setActivity] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,12 +58,16 @@ function App() {
       if (event.data.type === 'bootstrapState') {
         setSnapshot(event.data.snapshot);
         setActivity(event.data.snapshot.activityFeed);
-        setSelectedAgentId(event.data.snapshot.agents[0]?.id ?? null);
+        setSelectedAgentId((prev) => prev ?? event.data.snapshot.agents[0]?.id ?? null);
         setIsSubmitting(false);
       }
 
       if (event.data.type === 'activity') {
-        setActivity((current) => [event.data.message, ...current].slice(0, 8));
+        setActivity((current) => [event.data.message, ...current].slice(0, 12));
+      }
+
+      if (event.data.type === 'taskOutput') {
+        setExpandedTaskId(event.data.taskId);
       }
     };
 
@@ -59,15 +98,29 @@ function App() {
     );
   }
 
+  const stats = {
+    total: snapshot.tasks.length,
+    active: snapshot.tasks.filter((t) => t.status === 'active').length,
+    done: snapshot.tasks.filter((t) => t.status === 'done').length,
+    failed: snapshot.tasks.filter((t) => t.status === 'failed').length,
+  };
+
   return (
     <main className="shell">
       <section className="hero-panel">
         <div>
-          <p className="eyebrow">Agent Factory</p>
+          <p className="eyebrow">Agent Factory · GitHub Copilot Native</p>
           <h1>{snapshot.projectName}</h1>
           <p className="hero-copy">
-            A squad-style orchestration surface with rooms, role-driven agents, and provider-aware task routing.
+            Route tasks through a multi-agent factory powered entirely by GitHub Copilot.
+            Agents plan, execute, and deliver — all inside VS Code.
           </p>
+          <div className="stats-bar">
+            <span className="stat">{stats.total} tasks</span>
+            <span className="stat stat--active">{stats.active} active</span>
+            <span className="stat stat--done">{stats.done} done</span>
+            {stats.failed > 0 && <span className="stat stat--failed">{stats.failed} failed</span>}
+          </div>
           <div className="task-composer">
             <label className="composer-label" htmlFor="task-prompt">Route a new task</label>
             <textarea
@@ -98,7 +151,7 @@ function App() {
                   vscode.postMessage({ type: 'resetWorkspace' });
                 }}
               >
-                Reset Demo State
+                Reset
               </button>
             </div>
           </div>
@@ -106,6 +159,7 @@ function App() {
         <div className="provider-strip">
           {snapshot.providers.map((provider) => (
             <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
+              <span className="provider-chip__icon">⚡</span>
               <span>{provider.provider}</span>
               <strong>{provider.state}</strong>
               <p>{provider.detail}</p>
@@ -159,13 +213,25 @@ function App() {
                   </div>
                   <div>
                     <dt>Status</dt>
-                    <dd>{selectedAgent.status}</dd>
+                    <dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd>
                   </div>
                   <div>
                     <dt>Room</dt>
                     <dd>{snapshot.rooms.find((room) => room.id === selectedAgent.roomId)?.name}</dd>
                   </div>
                 </dl>
+                <div className="agent-controls">
+                  {agentActions(selectedAgent).map(({ label, action }) => (
+                    <button
+                      key={action}
+                      type="button"
+                      className={`control-btn control-btn--${action}`}
+                      onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </>
             ) : (
               <p className="inspector-copy">Pick an agent from a room to inspect it.</p>
@@ -176,13 +242,35 @@ function App() {
             <p className="eyebrow">Task Wall</p>
             <div className="task-list">
               {snapshot.tasks.map((task) => (
-                <article key={task.id} className={`task-card task-card--${task.status}`}>
+                <article
+                  key={task.id}
+                  className={`task-card task-card--${task.status}${expandedTaskId === task.id ? ' task-card--expanded' : ''}`}
+                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                >
                   <div className="task-meta">
-                    <span>{task.provider}</span>
+                    <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
                     <span>{task.source}</span>
                   </div>
                   <h3>{task.title}</h3>
                   <p>{task.detail}</p>
+                  {task.output && expandedTaskId === task.id && (
+                    <div className="task-output">
+                      <p className="eyebrow">Execution Output</p>
+                      <pre>{task.output}</pre>
+                    </div>
+                  )}
+                  <div className="task-controls" onClick={(e) => e.stopPropagation()}>
+                    {taskActions(task).map(({ label, action }) => (
+                      <button
+                        key={action}
+                        type="button"
+                        className={`control-btn control-btn--${action}`}
+                        onClick={() => vscode.postMessage({ type: 'taskAction', taskId: task.id, action })}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </article>
               ))}
             </div>

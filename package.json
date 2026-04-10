@@ -1,8 +1,8 @@
 {
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
-  "description": "Pixel-art multi-agent workspace for GitHub Copilot and Claude Code inside VS Code.",
-  "version": "0.0.3",
+  "description": "Pixel-art multi-agent workspace powered by GitHub Copilot inside VS Code.",
+  "version": "0.0.4",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -54,6 +54,79 @@
       {
         "command": "pixelSquad.runSmokeTest",
         "title": "Pixel Squad: Run Smoke Test"
+      },
+      {
+        "command": "pixelSquad.toggleAutoExecute",
+        "title": "Pixel Squad: Toggle Auto-Execute"
+      }
+    ],
+    "configuration": {
+      "title": "Pixel Squad",
+      "properties": {
+        "pixelSquad.autoExecute": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically execute tasks with GitHub Copilot after routing them through the squad."
+        },
+        "pixelSquad.modelFamily": {
+          "type": "string",
+          "default": "copilot",
+          "description": "Preferred language model family for planning and task execution."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "pixelSquad.getStarted",
+        "title": "Get Started with Pixel Squad",
+        "description": "Learn how to route tasks through your multi-agent factory powered by GitHub Copilot.",
+        "steps": [
+          {
+            "id": "openFactory",
+            "title": "Open the Agent Factory",
+            "description": "Open the Pixel Squad panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
+            "media": {
+              "image": "assets/icon.svg",
+              "altText": "Pixel Squad icon"
+            }
+          },
+          {
+            "id": "routeATask",
+            "title": "Route Your First Task",
+            "description": "Use the command palette or the panel composer to describe a task. Pixel Squad will plan it with GitHub Copilot and assign agents.\n\n[Create a Task](command:pixelSquad.createTask)",
+            "media": {
+              "image": "assets/icon.svg",
+              "altText": "Route a task"
+            }
+          },
+          {
+            "id": "chatWithSquad",
+            "title": "Chat with @pixel-squad",
+            "description": "Type `@pixel-squad` in GitHub Copilot Chat to route tasks conversationally. The squad updates the factory panel in real time.",
+            "media": {
+              "image": "assets/icon.svg",
+              "altText": "Chat participant"
+            }
+          },
+          {
+            "id": "executeTasks",
+            "title": "Execute and Review Tasks",
+            "description": "Click Execute on any queued task to have an agent work on it using GitHub Copilot. Review the output and approve or retry.",
+            "media": {
+              "image": "assets/icon.svg",
+              "altText": "Task execution"
+            }
+          },
+          {
+            "id": "smokeTest",
+            "title": "Run the Smoke Test",
+            "description": "Verify everything works end-to-end with a single command.\n\n[Run Smoke Test](command:pixelSquad.runSmokeTest)",
+            "media": {
+              "image": "assets/icon.svg",
+              "altText": "Smoke test"
+            }
+          }
+        ]
       }
     ],
     "chatParticipants": [

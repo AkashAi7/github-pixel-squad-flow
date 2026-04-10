@@ -30,8 +30,13 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       this.postMessage(message);
     });
 
+    const unsubOutput = this.coordinator.taskOutputBus.subscribe((message) => {
+      this.postMessage(message);
+    });
+
     webviewView.onDidDispose(() => {
       unsubscribe();
+      unsubOutput();
     });
 
     webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
@@ -53,6 +58,16 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
 
       if (message.type === 'resetWorkspace') {
         this.coordinator.resetWorkspace();
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'agentAction') {
+        this.coordinator.agentAction(message.agentId, message.action);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'taskAction') {
+        this.coordinator.taskAction(message.taskId, message.action);
         this.syncSnapshot();
       }
     });

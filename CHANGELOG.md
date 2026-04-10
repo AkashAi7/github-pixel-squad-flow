@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.4
+
+- Make Pixel Squad a fully GitHub Copilot-native product — remove all Claude adapter code and references.
+- Add agent lifecycle management with pause, resume, complete, and retry state transitions.
+- Add a task execution engine that sends work to GitHub Copilot models with deterministic fallback.
+- Add task controls in the webview: Execute, Approve, Reject, Retry, and Re-open.
+- Add agent controls in the inspector panel: Pause, Resume, Complete, and Retry.
+- Add expandable task output display with monospace rendering.
+- Add stats bar showing total, active, done, and failed task counts.
+- Add status badges with color coding for all agent and task states.
+- Add `pixelSquad.autoExecute` and `pixelSquad.modelFamily` settings.
+- Add `Pixel Squad: Toggle Auto-Execute` command.
+- Add a 5-step onboarding walkthrough (Get Started with Pixel Squad).
+- Add executing-agent pulse animation on pixel sprites.
+
 ## 0.0.3
 
 - Add a visible pixel-style factory board so the workspace feels closer to a live agent floor.

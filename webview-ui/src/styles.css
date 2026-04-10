@@ -256,6 +256,24 @@ button {
   letter-spacing: 0.06em;
 }
 
+.pixel-agent__status {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border: 1px solid rgba(245, 239, 225, 0.1);
+}
+
+.pixel-agent__status--executing { background: #ffe066; color: #10161f; }
+.pixel-agent__status--completed,
+.pixel-agent__status--idle { background: rgba(112, 193, 179, 0.22); color: #70c1b3; }
+.pixel-agent__status--paused { background: rgba(255, 224, 102, 0.18); color: #ffe066; }
+.pixel-agent__status--failed { background: rgba(242, 95, 92, 0.22); color: #f25f5c; }
+
+.pixel-agent__sprite--active {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1.4fr 0.9fr;
@@ -452,4 +470,125 @@ button {
   .layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.stat {
+  padding: 4px 10px;
+  border: 1px solid rgba(245, 239, 225, 0.14);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat--active { color: #ffe066; border-color: rgba(255, 224, 102, 0.3); }
+.stat--done { color: #70c1b3; border-color: rgba(112, 193, 179, 0.3); }
+.stat--failed { color: #f25f5c; border-color: rgba(242, 95, 92, 0.3); }
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(245, 239, 225, 0.14);
+}
+
+.status-badge--executing,
+.status-badge--active { background: #ffe066; color: #10161f; }
+.status-badge--planning,
+.status-badge--review { background: rgba(125, 140, 255, 0.28); }
+.status-badge--idle,
+.status-badge--queued { background: rgba(112, 193, 179, 0.18); }
+.status-badge--paused { background: rgba(255, 224, 102, 0.18); color: #ffe066; }
+.status-badge--completed,
+.status-badge--done { background: rgba(112, 193, 179, 0.28); color: #70c1b3; }
+.status-badge--failed { background: rgba(242, 95, 92, 0.22); color: #f25f5c; }
+.status-badge--blocked,
+.status-badge--waiting { background: rgba(245, 239, 225, 0.08); }
+
+/* Agent & task controls */
+.agent-controls,
+.task-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.control-btn {
+  padding: 5px 10px;
+  border: 1px solid rgba(245, 239, 225, 0.16);
+  background: rgba(245, 239, 225, 0.06);
+  color: #f5efe1;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.control-btn:hover {
+  background: rgba(245, 239, 225, 0.14);
+}
+
+.control-btn--execute,
+.control-btn--resume { border-color: rgba(112, 193, 179, 0.4); color: #70c1b3; }
+.control-btn--complete { border-color: rgba(112, 193, 179, 0.4); color: #70c1b3; }
+.control-btn--pause { border-color: rgba(255, 224, 102, 0.4); color: #ffe066; }
+.control-btn--fail { border-color: rgba(242, 95, 92, 0.4); color: #f25f5c; }
+.control-btn--retry { border-color: rgba(125, 140, 255, 0.4); color: #7d8cff; }
+
+/* Task output */
+.task-card { cursor: pointer; transition: border-color 0.15s; }
+.task-card:hover { border-color: rgba(245, 239, 225, 0.3); }
+.task-card--expanded { border-color: rgba(125, 140, 255, 0.45); }
+
+.task-output {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(245, 239, 225, 0.1);
+  background: rgba(10, 15, 22, 0.85);
+}
+
+.task-output pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(245, 239, 225, 0.88);
+}
+
+/* Task status colors */
+.task-card--failed {
+  border-color: rgba(242, 95, 92, 0.35);
+}
+
+.task-card--done {
+  border-color: rgba(112, 193, 179, 0.3);
+  opacity: 0.85;
+}
+
+/* Provider chip icon */
+.provider-chip__icon {
+  font-size: 1.2rem;
+}
+
+/* Executing animation pulse */
+.agent-status--executing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
 }

@@ -39,10 +39,11 @@ export function FactoryBoard({ rooms, agents, personas, selectedAgentId, onSelec
                       className={agent.id === selectedAgentId ? 'pixel-agent pixel-agent--selected' : 'pixel-agent'}
                       style={{ ['--accent' as string]: persona?.color ?? '#7d8cff' }}
                       onClick={() => onSelectAgent(agent.id)}
-                      title={`${agent.name} · ${persona?.title ?? agent.personaId}`}
+                      title={`${agent.name} · ${persona?.title ?? agent.personaId} · ${agent.status}`}
                     >
-                      <span className="pixel-agent__sprite" />
+                      <span className={`pixel-agent__sprite${agent.status === 'executing' ? ' pixel-agent__sprite--active' : ''}`} />
                       <span className="pixel-agent__label">{agent.name}</span>
+                      <span className={`pixel-agent__status pixel-agent__status--${agent.status}`}>{agent.status}</span>
                     </button>
                   );
                 })}

@@ -57,6 +57,12 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       const summary = await provider.runSmokeTest();
       void vscode.window.showInformationMessage(summary);
+    }),
+    vscode.commands.registerCommand('pixelSquad.toggleAutoExecute', async () => {
+      const config = vscode.workspace.getConfiguration('pixelSquad');
+      const current = config.get<boolean>('autoExecute', false);
+      await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
+      void vscode.window.showInformationMessage(`Pixel Squad auto-execute: ${!current ? 'ON' : 'OFF'}`);
     })
   );
 }

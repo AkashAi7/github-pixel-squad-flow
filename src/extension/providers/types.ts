@@ -1,4 +1,4 @@
-import type { ProviderHealth } from '../../shared/model/index.js';
+import type { PersonaTemplate, ProviderHealth, TaskCard, SquadAgent } from '../../shared/model/index.js';
 
 export interface PersonaAssignment {
   personaId: string;
@@ -13,7 +13,25 @@ export interface PlanningResult {
   providerDetail: string;
 }
 
+export interface ExecutionResult {
+  output: string;
+  success: boolean;
+}
+
 export interface ProviderAdapter {
-  readonly id: 'claude' | 'copilot';
+  readonly id: 'copilot';
   getHealth(): ProviderHealth;
+  createPlan(
+    prompt: string,
+    personas: PersonaTemplate[],
+    model?: import('vscode').LanguageModelChat,
+    token?: import('vscode').CancellationToken,
+  ): Promise<PlanningResult>;
+  executeTask(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    model?: import('vscode').LanguageModelChat,
+    token?: import('vscode').CancellationToken,
+  ): Promise<ExecutionResult>;
 }
