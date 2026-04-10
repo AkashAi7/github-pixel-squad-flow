@@ -77,6 +77,16 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     this.syncSnapshot();
   }
 
+  async runSmokeTest(): Promise<string> {
+    this.coordinator.resetWorkspace();
+    this.syncSnapshot();
+    const summary = await this.coordinator.createTask(
+      'Build a settings screen, persist the selected theme, and add a tester validation pass.',
+    );
+    this.syncSnapshot();
+    return `Smoke test passed through Pixel Squad routing. ${summary}`;
+  }
+
   private syncSnapshot(): void {
     this.postMessage({
       type: 'bootstrapState',

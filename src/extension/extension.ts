@@ -52,6 +52,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.resetWorkspace', async () => {
       provider.resetWorkspace();
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+    }),
+    vscode.commands.registerCommand('pixelSquad.runSmokeTest', async () => {
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.runSmokeTest();
+      void vscode.window.showInformationMessage(summary);
     })
   );
 }

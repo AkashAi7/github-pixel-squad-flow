@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.3
+
+- Add a visible pixel-style factory board so the workspace feels closer to a live agent floor.
+- Add `Pixel Squad: Run Smoke Test` for a fast end-to-end sanity check inside the Extension Development Host.
+- Add `.vscode` launch/tasks configs for one-click local testing.
+- Clean up release metadata and packaging by syncing webview versioning, fixing stale docs, and excluding dev-only VS Code files from the shipped VSIX.
+
 ## 0.0.2
 
 - Add an end-to-end Pixel Squad task routing flow from the panel, command palette, and `@pixel-squad` chat participant.

@@ -2,6 +2,7 @@ src/**
 webview-ui/**
 node_modules/**/.cache/**
 .github/**
+.vscode/**
 .gitignore
 tsconfig.json
 esbuild.mjs

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { WorkspaceSnapshot, SquadAgent } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
+import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
@@ -112,6 +113,17 @@ function App() {
           ))}
         </div>
       </section>
+
+      <FactoryBoard
+        rooms={snapshot.rooms}
+        agents={snapshot.agents}
+        personas={snapshot.personas}
+        selectedAgentId={selectedAgentId}
+        onSelectAgent={(agentId) => {
+          setSelectedAgentId(agentId);
+          vscode.postMessage({ type: 'showAgent', agentId });
+        }}
+      />
 
       <section className="layout">
         <div className="column column--rooms">

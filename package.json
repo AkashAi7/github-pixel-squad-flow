@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Pixel-art multi-agent workspace for GitHub Copilot and Claude Code inside VS Code.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -50,6 +50,10 @@
       {
         "command": "pixelSquad.resetWorkspace",
         "title": "Pixel Squad: Reset Workspace State"
+      },
+      {
+        "command": "pixelSquad.runSmokeTest",
+        "title": "Pixel Squad: Run Smoke Test"
       }
     ],
     "chatParticipants": [
