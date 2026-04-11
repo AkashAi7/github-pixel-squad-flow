@@ -1,4 +1,4 @@
-import type { WorkspaceSnapshot } from '../model/index.js';
+import type { Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
 
 export interface WebviewReadyMessage {
   type: 'webviewReady';
@@ -30,13 +30,46 @@ export interface TaskActionMessage {
   action: 'execute' | 'complete' | 'fail' | 'retry';
 }
 
+/* ── Room CRUD ─────────────────────────────────────────── */
+
+export interface CreateRoomMessage {
+  type: 'createRoom';
+  name: string;
+  theme: RoomTheme;
+  purpose: string;
+}
+
+export interface DeleteRoomMessage {
+  type: 'deleteRoom';
+  roomId: string;
+}
+
+/* ── Agent spawning ────────────────────────────────────── */
+
+export interface SpawnAgentMessage {
+  type: 'spawnAgent';
+  roomId: string;
+  name: string;
+  personaId: string;
+  provider: Provider;
+}
+
+export interface RemoveAgentMessage {
+  type: 'removeAgent';
+  agentId: string;
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
   | CreateTaskMessage
   | ResetWorkspaceMessage
   | AgentActionMessage
-  | TaskActionMessage;
+  | TaskActionMessage
+  | CreateRoomMessage
+  | DeleteRoomMessage
+  | SpawnAgentMessage
+  | RemoveAgentMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

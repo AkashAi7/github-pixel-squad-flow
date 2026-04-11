@@ -1,8 +1,8 @@
 {
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
-  "description": "Pixel-art multi-agent workspace powered by GitHub Copilot inside VS Code.",
-  "version": "0.0.5",
+  "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
+  "version": "0.1.0",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -59,6 +59,14 @@
       {
         "command": "pixelSquad.toggleAutoExecute",
         "title": "Pixel Squad: Toggle Auto-Execute"
+      },
+      {
+        "command": "pixelSquad.createRoom",
+        "title": "Pixel Squad: Create Room"
+      },
+      {
+        "command": "pixelSquad.spawnAgent",
+        "title": "Pixel Squad: Spawn Agent in Room"
       }
     ],
     "configuration": {
@@ -72,6 +80,11 @@
         "pixelSquad.modelFamily": {
           "type": "string",
           "default": "copilot",
+          "enum": ["copilot", "claude"],
+          "enumDescriptions": [
+            "Use GitHub Copilot language models for planning and execution.",
+            "Use Claude language models (requires Anthropic extension or Claude Code)."
+          ],
           "description": "Preferred language model family for planning and task execution."
         }
       }
@@ -135,7 +148,7 @@
         "id": "pixelSquad.orchestrator",
         "name": "pixel-squad",
         "fullName": "Pixel Squad Orchestrator",
-        "description": "Route a software task through Pixel Squad and update the Agent Factory panel.",
+        "description": "Route a task through Pixel Squad (Copilot + Claude) and update the Agent Factory.",
         "isSticky": true,
         "commands": [
           {

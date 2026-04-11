@@ -69,6 +69,26 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
         this.coordinator.taskAction(message.taskId, message.action);
         this.syncSnapshot();
       }
+
+      if (message.type === 'createRoom') {
+        this.coordinator.createRoom(message.name, message.theme, message.purpose);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'deleteRoom') {
+        this.coordinator.deleteRoom(message.roomId);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'spawnAgent') {
+        this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'removeAgent') {
+        this.coordinator.removeAgent(message.agentId);
+        this.syncSnapshot();
+      }
     });
   }
 

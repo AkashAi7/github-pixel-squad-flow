@@ -63,6 +63,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const current = config.get<boolean>('autoExecute', false);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       void vscode.window.showInformationMessage(`Pixel Squad auto-execute: ${!current ? 'ON' : 'OFF'}`);
+    }),
+    vscode.commands.registerCommand('pixelSquad.createRoom', async () => {
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      void vscode.window.showInformationMessage('Use the Agent Factory panel to create a room.');
+    }),
+    vscode.commands.registerCommand('pixelSquad.spawnAgent', async () => {
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      void vscode.window.showInformationMessage('Use the Agent Factory panel to spawn an agent.');
     })
   );
 }

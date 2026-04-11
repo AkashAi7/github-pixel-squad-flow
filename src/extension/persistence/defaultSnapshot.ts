@@ -7,30 +7,35 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       { id: 'frontend', title: 'Frontend', specialty: 'Interface systems', color: '#f25f5c' },
       { id: 'backend', title: 'Backend', specialty: 'APIs and runtime orchestration', color: '#247ba0' },
       { id: 'tester', title: 'Tester', specialty: 'Verification and regression pressure', color: '#70c1b3' },
-      { id: 'lead', title: 'Lead', specialty: 'Routing and prioritization', color: '#ffe066' }
+      { id: 'lead', title: 'Lead', specialty: 'Routing and prioritization', color: '#ffe066' },
+      { id: 'devops', title: 'DevOps', specialty: 'CI/CD, infra, and deployment', color: '#8d6e63' },
+      { id: 'designer', title: 'Designer', specialty: 'UX research and visual design', color: '#ce93d8' },
     ],
     rooms: [
       {
         id: 'briefing',
         name: 'Briefing Room',
-        theme: 'Warm brass and paper walls',
+        theme: 'general',
         purpose: 'New work lands here before routing.',
-        agentIds: ['lead-1']
+        color: '#ffe066',
+        agentIds: ['lead-1'],
       },
       {
         id: 'forge',
         name: 'Frontend Forge',
-        theme: 'Neon drafting benches',
+        theme: 'frontend',
         purpose: 'UI, webview, motion, and layout work.',
-        agentIds: ['frontend-1']
+        color: '#f25f5c',
+        agentIds: ['frontend-1'],
       },
       {
         id: 'engine',
         name: 'Backend Engine',
-        theme: 'Grid floor with relay lights',
+        theme: 'backend',
         purpose: 'Coordinator, API, and persistence work.',
-        agentIds: ['backend-1', 'tester-1']
-      }
+        color: '#247ba0',
+        agentIds: ['backend-1', 'tester-1'],
+      },
     ],
     agents: [
       {
@@ -40,7 +45,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'copilot',
         status: 'planning',
         roomId: 'briefing',
-        summary: 'Breaking the product into rooms, adapters, and task flows.'
+        summary: 'Breaking the product into rooms, adapters, and task flows.',
+        spriteVariant: 0,
       },
       {
         id: 'frontend-1',
@@ -49,16 +55,18 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'copilot',
         status: 'idle',
         roomId: 'forge',
-        summary: 'Ready for UI and webview tasks.'
+        summary: 'Ready for UI and webview tasks.',
+        spriteVariant: 1,
       },
       {
         id: 'backend-1',
         name: 'Tern',
         personaId: 'backend',
-        provider: 'copilot',
+        provider: 'claude',
         status: 'idle',
         roomId: 'engine',
-        summary: 'Ready for API and runtime tasks.'
+        summary: 'Ready for API and runtime tasks.',
+        spriteVariant: 2,
       },
       {
         id: 'tester-1',
@@ -67,8 +75,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'copilot',
         status: 'idle',
         roomId: 'engine',
-        summary: 'Ready for verification and testing tasks.'
-      }
+        summary: 'Ready for verification and testing tasks.',
+        spriteVariant: 3,
+      },
     ],
     tasks: [
       {
@@ -76,9 +85,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         title: 'Bootstrap extension host',
         status: 'done',
         assigneeId: 'backend-1',
-        provider: 'copilot',
+        provider: 'claude',
         source: 'factory',
-        detail: 'Command, view container, bundle entry, and icon are defined.'
+        detail: 'Command, view container, bundle entry, and icon are defined.',
       },
       {
         id: 'task-2',
@@ -87,33 +96,38 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         assigneeId: 'frontend-1',
         provider: 'copilot',
         source: 'factory',
-        detail: 'Rooms, personas, and tasks are visible in the panel.'
+        detail: 'Rooms, personas, and tasks are visible in the panel.',
       },
       {
         id: 'task-3',
-        title: 'Wire Copilot planning pipeline',
+        title: 'Wire multi-provider planning pipeline',
         status: 'done',
         assigneeId: 'lead-1',
         provider: 'copilot',
         source: 'factory',
-        detail: 'Task routing uses GitHub Copilot model for planning.'
-      }
+        detail: 'Task routing uses GitHub Copilot or Claude for planning.',
+      },
     ],
     providers: [
       {
         provider: 'copilot',
         state: 'ready',
-        detail: 'GitHub Copilot powers all planning and task execution.'
-      }
+        detail: 'GitHub Copilot powers planning and task execution.',
+      },
+      {
+        provider: 'claude',
+        state: 'ready',
+        detail: 'Claude powers planning and task execution.',
+      },
     ],
     activityFeed: [
       'Pixel Squad coordinator online.',
-      'All agents powered by GitHub Copilot.',
-      'Factory ready — route a task to begin.'
+      'Dual-provider mode: Copilot + Claude.',
+      'Factory ready — create rooms and spawn agents to begin.',
     ],
     settings: {
       autoExecute: false,
       modelFamily: 'copilot',
-    }
+    },
   };
 }

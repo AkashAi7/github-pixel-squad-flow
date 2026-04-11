@@ -1,13 +1,21 @@
 import * as vscode from 'vscode';
 
-import type { AgentStatus, PersonaTemplate, SquadAgent, TaskCard, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import type { AgentStatus, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import { ROOM_THEME_META } from '../../shared/model/index.js';
 import type { ActivityMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { CopilotAdapter } from '../providers/copilot/CopilotAdapter.js';
+import { ClaudeAdapter } from '../providers/claude/ClaudeAdapter.js';
+import type { ProviderAdapter } from '../providers/types.js';
 import { ProjectStateStore } from '../persistence/ProjectStateStore.js';
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
+  private readonly claude = new ClaudeAdapter();
+  private readonly providers: Record<Provider, ProviderAdapter> = {
+    copilot: this.copilot,
+    claude: this.claude,
+  };
   private readonly store: ProjectStateStore;
   private snapshot: WorkspaceSnapshot;
   readonly activityBus = new EventBus<ActivityMessage>();
@@ -30,13 +38,15 @@ export class Coordinator {
     };
   }
 
-  async createTask(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+  async createTask(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, provider?: Provider): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task request.';
     }
 
-    const plan = await this.copilot.createPlan(normalizedPrompt, this.snapshot.personas, model, token);
+    const selectedProvider = provider ?? (this.getSettings().modelFamily as Provider) ?? 'copilot';
+    const adapter = this.providers[selectedProvider] ?? this.copilot;
+    const plan = await adapter.createPlan(normalizedPrompt, this.snapshot.personas, model, token);
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
 
@@ -49,7 +59,6 @@ export class Coordinator {
 
       const refreshedAgent: SquadAgent = {
         ...agent,
-        provider: 'copilot',
         status: index === 0 ? 'executing' : 'planning',
         summary: assignment.detail,
       };
@@ -59,7 +68,7 @@ export class Coordinator {
         title: assignment.title,
         status: index === 0 ? 'active' : 'queued',
         assigneeId: refreshedAgent.id,
-        provider: 'copilot',
+        provider: refreshedAgent.provider,
         source: 'factory',
         detail: assignment.detail,
       });
@@ -68,8 +77,8 @@ export class Coordinator {
     this.snapshot = {
       ...this.snapshot,
       agents: updatedAgents,
-      tasks: [...newTasks, ...this.snapshot.tasks].slice(0, 20),
-      providers: [this.copilot.getHealth()],
+      tasks: [...newTasks, ...this.snapshot.tasks].slice(0, 40),
+      providers: this.getProviderHealths(),
       activityFeed: [
         `Task received: ${plan.title}`,
         plan.providerDetail,
@@ -109,9 +118,10 @@ export class Coordinator {
     // Update task to active, agent to executing
     this.updateTask(taskId, { status: 'active' });
     this.updateAgent(agent.id, { status: 'executing', summary: `Executing: ${task.title}` });
-    this.appendActivity(`${agent.name} started executing "${task.title}".`);
+    this.appendActivity(`${agent.name} started executing "${task.title}" via ${task.provider}.`);
 
-    const result = await this.copilot.executeTask(task, agent, persona, model, token);
+    const adapter = this.providers[task.provider] ?? this.copilot;
+    const result = await adapter.executeTask(task, agent, persona, model, token);
 
     if (result.success) {
       this.updateTask(taskId, { status: 'review', output: result.output });
@@ -194,6 +204,92 @@ export class Coordinator {
     this.store.save(this.snapshot);
   }
 
+  /* ── Room CRUD ──────────────────────────────────────── */
+
+  createRoom(name: string, theme: RoomTheme, purpose: string): Room {
+    const meta = ROOM_THEME_META[theme];
+    const room: Room = {
+      id: this.makeId('room'),
+      name: name.trim() || meta.label,
+      theme,
+      purpose: purpose.trim() || `A ${meta.label.toLowerCase()} for your squad.`,
+      color: meta.color,
+      agentIds: [],
+    };
+    this.snapshot = {
+      ...this.snapshot,
+      rooms: [...this.snapshot.rooms, room],
+    };
+    this.appendActivity(`Room "${room.name}" created.`);
+    this.store.save(this.snapshot);
+    return room;
+  }
+
+  deleteRoom(roomId: string): void {
+    const room = this.snapshot.rooms.find((r) => r.id === roomId);
+    if (!room) return;
+
+    // Unassign agents in the room
+    const orphanedAgentIds = new Set(room.agentIds);
+    this.snapshot = {
+      ...this.snapshot,
+      rooms: this.snapshot.rooms.filter((r) => r.id !== roomId),
+      agents: this.snapshot.agents.filter((a) => !orphanedAgentIds.has(a.id)),
+    };
+    this.appendActivity(`Room "${room.name}" deleted (${orphanedAgentIds.size} agents removed).`);
+    this.store.save(this.snapshot);
+  }
+
+  /* ── Agent spawning ───────────────────────────────── */
+
+  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider): SquadAgent | undefined {
+    const room = this.snapshot.rooms.find((r) => r.id === roomId);
+    if (!room) return undefined;
+
+    const persona = this.snapshot.personas.find((p) => p.id === personaId);
+    if (!persona) return undefined;
+
+    const agent: SquadAgent = {
+      id: this.makeId('agent'),
+      name: name.trim() || `${persona.title}-${room.agentIds.length + 1}`,
+      personaId,
+      provider,
+      status: 'idle',
+      roomId,
+      summary: `Ready for ${persona.specialty.toLowerCase()} tasks.`,
+      spriteVariant: Math.floor(Math.random() * 4),
+    };
+
+    this.snapshot = {
+      ...this.snapshot,
+      agents: [...this.snapshot.agents, agent],
+      rooms: this.snapshot.rooms.map((r) =>
+        r.id === roomId ? { ...r, agentIds: [...r.agentIds, agent.id] } : r,
+      ),
+    };
+    this.appendActivity(`Agent "${agent.name}" spawned in "${room.name}" (${provider}).`);
+    this.store.save(this.snapshot);
+    return agent;
+  }
+
+  removeAgent(agentId: string): void {
+    const agent = this.snapshot.agents.find((a) => a.id === agentId);
+    if (!agent) return;
+
+    this.snapshot = {
+      ...this.snapshot,
+      agents: this.snapshot.agents.filter((a) => a.id !== agentId),
+      rooms: this.snapshot.rooms.map((r) =>
+        r.id === agent.roomId ? { ...r, agentIds: r.agentIds.filter((id) => id !== agentId) } : r,
+      ),
+      tasks: this.snapshot.tasks.map((t) =>
+        t.assigneeId === agentId ? { ...t, status: 'failed' as TaskStatus } : t,
+      ),
+    };
+    this.appendActivity(`Agent "${agent.name}" removed.`);
+    this.store.save(this.snapshot);
+  }
+
   resetWorkspace(): void {
     this.snapshot = this.loadSnapshot();
     this.store.save(this.snapshot);
@@ -229,22 +325,23 @@ export class Coordinator {
     const snapshot = this.store.load();
     return {
       ...snapshot,
-      providers: [this.copilot.getHealth()],
+      providers: this.getProviderHealths(),
       settings: snapshot.settings ?? this.getSettings(),
     };
+  }
+
+  private getProviderHealths(): ProviderHealth[] {
+    return [this.copilot.getHealth(), this.claude.getHealth()];
   }
 
   private appendActivity(message: string): void {
     this.snapshot = {
       ...this.snapshot,
-      providers: [this.copilot.getHealth()],
-      activityFeed: [message, ...this.snapshot.activityFeed].slice(0, 12)
+      providers: this.getProviderHealths(),
+      activityFeed: [message, ...this.snapshot.activityFeed].slice(0, 20),
     };
     this.store.save(this.snapshot);
-    this.activityBus.publish({
-      type: 'activity',
-      message
-    });
+    this.activityBus.publish({ type: 'activity', message });
   }
 
   private makeId(prefix: string): string {

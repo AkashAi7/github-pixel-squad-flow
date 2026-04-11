@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { WorkspaceSnapshot, SquadAgent, TaskCard } from '../../src/shared/model/index.js';
+import type { WorkspaceSnapshot, SquadAgent, TaskCard, Provider, RoomTheme } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
+import { CreateRoomDialog } from './components/CreateRoomDialog.js';
+import { SpawnAgentDialog } from './components/SpawnAgentDialog.js';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
@@ -52,6 +54,8 @@ function App() {
   const [activity, setActivity] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -63,7 +67,7 @@ function App() {
       }
 
       if (event.data.type === 'activity') {
-        setActivity((current) => [event.data.message, ...current].slice(0, 12));
+        setActivity((current) => [event.data.message, ...current].slice(0, 20));
       }
 
       if (event.data.type === 'taskOutput') {
@@ -77,14 +81,19 @@ function App() {
   }, []);
 
   const selectedAgent = useMemo<SquadAgent | null>(() => {
-    if (!snapshot || !selectedAgentId) {
-      return null;
-    }
-
-    return snapshot.agents.find((agent) => agent.id === selectedAgentId) ?? null;
+    if (!snapshot || !selectedAgentId) return null;
+    return snapshot.agents.find((a) => a.id === selectedAgentId) ?? null;
   }, [selectedAgentId, snapshot]);
 
-  const personas = useMemo(() => new Map(snapshot?.personas.map((persona) => [persona.id, persona]) ?? []), [snapshot]);
+  const personas = useMemo(
+    () => new Map(snapshot?.personas.map((p) => [p.id, p]) ?? []),
+    [snapshot],
+  );
+
+  const spawnRoom = useMemo(
+    () => snapshot?.rooms.find((r) => r.id === spawnRoomId) ?? null,
+    [spawnRoomId, snapshot],
+  );
 
   if (!snapshot) {
     return (
@@ -103,23 +112,51 @@ function App() {
     active: snapshot.tasks.filter((t) => t.status === 'active').length,
     done: snapshot.tasks.filter((t) => t.status === 'done').length,
     failed: snapshot.tasks.filter((t) => t.status === 'failed').length,
+    copilot: snapshot.agents.filter((a) => a.provider === 'copilot').length,
+    claude: snapshot.agents.filter((a) => a.provider === 'claude').length,
   };
 
   return (
     <main className="shell">
+      {/* ─── Dialogs ─── */}
+      {showCreateRoom && (
+        <CreateRoomDialog
+          onSubmit={(name: string, theme: RoomTheme, purpose: string) => {
+            vscode.postMessage({ type: 'createRoom', name, theme, purpose });
+            setShowCreateRoom(false);
+          }}
+          onCancel={() => setShowCreateRoom(false)}
+        />
+      )}
+      {spawnRoom && (
+        <SpawnAgentDialog
+          roomName={spawnRoom.name}
+          roomId={spawnRoom.id}
+          personas={snapshot.personas}
+          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider) => {
+            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider });
+            setSpawnRoomId(null);
+          }}
+          onCancel={() => setSpawnRoomId(null)}
+        />
+      )}
+
+      {/* ─── Hero ─── */}
       <section className="hero-panel">
         <div>
-          <p className="eyebrow">Agent Factory · GitHub Copilot Native</p>
+          <p className="eyebrow">Agent Factory · Copilot + Claude</p>
           <h1>{snapshot.projectName}</h1>
           <p className="hero-copy">
-            Route tasks through a multi-agent factory powered entirely by GitHub Copilot.
-            Agents plan, execute, and deliver — all inside VS Code.
+            Create rooms, spawn pixel agents, and orchestrate your squad across
+            GitHub Copilot and Claude — all inside VS Code.
           </p>
           <div className="stats-bar">
             <span className="stat">{stats.total} tasks</span>
             <span className="stat stat--active">{stats.active} active</span>
             <span className="stat stat--done">{stats.done} done</span>
             {stats.failed > 0 && <span className="stat stat--failed">{stats.failed} failed</span>}
+            <span className="stat stat--copilot">⚡ {stats.copilot} copilot</span>
+            <span className="stat stat--claude">🧠 {stats.claude} claude</span>
           </div>
           <div className="task-composer">
             <label className="composer-label" htmlFor="task-prompt">Route a new task</label>
@@ -127,7 +164,7 @@ function App() {
               id="task-prompt"
               className="composer-input"
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(e) => setPrompt(e.target.value)}
               placeholder="Build a settings screen, persist preferences, and add a validation pass."
             />
             <div className="composer-actions">
@@ -145,6 +182,13 @@ function App() {
               </button>
               <button
                 type="button"
+                className="composer-button composer-button--accent"
+                onClick={() => setShowCreateRoom(true)}
+              >
+                + Room
+              </button>
+              <button
+                type="button"
                 className="composer-button composer-button--ghost"
                 onClick={() => {
                   setPrompt('');
@@ -159,7 +203,9 @@ function App() {
         <div className="provider-strip">
           {snapshot.providers.map((provider) => (
             <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
-              <span className="provider-chip__icon">⚡</span>
+              <span className="provider-chip__icon">
+                {provider.provider === 'copilot' ? '⚡' : '🧠'}
+              </span>
               <span>{provider.provider}</span>
               <strong>{provider.state}</strong>
               <p>{provider.detail}</p>
@@ -168,6 +214,7 @@ function App() {
         </div>
       </section>
 
+      {/* ─── Factory Board ─── */}
       <FactoryBoard
         rooms={snapshot.rooms}
         agents={snapshot.agents}
@@ -177,15 +224,19 @@ function App() {
           setSelectedAgentId(agentId);
           vscode.postMessage({ type: 'showAgent', agentId });
         }}
+        onSpawnAgent={(roomId) => setSpawnRoomId(roomId)}
+        onDeleteRoom={(roomId) => vscode.postMessage({ type: 'deleteRoom', roomId })}
+        onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
       />
 
+      {/* ─── Detail Columns ─── */}
       <section className="layout">
         <div className="column column--rooms">
           {snapshot.rooms.map((room) => (
             <RoomCard
               key={room.id}
               room={room}
-              agents={snapshot.agents.filter((agent) => agent.roomId === room.id)}
+              agents={snapshot.agents.filter((a) => a.roomId === room.id)}
               personas={snapshot.personas}
               selectedAgentId={selectedAgentId}
               onSelectAgent={(agentId) => {
@@ -197,6 +248,7 @@ function App() {
         </div>
 
         <aside className="column column--side">
+          {/* Inspector */}
           <section className="panel inspector-panel">
             <p className="eyebrow">Selected Agent</p>
             {selectedAgent ? (
@@ -205,20 +257,14 @@ function App() {
                 <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
                   {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
                 </div>
+                <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
+                  {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
+                </span>
                 <p className="inspector-copy">{selectedAgent.summary}</p>
                 <dl className="facts">
-                  <div>
-                    <dt>Provider</dt>
-                    <dd>{selectedAgent.provider}</dd>
-                  </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd>
-                  </div>
-                  <div>
-                    <dt>Room</dt>
-                    <dd>{snapshot.rooms.find((room) => room.id === selectedAgent.roomId)?.name}</dd>
-                  </div>
+                  <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
+                  <div><dt>Status</dt><dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd></div>
+                  <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
                 </dl>
                 <div className="agent-controls">
                   {agentActions(selectedAgent).map(({ label, action }) => (
@@ -227,9 +273,7 @@ function App() {
                       type="button"
                       className={`control-btn control-btn--${action}`}
                       onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
-                    >
-                      {label}
-                    </button>
+                    >{label}</button>
                   ))}
                 </div>
               </>
@@ -238,6 +282,7 @@ function App() {
             )}
           </section>
 
+          {/* Task Wall */}
           <section className="panel">
             <p className="eyebrow">Task Wall</p>
             <div className="task-list">
@@ -249,6 +294,9 @@ function App() {
                 >
                   <div className="task-meta">
                     <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
+                    <span className={`provider-badge provider-badge--${task.provider}`}>
+                      {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
+                    </span>
                     <span>{task.source}</span>
                   </div>
                   <h3>{task.title}</h3>
@@ -266,9 +314,7 @@ function App() {
                         type="button"
                         className={`control-btn control-btn--${action}`}
                         onClick={() => vscode.postMessage({ type: 'taskAction', taskId: task.id, action })}
-                      >
-                        {label}
-                      </button>
+                      >{label}</button>
                     ))}
                   </div>
                 </article>
@@ -276,6 +322,7 @@ function App() {
             </div>
           </section>
 
+          {/* Activity Feed */}
           <section className="panel">
             <p className="eyebrow">Activity Feed</p>
             <ul className="activity-feed">

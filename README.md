@@ -1,16 +1,15 @@
 # Pixel Squad
 
-Pixel Squad is a VS Code extension for a pixel-art multi-agent workspace that currently supports extension-owned GitHub-model routing and is being extended toward Claude Code session visualization.
+Pixel Squad is a VS Code extension for a multi-agent orchestrating pixel factory that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## Current Slice
+## What's New in v0.1.0
 
-This release includes:
-- A VS Code panel contribution named `Agent Factory`
-- A typed extension host with a persisted coordinator
-- Shared workspace and protocol models
-- A real extension-owned GitHub-model planning path with deterministic fallback routing
-- A React/Vite webview that renders rooms, agents, tasks, provider health, and an inspector
-- A `@pixel-squad` chat participant for Copilot Chat-driven routing
+- **Dual-provider support** — Route tasks through GitHub Copilot or Claude.
+- **Room CRUD** — Create themed rooms (frontend, backend, devops, testing, design, general) and delete them.
+- **Agent Spawning** — Spawn pixel agents into rooms, choosing their persona and provider.
+- **Pixel Character Sprites** — MetroCity-inspired CSS pixel art with 4 sprite variants and provider badges.
+- **Room Theming** — Each room gets a colored left border and themed background.
+- **Enhanced Stats** — Provider-split counters show Copilot vs Claude agent counts.
 
 ## Commands
 
@@ -25,41 +24,32 @@ npm run package:vsix
 
 ## Using Pixel Squad
 
-- Open the `Agent Factory` panel.
-- Enter a task in the factory composer and route it through the squad.
-- Or use `Pixel Squad: Create Routed Task` from the Command Palette.
-- Or open GitHub Copilot Chat and invoke `@pixel-squad` with a software task.
-- Or run `Pixel Squad: Run Smoke Test` to verify the full demo routing loop quickly.
+1. Open the `Agent Factory` panel (Pixel Squad tab in the bottom panel).
+2. **Create rooms** — Click `+ Room` and pick a theme.
+3. **Spawn agents** — Click `+` on a room tile to spawn an agent with a persona and provider (Copilot or Claude).
+4. **Route tasks** — Enter a task in the composer or use `@pixel-squad` in Copilot Chat.
+5. **Manage agents** — Click agents to inspect, execute tasks, pause, resume, or retry.
 
-When a GitHub Copilot chat model is available, Pixel Squad will use it to plan persona assignments. If not, it falls back to local routing heuristics and still updates the factory.
+When both Copilot and Claude models are available, tasks are dispatched to the provider assigned to the executing agent. If a model is unavailable, the extension falls back to deterministic local routing.
+
+## Settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `pixelSquad.autoExecute` | `false` | Auto-execute tasks after routing |
+| `pixelSquad.modelFamily` | `copilot` | Preferred model family (`copilot` or `claude`) |
 
 ## Smoke Test
 
-A smoke test is the fastest possible end-to-end verification that the product still basically works after a change.
-
-For Pixel Squad, the smoke test is:
-
-1. Launch the extension in an Extension Development Host with `F5` using `.vscode/launch.json`.
+1. Press `F5` to launch the Extension Development Host.
 2. Open the `Agent Factory` panel.
 3. Run `Pixel Squad: Run Smoke Test` from the Command Palette.
-4. Confirm that the panel resets, routes a canned task, updates the pixel board, changes the task wall, and appends activity feed entries.
-5. Optionally open Copilot Chat and try `@pixel-squad break this into frontend and backend tasks`.
-
-If those steps work, the extension is healthy enough for a basic product sanity check.
+4. Verify rooms, agents, task routing, and pixel sprites render correctly.
+5. Optionally try `@pixel-squad` in Copilot Chat.
 
 ## GitHub Release Flow
 
 - Repository: https://github.com/AkashAi7/Pixel-Squad
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.0.3` runs the `Release VSIX` workflow.
-- The release workflow builds the extension, packages a `.vsix`, and attaches it to the matching GitHub Release.
-
-The latest release is available at:
-
-- https://github.com/AkashAi7/Pixel-Squad/releases/tag/v0.0.2
-
-## Next Slice
-
-- Replace the Claude stub with terminal spawning and live session observation
-- Evolve the current task router into multi-step task execution with richer room state
-- Evolve the room view into a true factory editor
+- Pushing a tag like `v0.1.0` runs the `Release VSIX` workflow.
+- The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.

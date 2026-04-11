@@ -1,4 +1,4 @@
-import type { PersonaTemplate, ProviderHealth, TaskCard, SquadAgent } from '../../shared/model/index.js';
+import type { PersonaTemplate, Provider, ProviderHealth, TaskCard, SquadAgent } from '../../shared/model/index.js';
 
 export interface PersonaAssignment {
   personaId: string;
@@ -19,7 +19,7 @@ export interface ExecutionResult {
 }
 
 export interface ProviderAdapter {
-  readonly id: 'copilot';
+  readonly id: Provider;
   getHealth(): ProviderHealth;
   createPlan(
     prompt: string,

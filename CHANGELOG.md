@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.0
+
+- Add dual-provider support: route tasks through **GitHub Copilot** or **Claude** language models.
+- Add a full Claude adapter using `vscode.lm.selectChatModels` with vendor/family fallback.
+- Add **Room CRUD**: create rooms with themes (frontend, backend, devops, testing, design, general) and delete rooms.
+- Add **Agent Spawning**: spawn agents into rooms with persona selection and provider choice (Copilot or Claude).
+- Add **MetroCity-inspired pixel character sprites**: CSS-drawn 3-part characters (head/body/legs) with 4 sprite variants and provider badges.
+- Add CreateRoomDialog and SpawnAgentDialog modal components.
+- Rewrite the FactoryBoard with room management buttons, theme-colored left borders, and pixel character tiles.
+- Rewrite the App with provider stats (Copilot/Claude agent counts), room creation flow, and dual-provider task badges.
+- Expand the default snapshot to 6 personas (added devops, designer) with mixed Copilot/Claude agents.
+- Add `pixelSquad.createRoom` and `pixelSquad.spawnAgent` commands.
+- Add `pixelSquad.modelFamily` enum setting with `copilot` and `claude` options.
+- Increase activity feed to 20 items and task limit to 40.
+- Major CSS overhaul: pixel characters, dialog overlays, theme/persona grids, provider toggles, icon buttons, responsive breakpoints.
+
 ## 0.0.5
 
 - Fix webview panel not rendering by adding `"type": "webview"` to the view registration.
