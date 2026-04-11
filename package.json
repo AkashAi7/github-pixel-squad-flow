@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Pixel-art multi-agent workspace powered by GitHub Copilot inside VS Code.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -33,6 +33,7 @@
     "views": {
       "pixelSquad": [
         {
+          "type": "webview",
           "id": "pixelSquad.factoryView",
           "name": "Agent Factory"
         }

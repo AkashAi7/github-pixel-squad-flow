@@ -1,5 +1,4 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import { Coordinator } from './coordinator/Coordinator.js';
@@ -110,21 +109,26 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const webviewDist = path.join(this.extensionUri.fsPath, 'dist', 'webview');
-    const htmlPath = path.join(webviewDist, 'index.html');
+    const distPath = vscode.Uri.joinPath(vscode.Uri.file(this.extensionUri.fsPath), 'dist', 'webview');
+    const htmlPath = vscode.Uri.joinPath(distPath, 'index.html').fsPath;
 
     if (!fs.existsSync(htmlPath)) {
       return this.getFallbackHtml(webview);
     }
 
-    const html = fs.readFileSync(htmlPath, 'utf8');
-    const assetBase = webview.asWebviewUri(vscode.Uri.file(webviewDist)).toString();
-    const csp = `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource};`;
+    let html = fs.readFileSync(htmlPath, 'utf8');
 
-    return html
-      .replace(/<head>/, `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`)
-      .replaceAll('src="./', `src="${assetBase}/`)
-      .replaceAll('href="./', `href="${assetBase}/`);
+    // Replace relative asset paths with webview URIs (same approach as pixel-agents)
+    html = html.replace(/(href|src)="\.\/(.*?)"/g, (_match, attr, filePath) => {
+      const fileUri = vscode.Uri.joinPath(distPath, filePath);
+      const webviewUri = webview.asWebviewUri(fileUri);
+      return `${attr}="${webviewUri}"`;
+    });
+
+    // Strip crossorigin attributes that Vite injects (breaks in webview context)
+    html = html.replace(/\s+crossorigin/g, '');
+
+    return html;
   }
 
   private getFallbackHtml(webview: vscode.Webview): string {

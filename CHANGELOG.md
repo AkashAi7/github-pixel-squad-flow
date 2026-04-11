@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.5
+
+- Fix webview panel not rendering by adding `"type": "webview"` to the view registration.
+- Rewrite asset URL resolution to use per-file `asWebviewUri()` (matching pixel-agents approach).
+- Strip Vite's `crossorigin` attributes that break in webview context.
+- Remove overly restrictive CSP that was blocking module script loading.
+
 ## 0.0.4
 
 - Make Pixel Squad a fully GitHub Copilot-native product — remove all Claude adapter code and references.
