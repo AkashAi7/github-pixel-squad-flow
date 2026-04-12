@@ -10,6 +10,7 @@
     "url": "https://github.com/AkashAi7/Pixel-Squad.git"
   },
   "homepage": "https://github.com/AkashAi7/Pixel-Squad",
+  "icon": "assets/icon.png",
   "bugs": {
     "url": "https://github.com/AkashAi7/Pixel-Squad/issues"
   },
@@ -80,7 +81,10 @@
         "pixelSquad.modelFamily": {
           "type": "string",
           "default": "copilot",
-          "enum": ["copilot", "claude"],
+          "enum": [
+            "copilot",
+            "claude"
+          ],
           "enumDescriptions": [
             "Use GitHub Copilot language models for planning and execution.",
             "Use Claude language models (requires Anthropic extension or Claude Code)."
@@ -168,9 +172,9 @@
     "watch:webview": "npm --prefix webview-ui run dev"
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.6.2",
     "@types/node": "^24.0.1",
     "@types/vscode": "^1.105.0",
+    "@vscode/vsce": "^3.6.2",
     "esbuild": "^0.25.4",
     "typescript": "^5.8.3"
   }
