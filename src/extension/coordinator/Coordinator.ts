@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import type { AgentStatus, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
-import { ROOM_THEME_META } from '../../shared/model/index.js';
+import { ROOM_THEME_META, levelFromXp } from '../../shared/model/index.js';
 import type { ActivityMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { CopilotAdapter } from '../providers/copilot/CopilotAdapter.js';
@@ -176,9 +176,15 @@ export class Coordinator {
     const result = await adapter.executeTask(task, agent, persona, model, token);
 
     if (result.success) {
+      const newXp = (agent.xp ?? 0) + 25;
+      const newLevel = levelFromXp(newXp);
+      const leveledUp = newLevel > (agent.level ?? 0);
       this.updateTask(taskId, { status: 'review', output: result.output });
-      this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — awaiting review.` });
+      this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — awaiting review.`, xp: newXp, level: newLevel });
       this.appendActivity(`${agent.name} finished "${task.title}" — moved to review.`);
+      if (leveledUp) {
+        this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`);
+      }
     } else {
       this.updateTask(taskId, { status: 'failed', output: result.output });
       this.updateAgent(agent.id, { status: 'failed', summary: `Failed: ${task.title}` });
@@ -244,10 +250,16 @@ export class Coordinator {
       updates.output = undefined;
     }
     if (action === 'complete') {
-      // Move assigned agent to idle
+      // Move assigned agent to idle and award XP
       const agent = this.snapshot.agents.find((a) => a.id === task.assigneeId);
       if (agent) {
-        this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
+        const newXp = (agent.xp ?? 0) + 25;
+        const newLevel = levelFromXp(newXp);
+        const leveledUp = newLevel > (agent.level ?? 0);
+        this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}`, xp: newXp, level: newLevel });
+        if (leveledUp) {
+          this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`);
+        }
       }
     }
 
@@ -310,6 +322,8 @@ export class Coordinator {
       roomId,
       summary: `Ready for ${persona.specialty.toLowerCase()} tasks.`,
       spriteVariant: Math.floor(Math.random() * 4),
+      xp: 0,
+      level: 0,
     };
 
     this.snapshot = {

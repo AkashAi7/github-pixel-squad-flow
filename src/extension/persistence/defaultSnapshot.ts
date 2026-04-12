@@ -47,6 +47,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         roomId: 'briefing',
         summary: 'Breaking the product into rooms, adapters, and task flows.',
         spriteVariant: 0,
+        xp: 75,
+        level: 1,
       },
       {
         id: 'frontend-1',
@@ -57,6 +59,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         roomId: 'forge',
         summary: 'Ready for UI and webview tasks.',
         spriteVariant: 1,
+        xp: 50,
+        level: 1,
       },
       {
         id: 'backend-1',
@@ -67,6 +71,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         roomId: 'engine',
         summary: 'Ready for API and runtime tasks.',
         spriteVariant: 2,
+        xp: 50,
+        level: 1,
       },
       {
         id: 'tester-1',
@@ -77,6 +83,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         roomId: 'engine',
         summary: 'Ready for verification and testing tasks.',
         spriteVariant: 3,
+        xp: 25,
+        level: 1,
       },
     ],
     tasks: [

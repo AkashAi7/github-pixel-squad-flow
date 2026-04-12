@@ -36,6 +36,29 @@ export interface SquadAgent {
   roomId: string;
   summary: string;
   spriteVariant: number;
+  xp: number;
+  level: number;
+}
+
+/* ── Mood system ───────────────────────────────────────── */
+
+export const AGENT_MOOD: Record<AgentStatus, { emoji: string; label: string }> = {
+  idle:      { emoji: '😴', label: 'Chilling' },
+  planning:  { emoji: '🤔', label: 'Thinking' },
+  executing: { emoji: '💪', label: 'Working' },
+  waiting:   { emoji: '☕', label: 'On break' },
+  blocked:   { emoji: '😰', label: 'Stuck' },
+  paused:    { emoji: '⏸️', label: 'Paused' },
+  completed: { emoji: '🎉', label: 'Done!' },
+  failed:    { emoji: '😵', label: 'Oops' },
+};
+
+export function xpForLevel(level: number): number {
+  return level * level * 25;
+}
+
+export function levelFromXp(xp: number): number {
+  return Math.floor(Math.sqrt(xp / 25));
 }
 
 export interface Room {

@@ -71,6 +71,69 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.spawnAgent', async () => {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       void vscode.window.showInformationMessage('Use the Agent Factory panel to spawn an agent.');
+    }),
+
+    /* ── CLI: Assign Task to Agent ────────────────── */
+    vscode.commands.registerCommand('pixelSquad.assignTask', async () => {
+      const agents = provider.getAgents();
+      if (agents.length === 0) {
+        void vscode.window.showWarningMessage('No agents available. Spawn agents first.');
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        agents.map((a) => ({
+          label: `$(person) ${a.name}`,
+          description: `Lv.${a.level} · ${a.provider} · ${a.status}`,
+          detail: `${a.persona} · ${a.xp} XP`,
+          agentId: a.id,
+        })),
+        { placeHolder: 'Pick an agent to assign a task to', matchOnDescription: true },
+      );
+      if (!pick) return;
+
+      const prompt = await vscode.window.showInputBox({
+        prompt: `Describe the task for ${pick.label.replace('$(person) ', '')}`,
+        placeHolder: 'e.g. Write unit tests for the auth module',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) return;
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
+      void vscode.window.showInformationMessage(summary);
+    }),
+
+    /* ── CLI: List Agents ─────────────────────────── */
+    vscode.commands.registerCommand('pixelSquad.listAgents', async () => {
+      const agents = provider.getAgents();
+      if (agents.length === 0) {
+        void vscode.window.showInformationMessage('No agents in the squad yet.');
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        agents.map((a) => ({
+          label: `$(person) ${a.name}`,
+          description: `Lv.${a.level} · ${a.provider} · ${a.status}`,
+          detail: `${a.persona} · ${a.xp} XP`,
+          agentId: a.id,
+        })),
+        { placeHolder: 'Your Pixel Squad agents (pick to assign a task)', matchOnDescription: true },
+      );
+      if (!pick) return;
+
+      // If they pick an agent, let them assign a task
+      const prompt = await vscode.window.showInputBox({
+        prompt: `Assign a task to ${pick.label.replace('$(person) ', '')}?`,
+        placeHolder: 'Leave empty to cancel, or describe a task',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) return;
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
+      void vscode.window.showInformationMessage(summary);
     })
   );
 }

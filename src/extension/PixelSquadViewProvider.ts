@@ -127,6 +127,22 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     return `Smoke test passed through Pixel Squad routing. ${summary}`;
   }
 
+  /** Return agents list for CLI QuickPick */
+  getAgents(): Array<{ id: string; name: string; status: string; provider: string; persona: string; xp: number; level: number }> {
+    const snap = this.coordinator.getSnapshot();
+    return snap.agents.map((a) => {
+      const persona = snap.personas.find((p) => p.id === a.personaId);
+      return { id: a.id, name: a.name, status: a.status, provider: a.provider, persona: persona?.title ?? a.personaId, xp: a.xp ?? 0, level: a.level ?? 0 };
+    });
+  }
+
+  /** Assign a task to a specific agent (CLI entry point) */
+  async assignTaskToAgent(agentId: string, prompt: string): Promise<string> {
+    const summary = await this.coordinator.assignTask(agentId, prompt);
+    this.syncSnapshot();
+    return summary;
+  }
+
   private syncSnapshot(): void {
     this.postMessage({
       type: 'bootstrapState',

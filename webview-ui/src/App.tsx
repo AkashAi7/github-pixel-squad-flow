@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { WorkspaceSnapshot, SquadAgent, TaskCard, Provider, RoomTheme } from '../../src/shared/model/index.js';
+import { AGENT_MOOD, xpForLevel } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
@@ -222,6 +223,7 @@ function App() {
         rooms={snapshot.rooms}
         agents={snapshot.agents}
         personas={snapshot.personas}
+        tasks={snapshot.tasks}
         selectedAgentId={selectedAgentId}
         onSelectAgent={(agentId) => {
           setSelectedAgentId(agentId);
@@ -256,18 +258,35 @@ function App() {
             <p className="eyebrow">Selected Agent</p>
             {selectedAgent ? (
               <>
-                <h2>{selectedAgent.name}</h2>
+                <h2>
+                  {selectedAgent.name}
+                  <span className="agent-mood-inline" title={AGENT_MOOD[selectedAgent.status].label}>
+                    {AGENT_MOOD[selectedAgent.status].emoji}
+                  </span>
+                </h2>
                 <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
                   {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
                 </div>
                 <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
                   {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
                 </span>
+                {/* XP / Level bar */}
+                <div className="inspector-xp">
+                  <span className="inspector-xp__level">Lv.{selectedAgent.level ?? 0}</span>
+                  <div className="inspector-xp__bar">
+                    <div
+                      className="inspector-xp__fill"
+                      style={{ width: `${Math.min(100, Math.round(((selectedAgent.xp ?? 0) / xpForLevel((selectedAgent.level ?? 0) + 1)) * 100))}%` }}
+                    />
+                  </div>
+                  <span className="inspector-xp__text">{selectedAgent.xp ?? 0} / {xpForLevel((selectedAgent.level ?? 0) + 1)} XP</span>
+                </div>
                 <p className="inspector-copy">{selectedAgent.summary}</p>
                 <dl className="facts">
                   <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
                   <div><dt>Status</dt><dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd></div>
                   <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
+                  <div><dt>Mood</dt><dd>{AGENT_MOOD[selectedAgent.status].emoji} {AGENT_MOOD[selectedAgent.status].label}</dd></div>
                 </dl>
                 <div className="agent-controls">
                   {agentActions(selectedAgent).map(({ label, action }) => (
@@ -278,6 +297,39 @@ function App() {
                       onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
                     >{label}</button>
                   ))}
+                </div>
+                {/* ── Agent Work (tasks assigned to this agent) ── */}
+                <div className="agent-work">
+                  <p className="eyebrow">Agent Work</p>
+                  {(() => {
+                    const agentTasks = snapshot.tasks.filter((t) => t.assigneeId === selectedAgent.id);
+                    if (agentTasks.length === 0) {
+                      return <p className="inspector-copy">No tasks assigned yet.</p>;
+                    }
+                    return (
+                      <div className="agent-work__list">
+                        {agentTasks.map((task) => (
+                          <article
+                            key={task.id}
+                            className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
+                            onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                          >
+                            <div className="agent-work__meta">
+                              <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
+                              <span className="agent-work__title">{task.title}</span>
+                            </div>
+                            <p className="agent-work__detail">{task.detail}</p>
+                            {task.output && expandedTaskId === task.id && (
+                              <div className="task-output">
+                                <p className="eyebrow">Output</p>
+                                <pre>{task.output}</pre>
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {/* Assign task to this agent */}
                 <div className="assign-task">

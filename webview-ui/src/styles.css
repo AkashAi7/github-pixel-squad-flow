@@ -594,6 +594,156 @@ button { font: inherit; }
   border-color: rgba(242, 95, 92, 0.35);
 }
 
+/* ═══════════════════════════════════════════════════
+   Mood Emoji & Thought Bubbles (v0.1.3)
+   ═══════════════════════════════════════════════════ */
+
+/* Mood emoji floating above agent */
+.pixel-agent__mood {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  font-size: 1rem; z-index: 3; pointer-events: none;
+  animation: mood-float 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+}
+@keyframes mood-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-3px); }
+}
+
+/* Thought bubble */
+.thought-bubble {
+  position: absolute; top: -32px; left: 50%; transform: translateX(-50%);
+  z-index: 5; pointer-events: none;
+  background: rgba(255, 224, 102, 0.95); color: #10161f;
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 0.58rem; font-weight: 600;
+  white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  animation: thought-pop 0.35s ease-out both, thought-float 3s ease-in-out 0.35s infinite;
+}
+.thought-bubble::after {
+  content: '';
+  position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 5px solid rgba(255, 224, 102, 0.95);
+}
+@keyframes thought-pop {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+@keyframes thought-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-2px); }
+}
+
+/* ═══════════════════════════════════════════════════
+   XP / Level System (v0.1.3)
+   ═══════════════════════════════════════════════════ */
+
+/* Agent tile XP bar */
+.pixel-agent__level {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.6rem; color: #ffe066; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.xp-bar {
+  flex: 1; height: 3px; min-width: 28px;
+  background: rgba(255, 224, 102, 0.15); border-radius: 2px; overflow: hidden;
+}
+.xp-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffe066, #70c1b3);
+  border-radius: 2px;
+  transition: width 0.4s ease-out;
+}
+
+/* Inspector XP bar */
+.inspector-xp {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0; padding: 8px 10px;
+  border: 1px solid rgba(255, 224, 102, 0.2);
+  background: rgba(255, 224, 102, 0.06);
+}
+.inspector-xp__level {
+  font-size: 0.85rem; font-weight: 700; color: #ffe066;
+  min-width: 36px;
+}
+.inspector-xp__bar {
+  flex: 1; height: 6px;
+  background: rgba(255, 224, 102, 0.12); border-radius: 3px; overflow: hidden;
+}
+.inspector-xp__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffe066, #70c1b3);
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+.inspector-xp__text {
+  font-size: 0.68rem; color: rgba(245, 239, 225, 0.6);
+  white-space: nowrap;
+}
+
+/* Mood inline in inspector header */
+.agent-mood-inline {
+  margin-left: 8px; font-size: 1.1rem;
+  vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════════════════
+   Agent Work Section (v0.1.3)
+   ═══════════════════════════════════════════════════ */
+.agent-work {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid rgba(245, 239, 225, 0.1);
+}
+.agent-work__list { display: grid; gap: 8px; }
+.agent-work__task {
+  padding: 10px;
+  border: 1px solid rgba(245, 239, 225, 0.1);
+  background: rgba(16, 22, 31, 0.8);
+  cursor: pointer; transition: border-color 0.15s;
+}
+.agent-work__task:hover { border-color: rgba(245, 239, 225, 0.25); }
+.agent-work__task--expanded { border-color: rgba(125, 140, 255, 0.4); }
+.agent-work__task--active { border-left: 3px solid #ffe066; }
+.agent-work__task--done { border-left: 3px solid #70c1b3; opacity: 0.7; }
+.agent-work__task--failed { border-left: 3px solid #f25f5c; opacity: 0.7; }
+.agent-work__meta {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.agent-work__title {
+  font-size: 0.82rem; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.agent-work__detail {
+  font-size: 0.74rem; color: rgba(245, 239, 225, 0.6); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════
+   Confetti Celebration (v0.1.3) — on task completion
+   ═══════════════════════════════════════════════════ */
+.pixel-char--completed::before {
+  content: '🎉';
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 1rem; z-index: 4;
+  animation: confetti-rise 1.5s ease-out forwards;
+  pointer-events: none;
+}
+.pixel-char--completed::after {
+  content: '✨';
+  position: absolute; top: -12px; right: -4px;
+  font-size: 0.7rem; z-index: 4;
+  animation: confetti-rise 1.8s ease-out 0.2s forwards;
+  pointer-events: none;
+}
+@keyframes confetti-rise {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  70% { opacity: 1; transform: translateX(-50%) translateY(-16px) scale(1.2); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(0.6); }
+}
+
 .task-card--done {
   border-color: rgba(112, 193, 179, 0.3);
   opacity: 0.85;

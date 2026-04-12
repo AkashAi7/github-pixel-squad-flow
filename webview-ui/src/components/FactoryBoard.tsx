@@ -1,9 +1,11 @@
-import type { PersonaTemplate, Room, SquadAgent } from '../../../src/shared/model/index.js';
+import type { PersonaTemplate, Room, SquadAgent, TaskCard } from '../../../src/shared/model/index.js';
+import { AGENT_MOOD, xpForLevel } from '../../../src/shared/model/index.js';
 
 interface FactoryBoardProps {
   rooms: Room[];
   agents: SquadAgent[];
   personas: PersonaTemplate[];
+  tasks: TaskCard[];
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
   onSpawnAgent: (roomId: string) => void;
@@ -21,7 +23,7 @@ const THEME_FLOORS: Record<string, string> = {
 };
 
 export function FactoryBoard({
-  rooms, agents, personas, selectedAgentId, onSelectAgent, onSpawnAgent, onDeleteRoom, onRemoveAgent,
+  rooms, agents, personas, tasks, selectedAgentId, onSelectAgent, onSpawnAgent, onDeleteRoom, onRemoveAgent,
 }: FactoryBoardProps) {
   const personaMap = new Map(personas.map((p) => [p.id, p]));
 
@@ -76,6 +78,12 @@ export function FactoryBoard({
               <div className="factory-room__tiles">
                 {roomAgents.map((agent) => {
                   const persona = personaMap.get(agent.personaId);
+                  const mood = AGENT_MOOD[agent.status];
+                  const agentTask = tasks.find((t) => t.assigneeId === agent.id && (t.status === 'active' || t.status === 'queued'));
+                  const level = agent.level ?? 0;
+                  const xp = agent.xp ?? 0;
+                  const nextLevelXp = xpForLevel(level + 1);
+                  const xpProgress = nextLevelXp > 0 ? Math.min(100, Math.round((xp / nextLevelXp) * 100)) : 100;
                   return (
                     <button
                       key={agent.id}
@@ -85,12 +93,27 @@ export function FactoryBoard({
                       onClick={() => onSelectAgent(agent.id)}
                       title={`${agent.name} · ${persona?.title ?? agent.personaId} · ${agent.provider} · ${agent.status}`}
                     >
+                      {/* Mood emoji */}
+                      <span className="pixel-agent__mood" title={mood.label}>{mood.emoji}</span>
+                      {/* Thought bubble when working */}
+                      {agentTask && (agent.status === 'executing' || agent.status === 'planning') && (
+                        <div className="thought-bubble">
+                          <span className="thought-bubble__text">
+                            {agentTask.title.length > 30 ? agentTask.title.slice(0, 27) + '...' : agentTask.title}
+                          </span>
+                        </div>
+                      )}
                       <div className={`pixel-char pixel-char--v${agent.spriteVariant} pixel-char--${agent.status}`}>
                         <div className="pixel-char__head" />
                         <div className="pixel-char__body" />
                         <div className="pixel-char__legs" />
                       </div>
                       <span className="pixel-agent__label">{agent.name}</span>
+                      {/* XP / Level badge */}
+                      <span className="pixel-agent__level" title={`${xp} XP · Next level: ${nextLevelXp} XP`}>
+                        Lv.{level}
+                        <span className="xp-bar"><span className="xp-bar__fill" style={{ width: `${xpProgress}%` }} /></span>
+                      </span>
                       <span className={`pixel-agent__provider pixel-agent__provider--${agent.provider}`}>
                         {agent.provider === 'copilot' ? '⚡' : '🧠'}
                       </span>
