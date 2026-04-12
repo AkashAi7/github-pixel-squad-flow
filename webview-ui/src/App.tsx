@@ -56,6 +56,8 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
+  const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -64,6 +66,7 @@ function App() {
         setActivity(event.data.snapshot.activityFeed);
         setSelectedAgentId((prev) => prev ?? event.data.snapshot.agents[0]?.id ?? null);
         setIsSubmitting(false);
+        setIsAssigning(false);
       }
 
       if (event.data.type === 'activity') {
@@ -275,6 +278,30 @@ function App() {
                       onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
                     >{label}</button>
                   ))}
+                </div>
+                {/* Assign task to this agent */}
+                <div className="assign-task">
+                  <label className="composer-label" htmlFor="agent-task-prompt">Assign task to {selectedAgent.name}</label>
+                  <textarea
+                    id="agent-task-prompt"
+                    className="assign-task__input"
+                    value={agentTaskPrompt}
+                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
+                    placeholder={`Describe a task for ${selectedAgent.name}...`}
+                    rows={3}
+                  />
+                  <button
+                    type="button"
+                    className="composer-button assign-task__btn"
+                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
+                    onClick={() => {
+                      setIsAssigning(true);
+                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
+                      setAgentTaskPrompt('');
+                    }}
+                  >
+                    {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
+                  </button>
                 </div>
               </>
             ) : (

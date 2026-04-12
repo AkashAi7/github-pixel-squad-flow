@@ -203,12 +203,91 @@ button { font: inherit; }
 .pixel-char--v3 .pixel-char__head::after { background: #f5efe1; height: 5px; }
 .pixel-char--v3 .pixel-char__body { border-radius: 2px 2px 0 0; }
 
-/* Active animation */
-.pixel-char--active { animation: char-bounce 0.8s ease-in-out infinite; }
-@keyframes char-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+/* ── Agent status animations ───────────────────── */
+
+/* Executing — walk cycle with leg swap + bounce */
+.pixel-char--executing {
+  animation: char-walk 0.5s steps(2) infinite;
 }
+.pixel-char--executing .pixel-char__legs {
+  animation: legs-walk 0.35s steps(2) infinite;
+}
+@keyframes char-walk {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes legs-walk {
+  0% { box-shadow: 10px 0 0 #37474f; width: 6px; left: 8px; }
+  50% { box-shadow: 6px 0 0 #37474f; width: 8px; left: 10px; }
+}
+
+/* Planning — thinking wobble */
+.pixel-char--planning {
+  animation: char-think 1.2s ease-in-out infinite;
+}
+.pixel-char--planning .pixel-char__head::before {
+  animation: eyes-blink 2.5s ease-in-out infinite;
+}
+@keyframes char-think {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg) translateY(-1px); }
+  75% { transform: rotate(3deg) translateY(-1px); }
+}
+@keyframes eyes-blink {
+  0%, 42%, 46%, 100% { opacity: 1; }
+  44% { opacity: 0; }
+}
+
+/* Waiting — gentle idle breathing */
+.pixel-char--waiting {
+  animation: char-breathe 2.5s ease-in-out infinite;
+}
+@keyframes char-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.03) translateY(-1px); }
+}
+
+/* Paused — slow pulse fade */
+.pixel-char--paused {
+  animation: char-paused 2s ease-in-out infinite;
+}
+@keyframes char-paused {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Blocked / Failed — error shake */
+.pixel-char--blocked,
+.pixel-char--failed {
+  animation: char-shake 0.4s ease-in-out infinite;
+}
+@keyframes char-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* Completed — satisfied settle */
+.pixel-char--completed {
+  animation: char-settle 1.5s ease-out forwards;
+}
+@keyframes char-settle {
+  0% { transform: translateY(-4px); }
+  60% { transform: translateY(1px); }
+  100% { transform: translateY(0); }
+}
+
+/* Idle — subtle sway */
+.pixel-char--idle {
+  animation: char-idle 3s ease-in-out infinite;
+}
+@keyframes char-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+
+/* Legacy compat alias */
+.pixel-char--active { animation: char-walk 0.5s steps(2) infinite; }
 
 .pixel-agent__label {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
@@ -304,6 +383,20 @@ button { font: inherit; }
 .facts { display: grid; gap: 10px; margin-top: 16px; }
 .facts div { display: grid; gap: 4px; }
 .facts dt { color: #ffe066; font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ── Assign Task (inspector mini-composer) ───────── */
+.assign-task {
+  display: grid; gap: 8px; margin-top: 14px;
+  padding-top: 14px; border-top: 1px solid rgba(245, 239, 225, 0.1);
+}
+.assign-task__input {
+  padding: 10px 12px; min-height: 56px; resize: vertical;
+  border: 1px solid rgba(245, 239, 225, 0.16);
+  background: rgba(10, 15, 22, 0.9); color: inherit;
+  font: inherit; font-size: 0.85rem;
+}
+.assign-task__input:focus { border-color: #ffe066; outline: none; }
+.assign-task__btn { width: 100%; }
 
 /* ── Task List ───────────────────────────────────── */
 .task-list, .activity-feed { display: grid; gap: 12px; }

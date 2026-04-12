@@ -85,7 +85,7 @@ export function FactoryBoard({
                       onClick={() => onSelectAgent(agent.id)}
                       title={`${agent.name} · ${persona?.title ?? agent.personaId} · ${agent.provider} · ${agent.status}`}
                     >
-                      <div className={`pixel-char pixel-char--v${agent.spriteVariant}${agent.status === 'executing' ? ' pixel-char--active' : ''}`}>
+                      <div className={`pixel-char pixel-char--v${agent.spriteVariant} pixel-char--${agent.status}`}>
                         <div className="pixel-char__head" />
                         <div className="pixel-char__body" />
                         <div className="pixel-char__legs" />

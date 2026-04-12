@@ -59,6 +59,12 @@ export interface RemoveAgentMessage {
   agentId: string;
 }
 
+export interface AssignTaskMessage {
+  type: 'assignTask';
+  agentId: string;
+  prompt: string;
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
@@ -69,7 +75,8 @@ export type WebviewMessage =
   | CreateRoomMessage
   | DeleteRoomMessage
   | SpawnAgentMessage
-  | RemoveAgentMessage;
+  | RemoveAgentMessage
+  | AssignTaskMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

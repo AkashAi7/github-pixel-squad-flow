@@ -99,6 +99,58 @@ export class Coordinator {
     return `${plan.summary} ${plan.providerDetail}`;
   }
 
+  async assignTask(agentId: string, prompt: string): Promise<string> {
+    const normalizedPrompt = prompt.trim();
+    if (!normalizedPrompt) {
+      return 'Pixel Squad ignored an empty task.';
+    }
+
+    const agent = this.snapshot.agents.find((a) => a.id === agentId);
+    if (!agent) {
+      return 'Agent not found.';
+    }
+
+    const updatedAgent: SquadAgent = {
+      ...agent,
+      status: 'executing' as AgentStatus,
+      summary: normalizedPrompt,
+    };
+
+    const task: TaskCard = {
+      id: this.makeId('task'),
+      title: normalizedPrompt.length > 60 ? normalizedPrompt.slice(0, 57) + '...' : normalizedPrompt,
+      status: 'active',
+      assigneeId: agent.id,
+      provider: agent.provider,
+      source: 'factory',
+      detail: normalizedPrompt,
+    };
+
+    const updatedAgents = this.snapshot.agents.map((a) => a.id === agentId ? updatedAgent : a);
+    const room = this.snapshot.rooms.find((r) => r.id === agent.roomId);
+
+    this.snapshot = {
+      ...this.snapshot,
+      agents: updatedAgents,
+      tasks: [task, ...this.snapshot.tasks].slice(0, 40),
+      providers: this.getProviderHealths(),
+      activityFeed: [
+        `Task assigned to ${agent.name}: ${task.title}`,
+        `${agent.name} started working in ${room?.name ?? 'unknown room'}`,
+        ...this.snapshot.activityFeed,
+      ].slice(0, 20),
+      settings: this.getSettings(),
+    };
+    this.store.save(this.snapshot);
+
+    // Auto-execute
+    if (this.getSettings().autoExecute) {
+      void this.executeTask(task.id);
+    }
+
+    return `Task assigned to ${agent.name} (${agent.provider}).`;
+  }
+
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
     const task = this.snapshot.tasks.find((t) => t.id === taskId);
     if (!task) {
