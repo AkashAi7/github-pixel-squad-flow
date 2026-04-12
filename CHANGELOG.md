@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+
+- Add **mood system**: agents display status-based emojis (😴 idle, 🤔 planning, 💪 executing, ☕ waiting, 😰 blocked, ⏸️ paused, 🎉 completed, 😵 failed).
+- Add **thought bubbles**: agents that are executing or planning show a floating bubble with their current task title.
+- Add **XP / Level system**: agents earn 25 XP per completed task, level up automatically, with progress bars on agent tiles and inspector.
+- Add **Agent Work panel**: clicking an agent shows all their assigned tasks inline in the inspector sidebar with expandable output.
+- Add **CLI commands**: `Pixel Squad: Assign Task to Agent` (QuickPick + InputBox) and `Pixel Squad: List Agents` for Command Palette workflows.
+- Add **confetti celebration**: completed agents show 🎉✨ particles rising from their character.
+- Inspector now shows mood, XP bar, and full agent task timeline.
+- 9 files changed, 365 insertions.
+
 ## 0.1.0
 
 - Add dual-provider support: route tasks through **GitHub Copilot** or **Claude** language models.
