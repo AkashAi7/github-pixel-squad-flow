@@ -357,7 +357,12 @@ export class Coordinator {
   }
 
   resetWorkspace(): void {
-    this.snapshot = this.loadSnapshot();
+    const snapshot = this.store.reset();
+    this.snapshot = {
+      ...snapshot,
+      providers: this.getProviderHealths(),
+      settings: this.getSettings(),
+    };
     this.store.save(this.snapshot);
   }
 

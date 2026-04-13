@@ -39,6 +39,12 @@ export class ProjectStateStore {
     fs.writeFileSync(filePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
   }
 
+  reset(): WorkspaceSnapshot {
+    const snapshot = createDefaultSnapshot();
+    this.save(snapshot);
+    return snapshot;
+  }
+
   private getFilePath(): string {
     return path.join(this.rootPath ?? '.', '.pixel-squad', 'project.json');
   }

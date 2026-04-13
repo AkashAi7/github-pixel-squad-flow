@@ -3,6 +3,10 @@ webview-ui/**
 node_modules/**/.cache/**
 .github/**
 .vscode/**
+.vscode-test/**
+test/**
+*.vsix
+playwright-pixel-squad-demo.png
 .gitignore
 tsconfig.json
 esbuild.mjs

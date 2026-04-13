@@ -2,14 +2,12 @@
 
 Pixel Squad is a VS Code extension for a multi-agent orchestrating pixel factory that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v0.1.0
+## What's New in v0.1.4
 
-- **Dual-provider support** — Route tasks through GitHub Copilot or Claude.
-- **Room CRUD** — Create themed rooms (frontend, backend, devops, testing, design, general) and delete them.
-- **Agent Spawning** — Spawn pixel agents into rooms, choosing their persona and provider.
-- **Pixel Character Sprites** — MetroCity-inspired CSS pixel art with 4 sprite variants and provider badges.
-- **Room Theming** — Each room gets a colored left border and themed background.
-- **Enhanced Stats** — Provider-split counters show Copilot vs Claude agent counts.
+- **Animated Room Stage** — Agents wander inside each room instead of sitting in a dense static grid.
+- **Compact Status Badges** — Mood and provider emoji no longer overlap names or thought bubbles.
+- **Pixel-Agents Style Motion** — Agents now shift position and direction over time for a livelier factory floor.
+- **E2E Smoke Coverage** — Added an extension-host smoke suite for activation, routing, and reset flows.
 
 ## Commands
 
@@ -20,6 +18,7 @@ Set-Location ..
 npm run build
 npm run typecheck
 npm run package:vsix
+npm run test:e2e
 ```
 
 ## Using Pixel Squad
@@ -47,9 +46,21 @@ When both Copilot and Claude models are available, tasks are dispatched to the p
 4. Verify rooms, agents, task routing, and pixel sprites render correctly.
 5. Optionally try `@pixel-squad` in Copilot Chat.
 
+## Automated E2E Smoke Test
+
+Run `npm run test:e2e` to launch a real VS Code Extension Development Host with Pixel Squad loaded into a temporary workspace.
+
+The suite verifies:
+
+- extension activation and command registration
+- `pixelSquad.showFactory` command execution in the real host
+- `pixelSquad.toggleAutoExecute` workspace setting updates
+- `pixelSquad.runSmokeTest` mutating the real persisted `.pixel-squad/project.json`
+- `pixelSquad.resetWorkspace` restoring the default snapshot deterministically
+
 ## GitHub Release Flow
 
 - Repository: https://github.com/AkashAi7/Pixel-Squad
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.1.0` runs the `Release VSIX` workflow.
+- Pushing a tag like `v0.1.4` runs the `Release VSIX` workflow.
 - The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.

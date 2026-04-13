@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Rework the factory board into an animated room stage so agents move within each room instead of stacking as static tiles.
+- Shrink mood and provider emoji into compact badges to prevent overlap with agent labels and task bubbles.
+- Add status-aware wandering motion with directional facing to make the floor feel closer to pixel-agents.
+- Add automated extension-host E2E smoke coverage and reset-store support for deterministic workspace restoration.
+
 ## 0.1.3
 
 - Add **mood system**: agents display status-based emojis (😴 idle, 🤔 planning, 💪 executing, ☕ waiting, 😰 blocked, ⏸️ paused, 🎉 completed, 😵 failed).
