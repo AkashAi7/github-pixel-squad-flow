@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import type { PersonaTemplate, ProviderHealth, SquadAgent, TaskCard } from '../../../shared/model/index.js';
-import type { ExecutionResult, PersonaAssignment, PlanningResult, ProviderAdapter } from '../types.js';
+import type { HandoffPacket, PersonaTemplate, ProviderHealth, ProposedFileEdit, ProposedTerminalCommand, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../../shared/model/index.js';
+import type { ExecutionResult, PlanningResult, ProviderAdapter } from '../types.js';
 import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments } from '../planningHints.js';
 
 export class CopilotAdapter implements ProviderAdapter {
@@ -19,6 +19,7 @@ export class CopilotAdapter implements ProviderAdapter {
   async createPlan(
     prompt: string,
     personas: PersonaTemplate[],
+    workspaceContext: WorkspaceContext,
     model?: vscode.LanguageModelChat,
     token?: vscode.CancellationToken,
   ): Promise<PlanningResult> {
@@ -34,7 +35,7 @@ export class CopilotAdapter implements ProviderAdapter {
 
     try {
       const response = await resolvedModel.sendRequest(
-        [vscode.LanguageModelChatMessage.User(this.buildPrompt(prompt, personas))],
+        [vscode.LanguageModelChatMessage.User(this.buildPrompt(prompt, personas, workspaceContext))],
         {},
         token,
       );
@@ -77,29 +78,66 @@ export class CopilotAdapter implements ProviderAdapter {
     task: TaskCard,
     agent: SquadAgent,
     persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
     model?: vscode.LanguageModelChat,
     token?: vscode.CancellationToken,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
   ): Promise<ExecutionResult> {
     const resolvedModel = model ?? (await this.pickModel());
     if (!resolvedModel) {
+      const fallbackPlan = this.createFallbackExecutionPlan(task, workspaceContext);
       return {
-        output: `[Local fallback] Agent ${agent.name} (${persona.title}) completed task "${task.title}" using deterministic analysis.\n\nKey steps:\n1. Reviewed the task scope: ${task.detail}\n2. Identified implementation approach\n3. Prepared deliverables for review\n\nResult: Task ready for team review.`,
+        output: fallbackPlan.summary,
         success: true,
+        plan: fallbackPlan,
       };
     }
 
     try {
-      const prompt = [
+      const promptLines = [
         `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
         `Your role: ${persona.title}.`,
-        `Execute this task concisely:`,
+        'Return valid JSON only with this exact shape:',
+        '{"summary":"string","output":"string","fileEdits":[{"filePath":"relative/path","action":"create|replace","summary":"string","content":"full file content"}],"terminalCommands":[{"command":"string","summary":"string"}],"tests":["string"],"notes":["string"]}',
+        'Use only workspace-relative paths for fileEdits.',
+        'fileEdits should contain at most 3 items and only when you are confident.',
+        'If you are changing an existing file, return the full replacement content.',
+        'If no file change is appropriate, return an empty array.',
+      ];
+
+      // Room context
+      if (room) {
+        promptLines.push(`Room: ${room.name} (${room.theme}) — ${room.purpose}`);
+      }
+
+      // Handoff packets from predecessors
+      if (handoffPackets && handoffPackets.length > 0) {
+        promptLines.push('--- Handoff from predecessor tasks ---');
+        for (const packet of handoffPackets) {
+          promptLines.push(`[From ${packet.fromAgentName} (task ${packet.fromTaskId})]`);
+          promptLines.push(`Summary: ${packet.summary}`);
+          if (packet.filesChanged.length > 0) { promptLines.push(`Files changed: ${packet.filesChanged.join(', ')}`); }
+          if (packet.commandsRun.length > 0) { promptLines.push(`Commands run: ${packet.commandsRun.join('; ')}`); }
+          if (packet.openIssues.length > 0) { promptLines.push(`Open issues/notes: ${packet.openIssues.join('; ')}`); }
+          if (packet.output) { promptLines.push(`Output: ${packet.output.slice(0, 500)}`); }
+        }
+        promptLines.push('--- End handoff ---');
+      }
+
+      promptLines.push(
         `Task: ${task.title}`,
         `Details: ${task.detail}`,
+        `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
+        `Active file: ${workspaceContext.activeFile || 'none'}`,
+        `Selected text: ${workspaceContext.selectedText || 'none'}`,
+        `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}`,
+        `Relevant files:\n${this.describeRelevantFiles(workspaceContext)}`,
         '',
-        'Provide a clear, actionable implementation summary (3-8 bullet points).',
-        'Include specific code suggestions, file changes, or architectural decisions as appropriate.',
         'Be direct and practical.',
-      ].join('\n');
+      );
+
+      const prompt = promptLines.join('\n');
 
       const response = await resolvedModel.sendRequest(
         [vscode.LanguageModelChatMessage.User(prompt)],
@@ -118,7 +156,8 @@ export class CopilotAdapter implements ProviderAdapter {
         detail: `Executed via ${resolvedModel.vendor}/${resolvedModel.family}.`
       };
 
-      return { output: text.trim(), success: true };
+      const parsed = this.parseExecutionPlan(text);
+      return { output: parsed.output, success: true, plan: parsed.plan };
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Unknown error';
       return {
@@ -128,13 +167,18 @@ export class CopilotAdapter implements ProviderAdapter {
     }
   }
 
-  private buildPrompt(prompt: string, personas: PersonaTemplate[]): string {
+  private buildPrompt(prompt: string, personas: PersonaTemplate[], workspaceContext: WorkspaceContext): string {
     return [
       'You are Pixel Squad, a routing planner for a multi-agent software factory.',
       'Return valid JSON only with this exact shape:',
       '{"title":"string","summary":"string","assignments":[{"personaId":"string","title":"string","detail":"string","dependsOnPersonaIds":["string"],"requiredSkillIds":["string"],"progressLabel":"string"}]}',
       'Do not include markdown fences or commentary.',
       `Available personas: ${describePersonasForPrompt(personas)}.`,
+      `Workspace branch: ${workspaceContext.branch || 'unknown'}.`,
+      `Active file: ${workspaceContext.activeFile || 'none'}.`,
+      `Selected text: ${workspaceContext.selectedText || 'none'}.`,
+      `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}.`,
+      `Relevant files:\n${this.describeRelevantFiles(workspaceContext)}`,
       'Use 1 to 3 assignments max. Prefer concrete software implementation tasks.',
       'If one assignment must happen after another, populate dependsOnPersonaIds with the personaId it depends on.',
       'Choose requiredSkillIds only from the listed persona skills.',
@@ -190,5 +234,64 @@ export class CopilotAdapter implements ProviderAdapter {
       assignments: createDeterministicAssignments(prompt, personas),
       providerDetail: detail,
     };
+  }
+
+  private parseExecutionPlan(text: string): { output: string; plan: TaskExecutionPlan } {
+    const normalized = text.trim().replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    const raw = JSON.parse(normalized) as {
+      summary?: string;
+      output?: string;
+      fileEdits?: ProposedFileEdit[];
+      terminalCommands?: ProposedTerminalCommand[];
+      tests?: string[];
+      notes?: string[];
+    };
+
+    const plan: TaskExecutionPlan = {
+      summary: raw.summary?.trim() || 'Execution plan prepared for review.',
+      fileEdits: (raw.fileEdits ?? []).filter((edit) => Boolean(edit?.filePath && edit?.action && typeof edit?.content === 'string')).slice(0, 3),
+      terminalCommands: (raw.terminalCommands ?? []).filter((command) => Boolean(command?.command)).slice(0, 5),
+      commandResults: [],
+      tests: (raw.tests ?? []).filter(Boolean).slice(0, 5),
+      notes: (raw.notes ?? []).filter(Boolean).slice(0, 8),
+    };
+
+    return {
+      output: raw.output?.trim() || plan.summary,
+      plan,
+    };
+  }
+
+  private createFallbackExecutionPlan(task: TaskCard, workspaceContext: WorkspaceContext): TaskExecutionPlan {
+    const notes = [
+      `Reviewed task scope: ${task.detail}`,
+      'Prepared a deterministic fallback plan because no live model was available.',
+    ];
+
+    if (workspaceContext.activeFile) {
+      notes.push(`Start from ${workspaceContext.activeFile}.`);
+    }
+
+    return {
+      summary: `[Local fallback] Reviewed "${task.title}" and prepared a safe execution outline for review.`,
+      fileEdits: [],
+      terminalCommands: [],
+      commandResults: [],
+      tests: ['Run the relevant project build or smoke test after applying edits.'],
+      notes,
+    };
+  }
+
+  private describeRelevantFiles(workspaceContext: WorkspaceContext): string {
+    if (workspaceContext.relevantFiles.length === 0) {
+      return 'No relevant workspace files were captured.';
+    }
+
+    return workspaceContext.relevantFiles.map((file) => [
+      `File: ${file.path}`,
+      `Reason: ${file.reason}`,
+      'Content:',
+      file.content,
+    ].join('\n')).join('\n\n');
   }
 }

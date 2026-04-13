@@ -85,6 +85,14 @@ export class ProjectStateStore {
       ...task,
       dependsOn: task.dependsOn ?? [],
       requiredSkillIds: task.requiredSkillIds ?? [],
+      workspaceContext: task.workspaceContext,
+      executionPlan: task.executionPlan
+        ? {
+            ...task.executionPlan,
+            commandResults: task.executionPlan.commandResults ?? [],
+          }
+        : undefined,
+      approvalState: task.approvalState,
       progress: task.progress ?? this.progressForStatus(task.status),
       createdAt,
       updatedAt: task.updatedAt ?? createdAt,

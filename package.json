@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -98,6 +98,18 @@
             "Use Claude language models (requires Anthropic extension or Claude Code)."
           ],
           "description": "Preferred language model family for planning and task execution."
+        },
+        "pixelSquad.autoPopulateWorkspaceContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically capture active editor content, open files, git changes, and relevant workspace files when creating or assigning a task."
+        },
+        "pixelSquad.workspaceContextMaxFiles": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Maximum number of workspace files to auto-include as task context during planning and execution."
         }
       }
     },

@@ -1,4 +1,4 @@
-import type { ActivityEntry, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
+import type { ActivityEntry, CustomPersonaDraft, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
 
 export interface WebviewReadyMessage {
   type: 'webviewReady';
@@ -27,7 +27,7 @@ export interface AgentActionMessage {
 export interface TaskActionMessage {
   type: 'taskAction';
   taskId: string;
-  action: 'execute' | 'complete' | 'fail' | 'retry';
+  action: 'execute' | 'complete' | 'fail' | 'retry' | 'run';
 }
 
 /* ── Room CRUD ─────────────────────────────────────────── */
@@ -52,6 +52,7 @@ export interface SpawnAgentMessage {
   name: string;
   personaId: string;
   provider: Provider;
+  customPersona?: CustomPersonaDraft;
 }
 
 export interface RemoveAgentMessage {

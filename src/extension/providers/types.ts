@@ -1,4 +1,4 @@
-import type { PersonaTemplate, Provider, ProviderHealth, TaskCard, SquadAgent } from '../../shared/model/index.js';
+import type { HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../shared/model/index.js';
 
 export interface PersonaAssignment {
   personaId: string;
@@ -19,6 +19,7 @@ export interface PlanningResult {
 export interface ExecutionResult {
   output: string;
   success: boolean;
+  plan?: TaskExecutionPlan;
 }
 
 export interface ProviderAdapter {
@@ -27,6 +28,7 @@ export interface ProviderAdapter {
   createPlan(
     prompt: string,
     personas: PersonaTemplate[],
+    workspaceContext: WorkspaceContext,
     model?: import('vscode').LanguageModelChat,
     token?: import('vscode').CancellationToken,
   ): Promise<PlanningResult>;
@@ -34,7 +36,10 @@ export interface ProviderAdapter {
     task: TaskCard,
     agent: SquadAgent,
     persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
     model?: import('vscode').LanguageModelChat,
     token?: import('vscode').CancellationToken,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
   ): Promise<ExecutionResult>;
 }

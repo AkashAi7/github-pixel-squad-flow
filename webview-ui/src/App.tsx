@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { ActivityEntry, ActivityCategory, WorkspaceSnapshot, SquadAgent, TaskCard, Provider, RoomTheme, TaskStatus } from '../../src/shared/model/index.js';
+import type { ActivityEntry, ActivityCategory, CommandExecutionResult, HandoffPacket, ProposedFileEdit, Provider, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskStatus, WorkspaceSnapshot } from '../../src/shared/model/index.js';
 import { AGENT_MOOD, xpForLevel } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
@@ -94,7 +94,11 @@ function taskActions(task: TaskCard): Array<{ label: string; action: string }> {
     case 'active':
       return [{ label: '▶ Execute', action: 'execute' }, { label: '✗ Fail', action: 'fail' }];
     case 'review':
-      return [{ label: '✓ Approve', action: 'complete' }, { label: '✗ Reject', action: 'fail' }];
+      return [
+        { label: '✓ Approve', action: 'complete' },
+        ...(task.executionPlan?.terminalCommands.length ? [{ label: task.executionPlan.commandResults.some((result) => result.status !== 'pending') ? '↻ Re-run Commands' : '⌘ Run Commands', action: 'run' }] : []),
+        { label: '✗ Reject', action: 'fail' },
+      ];
     case 'failed':
       return [{ label: '↻ Retry', action: 'retry' }];
     case 'done':
@@ -102,6 +106,154 @@ function taskActions(task: TaskCard): Array<{ label: string; action: string }> {
     default:
       return [];
   }
+}
+
+function planHasArtifacts(plan: TaskExecutionPlan | undefined): boolean {
+  return Boolean(plan && (plan.fileEdits.length > 0 || plan.terminalCommands.length > 0 || plan.tests.length > 0 || plan.notes.length > 0));
+}
+
+type DiffPreviewLine = {
+  kind: 'context' | 'add' | 'remove';
+  before?: number;
+  after?: number;
+  content: string;
+};
+
+function buildPreviewLines(edit: ProposedFileEdit, contextWindow = 3, maxCreateLines = 40): DiffPreviewLine[] {
+  const splitLines = (value: string | undefined) => (value ?? '').replace(/\r/g, '').split('\n');
+  const proposedLines = splitLines(edit.content);
+
+  if (edit.action === 'create' || edit.originalContent === undefined) {
+    return proposedLines.slice(0, maxCreateLines).map((content, index) => ({
+      kind: 'add',
+      after: index + 1,
+      content,
+    }));
+  }
+
+  const originalLines = splitLines(edit.originalContent);
+  let prefix = 0;
+  while (prefix < originalLines.length && prefix < proposedLines.length && originalLines[prefix] === proposedLines[prefix]) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < originalLines.length - prefix &&
+    suffix < proposedLines.length - prefix &&
+    originalLines[originalLines.length - 1 - suffix] === proposedLines[proposedLines.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  if (prefix === originalLines.length && prefix === proposedLines.length) {
+    return originalLines.slice(0, Math.min(originalLines.length, contextWindow * 2)).map((content, index) => ({
+      kind: 'context',
+      before: index + 1,
+      after: index + 1,
+      content,
+    }));
+  }
+
+  const previewLines: DiffPreviewLine[] = [];
+  const sharedStart = Math.max(0, prefix - contextWindow);
+  for (let index = sharedStart; index < prefix; index += 1) {
+    previewLines.push({
+      kind: 'context',
+      before: index + 1,
+      after: index + 1,
+      content: originalLines[index],
+    });
+  }
+
+  const originalChangedEnd = Math.max(prefix, originalLines.length - suffix);
+  for (let index = prefix; index < originalChangedEnd; index += 1) {
+    previewLines.push({
+      kind: 'remove',
+      before: index + 1,
+      content: originalLines[index],
+    });
+  }
+
+  const proposedChangedEnd = Math.max(prefix, proposedLines.length - suffix);
+  for (let index = prefix; index < proposedChangedEnd; index += 1) {
+    previewLines.push({
+      kind: 'add',
+      after: index + 1,
+      content: proposedLines[index],
+    });
+  }
+
+  const trailingCount = Math.min(contextWindow, suffix);
+  const originalTrailingStart = originalLines.length - trailingCount;
+  const proposedTrailingStart = proposedLines.length - trailingCount;
+  for (let index = 0; index < trailingCount; index += 1) {
+    previewLines.push({
+      kind: 'context',
+      before: originalTrailingStart + index + 1,
+      after: proposedTrailingStart + index + 1,
+      content: originalLines[originalTrailingStart + index],
+    });
+  }
+
+  return previewLines;
+}
+
+function lineMarker(kind: DiffPreviewLine['kind']): string {
+  if (kind === 'add') {
+    return '+';
+  }
+  if (kind === 'remove') {
+    return '-';
+  }
+  return ' ';
+}
+
+function commandResultLabel(result: CommandExecutionResult): string {
+  if (result.status === 'succeeded') {
+    return `Succeeded${typeof result.exitCode === 'number' ? ` (exit ${result.exitCode})` : ''}`;
+  }
+  if (result.status === 'failed') {
+    return `Failed${typeof result.exitCode === 'number' ? ` (exit ${result.exitCode})` : ''}`;
+  }
+  if (result.status === 'running') {
+    return 'Running';
+  }
+  return 'Pending';
+}
+
+function renderCommandResults(task: TaskCard) {
+  const results = task.executionPlan?.commandResults ?? [];
+  if (!results.length) {
+    return null;
+  }
+
+  return (
+    <div className="task-plan__list">
+      {results.map((result) => (
+        <article key={`${task.id}-command-result-${result.commandIndex}`} className={`task-command-result task-command-result--${result.status}`}>
+          <div className="task-command-result__header">
+            <strong>{result.command}</strong>
+            <span className={`task-command-result__status task-command-result__status--${result.status}`}>{commandResultLabel(result)}</span>
+          </div>
+          <span>{result.summary}</span>
+          {typeof result.durationMs === 'number' ? <p className="task-plan__line">Duration: {result.durationMs} ms</p> : null}
+          {result.stdout ? (
+            <div className="task-output task-output--compact">
+              <p className="eyebrow">stdout</p>
+              <pre>{result.stdout}</pre>
+            </div>
+          ) : null}
+          {result.stderr ? (
+            <div className="task-output task-output--compact">
+              <p className="eyebrow">stderr</p>
+              <pre>{result.stderr}</pre>
+            </div>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function App() {
@@ -115,7 +267,7 @@ function App() {
   const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
   const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
-  const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee'>('status');
+  const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room'>('status');
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
   const [taskPersonaFilter, setTaskPersonaFilter] = useState<string | 'all'>('all');
@@ -199,6 +351,24 @@ function App() {
       return Array.from(groups.entries()).map(([key, value]) => ({ key, label: value.label, tasks: value.tasks }));
     }
 
+    if (taskGroupBy === 'room') {
+      const groups = new Map<string, { label: string; tasks: TaskCard[] }>();
+      for (const task of filteredTasks) {
+        const assignee = agentsById.get(task.assigneeId);
+        const room = assignee ? snapshot.rooms.find((r) => r.id === assignee.roomId) : undefined;
+        const key = room?.id ?? 'no-room';
+        const existing = groups.get(key);
+        const label = room?.name ?? 'No Room';
+        if (existing) {
+          existing.tasks.push(task);
+        } else {
+          groups.set(key, { label, tasks: [task] });
+        }
+      }
+
+      return Array.from(groups.entries()).map(([key, value]) => ({ key, label: value.label, tasks: value.tasks }));
+    }
+
     return TASK_STATUS_ORDER
       .map((status) => ({
         key: status,
@@ -250,8 +420,8 @@ function App() {
           roomName={spawnRoom.name}
           roomId={spawnRoom.id}
           personas={snapshot.personas}
-          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider) => {
-            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider });
+          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider, customPersona) => {
+            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider, customPersona });
             setSpawnRoomId(null);
           }}
           onCancel={() => setSpawnRoomId(null)}
@@ -380,6 +550,7 @@ function App() {
                 <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
                   {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
                 </div>
+                {personas.get(selectedAgent.personaId)?.isCustom ? <div className="task-chip">Custom Agent</div> : null}
                 <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
                   {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
                 </span>
@@ -448,6 +619,36 @@ function App() {
                                 <pre>{task.output}</pre>
                               </div>
                             )}
+                            {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
+                              <div className="task-plan">
+                                <p className="eyebrow">Execution Plan</p>
+                                <p className="task-plan__summary">{task.executionPlan?.summary}</p>
+                                {task.executionPlan?.fileEdits.length ? (
+                                  <div className="task-diff-list">
+                                    {task.executionPlan.fileEdits.map((edit) => (
+                                      <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
+                                        <div className="task-diff-card__header">
+                                          <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
+                                          <span>{edit.summary}</span>
+                                        </div>
+                                        <div className="task-diff-card__code">
+                                          {buildPreviewLines(edit).map((line, index) => (
+                                            <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
+                                              <span className="task-diff-card__gutter">{line.before ?? ''}</span>
+                                              <span className="task-diff-card__gutter">{line.after ?? ''}</span>
+                                              <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
+                                              <code>{line.content || ' '}</code>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </article>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {task.executionPlan?.terminalCommands.length ? <p className="task-plan__line">Commands: {task.executionPlan.terminalCommands.map((command) => command.command).join(' ; ')}</p> : null}
+                                {renderCommandResults(task)}
+                              </div>
+                            ) : null}
                           </article>
                         ))}
                       </div>
@@ -505,6 +706,13 @@ function App() {
                   onClick={() => setTaskGroupBy('assignee')}
                 >
                   By agent
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-chip${taskGroupBy === 'room' ? ' toggle-chip--active' : ''}`}
+                  onClick={() => setTaskGroupBy('room')}
+                >
+                  By room
                 </button>
               </div>
             </div>
@@ -565,6 +773,7 @@ function App() {
                             </span>
                             <span>{task.source}</span>
                             {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
+                            {task.approvalState ? <span className="task-chip">{task.approvalState}</span> : null}
                           </div>
                           <h3>{task.title}</h3>
                           <p>{task.detail}</p>
@@ -586,6 +795,78 @@ function App() {
                               <pre>{task.output}</pre>
                             </div>
                           )}
+                          {expandedTaskId === task.id && task.workspaceContext ? (
+                            <div className="task-plan">
+                              <p className="eyebrow">Workspace Context</p>
+                              <p className="task-plan__line">Branch: {task.workspaceContext.branch || 'unknown'}</p>
+                              <p className="task-plan__line">Active file: {task.workspaceContext.activeFile || 'none'}</p>
+                              {task.workspaceContext.gitStatus?.length ? <p className="task-plan__line">Git: {task.workspaceContext.gitStatus.join(' | ')}</p> : null}
+                              {task.workspaceContext.relevantFiles.length ? (
+                                <div className="task-plan__list">
+                                  {task.workspaceContext.relevantFiles.map((file) => (
+                                    <article key={file.path} className="task-plan__item">
+                                      <strong>{file.path}</strong>
+                                      <span>{file.reason}</span>
+                                    </article>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {expandedTaskId === task.id && task.handoffPackets && task.handoffPackets.length > 0 ? (
+                            <div className="task-plan">
+                              <p className="eyebrow">Handoff from predecessors</p>
+                              {task.handoffPackets.map((packet) => (
+                                <article key={packet.fromTaskId} className="task-plan__item">
+                                  <strong>From {packet.fromAgentName}</strong>
+                                  <span>{packet.summary}</span>
+                                  {packet.filesChanged.length > 0 ? <p className="task-plan__line">Files: {packet.filesChanged.join(', ')}</p> : null}
+                                  {packet.openIssues.length > 0 ? <p className="task-plan__line">Notes: {packet.openIssues.join('; ')}</p> : null}
+                                </article>
+                              ))}
+                            </div>
+                          ) : null}
+                          {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
+                            <div className="task-plan">
+                              <p className="eyebrow">Proposed Changes</p>
+                              <p className="task-plan__summary">{task.executionPlan?.summary}</p>
+                              {task.executionPlan?.fileEdits.length ? (
+                                <div className="task-diff-list">
+                                  {task.executionPlan.fileEdits.map((edit) => (
+                                    <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
+                                      <div className="task-diff-card__header">
+                                        <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
+                                        <span>{edit.summary}</span>
+                                      </div>
+                                      <div className="task-diff-card__code">
+                                        {buildPreviewLines(edit).map((line, index) => (
+                                          <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
+                                            <span className="task-diff-card__gutter">{line.before ?? ''}</span>
+                                            <span className="task-diff-card__gutter">{line.after ?? ''}</span>
+                                            <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
+                                            <code>{line.content || ' '}</code>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </article>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {task.executionPlan?.terminalCommands.length ? (
+                                <div className="task-plan__list">
+                                  {task.executionPlan.terminalCommands.map((command, index) => (
+                                    <article key={`${task.id}-command-${index}`} className="task-plan__item">
+                                      <strong>{command.command}</strong>
+                                      <span>{command.summary}</span>
+                                    </article>
+                                  ))}
+                                </div>
+                              ) : null}
+                              {renderCommandResults(task)}
+                              {task.executionPlan?.tests.length ? <p className="task-plan__line">Tests: {task.executionPlan.tests.join(' | ')}</p> : null}
+                              {task.executionPlan?.notes.length ? <p className="task-plan__line">Notes: {task.executionPlan.notes.join(' | ')}</p> : null}
+                            </div>
+                          ) : null}
                           <div className="task-controls" onClick={(e) => e.stopPropagation()}>
                             {taskActions(task).map(({ label, action }) => (
                               <button

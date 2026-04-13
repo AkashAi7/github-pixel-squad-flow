@@ -66,7 +66,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.type === 'taskAction') {
-        this.coordinator.taskAction(message.taskId, message.action);
+        await this.coordinator.taskAction(message.taskId, message.action);
         this.syncSnapshot();
       }
 
@@ -81,7 +81,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.type === 'spawnAgent') {
-        this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider);
+        this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona);
         this.syncSnapshot();
       }
 

@@ -7,6 +7,9 @@ export type TaskSource = 'factory' | 'copilot-chat' | 'claude-chat';
 export type ProviderState = 'ready' | 'unavailable';
 export type RoomTheme = 'frontend' | 'backend' | 'devops' | 'testing' | 'design' | 'general';
 export type ActivityCategory = 'system' | 'task' | 'agent' | 'provider';
+export type ApprovalState = 'pending' | 'applied' | 'rejected';
+export type FileEditAction = 'create' | 'replace';
+export type CommandExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed';
 
 /* ── Room theme palette ────────────────────────────────── */
 
@@ -23,6 +26,14 @@ export const ROOM_THEME_META: Record<RoomTheme, { label: string; color: string; 
 
 export interface PersonaTemplate {
   id: string;
+  title: string;
+  specialty: string;
+  color: string;
+  skills?: AgentSkill[];
+  isCustom?: boolean;
+}
+
+export interface CustomPersonaDraft {
   title: string;
   specialty: string;
   color: string;
@@ -78,6 +89,17 @@ export interface Room {
   agentIds: string[];
 }
 
+export interface HandoffPacket {
+  fromTaskId: string;
+  fromAgentName: string;
+  summary: string;
+  filesChanged: string[];
+  commandsRun: string[];
+  testsRun: string[];
+  openIssues: string[];
+  output: string;
+}
+
 export interface TaskCard {
   id: string;
   title: string;
@@ -90,8 +112,62 @@ export interface TaskCard {
   dependsOn?: string[];
   requiredSkillIds?: string[];
   progress?: TaskProgress;
+  workspaceContext?: WorkspaceContext;
+  executionPlan?: TaskExecutionPlan;
+  approvalState?: ApprovalState;
+  handoffPackets?: HandoffPacket[];
   createdAt?: number;
   updatedAt?: number;
+}
+
+export interface WorkspaceContext {
+  workspaceRoot?: string;
+  branch?: string;
+  gitStatus?: string[];
+  activeFile?: string;
+  selectedText?: string;
+  relevantFiles: WorkspaceFileContext[];
+}
+
+export interface WorkspaceFileContext {
+  path: string;
+  reason: string;
+  content: string;
+}
+
+export interface TaskExecutionPlan {
+  summary: string;
+  fileEdits: ProposedFileEdit[];
+  terminalCommands: ProposedTerminalCommand[];
+  commandResults: CommandExecutionResult[];
+  tests: string[];
+  notes: string[];
+}
+
+export interface ProposedFileEdit {
+  filePath: string;
+  action: FileEditAction;
+  summary: string;
+  originalContent?: string;
+  content: string;
+}
+
+export interface ProposedTerminalCommand {
+  command: string;
+  summary: string;
+}
+
+export interface CommandExecutionResult {
+  commandIndex: number;
+  command: string;
+  summary: string;
+  status: CommandExecutionStatus;
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
 }
 
 export interface TaskProgress {
@@ -109,6 +185,8 @@ export interface ProviderHealth {
 export interface SquadSettings {
   autoExecute: boolean;
   modelFamily: string;
+  autoPopulateWorkspaceContext: boolean;
+  workspaceContextMaxFiles: number;
 }
 
 export interface ActivityEntry {

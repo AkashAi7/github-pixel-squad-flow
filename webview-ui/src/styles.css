@@ -60,6 +60,25 @@ button { font: inherit; }
 .composer-button--ghost { background: transparent; color: #f5efe1; }
 .composer-button--accent { background: #70c1b3; color: #10161f; }
 
+.dialog-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  color: rgba(245, 239, 225, 0.86);
+}
+
+.custom-persona-form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dialog-input--color {
+  min-height: 42px;
+  padding: 6px;
+}
+
 /* ── Eyebrow ─────────────────────────────────────── */
 .eyebrow {
   margin-bottom: 8px; color: #ffe066;
@@ -153,6 +172,162 @@ button { font: inherit; }
 }
 .icon-btn--add:hover { border-color: #70c1b3; color: #70c1b3; }
 .icon-btn--remove:hover { border-color: #f25f5c; color: #f25f5c; }
+
+.task-plan {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 239, 225, 0.1);
+  background: rgba(10, 15, 22, 0.55);
+}
+
+.task-plan__summary,
+.task-plan__line {
+  margin-top: 6px;
+  color: rgba(245, 239, 225, 0.82);
+  line-height: 1.45;
+}
+
+.task-plan__list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.task-plan__item {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(255, 224, 102, 0.6);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.task-plan__item span {
+  color: rgba(245, 239, 225, 0.7);
+  font-size: 0.86rem;
+}
+
+.task-command-result {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-left: 2px solid rgba(245, 239, 225, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.task-command-result--running {
+  border-left-color: rgba(255, 224, 102, 0.8);
+}
+
+.task-command-result--succeeded {
+  border-left-color: rgba(112, 193, 179, 0.9);
+}
+
+.task-command-result--failed {
+  border-left-color: rgba(242, 95, 92, 0.9);
+}
+
+.task-command-result__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-command-result__status {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(245, 239, 225, 0.65);
+}
+
+.task-command-result__status--running {
+  color: #ffe066;
+}
+
+.task-command-result__status--succeeded {
+  color: #70c1b3;
+}
+
+.task-command-result__status--failed {
+  color: #f25f5c;
+}
+
+.task-output--compact {
+  margin-top: 0;
+}
+
+.task-output--compact pre {
+  max-height: 220px;
+}
+
+.task-diff-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.task-diff-card {
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  background: rgba(6, 10, 16, 0.75);
+}
+
+.task-diff-card__header {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(245, 239, 225, 0.08);
+}
+
+.task-diff-card__header strong {
+  color: #ffe066;
+}
+
+.task-diff-card__header span {
+  color: rgba(245, 239, 225, 0.72);
+  font-size: 0.84rem;
+}
+
+.task-diff-card__code {
+  overflow-x: auto;
+}
+
+.task-diff-card__row {
+  display: grid;
+  grid-template-columns: 40px 40px 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 4px 12px;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.task-diff-card__row--add {
+  background: rgba(112, 193, 179, 0.12);
+}
+
+.task-diff-card__row--remove {
+  background: rgba(242, 95, 92, 0.14);
+}
+
+.task-diff-card__row--context {
+  background: transparent;
+}
+
+.task-diff-card__gutter,
+.task-diff-card__marker {
+  color: rgba(245, 239, 225, 0.45);
+  text-align: right;
+}
+
+.task-diff-card__marker {
+  text-align: center;
+}
+
+.task-diff-card__row code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ═══════════════════════════════════════════════════
    Pixel Character Sprites (MetroCity-inspired CSS art)

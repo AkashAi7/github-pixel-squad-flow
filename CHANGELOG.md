@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.6
+
+- Add **task handoff system**: completed predecessor tasks automatically generate `HandoffPacket` objects that carry summary, files changed, commands run, tests, and open issues to downstream tasks, giving continuity across the agent chain.
+- Add **parallel task execution**: a `TaskScheduler` enforces a configurable concurrency cap (default 3) with double-start prevention, allowing multiple agents to execute simultaneously.
+- Add **auto-promotion**: when a task completes, `promoteReadyTasks()` scans queued tasks and auto-executes any whose dependencies are now fully met (respects scheduler capacity).
+- Add **room-aware context**: the agent's room (name, theme, purpose) is now passed to Copilot and Claude execution prompts so agents understand their operational domain.
+- Add **captured command execution results**: running review commands now stores stdout, stderr, exit code, and duration directly on the task instead of only dispatching commands to a terminal.
+- Add **diff-first review cards**: proposed file edits now carry workspace snapshots and render with a patch-style preview before approval.
+- Add **"By room" grouping** to the Task Wall in the webview, alongside existing "By status" and "By agent" modes.
+- Display **handoff packets** in expanded task cards so users can see what predecessor agents passed forward.
+- Update Copilot and Claude adapter `executeTask` signatures to accept `Room` and `HandoffPacket[]` parameters.
+
 ## 0.1.5
 
 - Add structured activity entries, task progress metadata, dependency metadata, and persona skill hints across the shared model, coordinator, persistence layer, and webview protocol.

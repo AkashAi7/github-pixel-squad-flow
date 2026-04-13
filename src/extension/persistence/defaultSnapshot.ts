@@ -199,6 +199,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
     settings: {
       autoExecute: false,
       modelFamily: 'copilot',
+      autoPopulateWorkspaceContext: true,
+      workspaceContextMaxFiles: 6,
     },
   };
 }

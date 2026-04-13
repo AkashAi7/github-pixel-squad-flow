@@ -2,12 +2,12 @@
 
 Pixel Squad is a VS Code extension for a multi-agent orchestrating pixel factory that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v0.1.5
+## What's New in v0.1.6
 
-- **Dependency-Aware Task Routing** — Routed work now carries dependency links, skill requirements, and progress labels from both live planners and deterministic fallback planning.
-- **Structured Task Wall** — The webview groups and filters work by status or agent, shows progress bars, and exposes dependency context directly in the board.
-- **Categorized Activity Feed** — Coordinator activity is now stored as typed events, making provider, agent, task, and system updates easier to scan.
-- **Recordable Host Demo** — Added a visible `demo:e2e:record` flow that drives the real VS Code Extension Development Host for demos and release capture.
+- **Task Handoffs and Parallel Flow** — Downstream tasks now receive handoff packets, tasks can auto-promote when dependencies clear, and execution is concurrency-limited instead of single-threaded.
+- **Workspace-Aware Review** — Pixel Squad auto-captures editor and git context, shows diff-style file previews, and keeps review cards closer to an agent-mode patch workflow.
+- **Captured Command Results** — Review commands now run inside the workspace with stored stdout, stderr, exit code, and duration so task review preserves what actually happened.
+- **Room-Based Task Wall** — The webview can group tasks by room in addition to status and assignee, which makes multi-lane demos and real routing easier to follow.
 
 ## Commands
 
@@ -31,12 +31,27 @@ npm run test:e2e
 
 When both Copilot and Claude models are available, tasks are dispatched to the provider assigned to the executing agent. If a model is unavailable, the extension falls back to deterministic local routing.
 
+Pixel Squad now auto-populates task context from the current workspace by default. New tasks and direct agent assignments capture:
+
+- the active file and current editor selection
+- open editor tabs
+- local git status and branch
+- a scored set of relevant workspace files
+
+That auto-populated context is used during planning and execution review so tasks behave closer to an agent-mode workflow.
+
+Review cards now include a diff-style preview for proposed file edits before approval, so the task wall acts more like a lightweight patch review surface instead of only listing filenames and summaries.
+
+When a task suggests terminal commands, running them now captures stdout, stderr, exit code, and duration back into the task review card instead of only sending the commands to a terminal.
+
 ## Settings
 
 | Setting | Default | Description |
 |---|---|---|
 | `pixelSquad.autoExecute` | `false` | Auto-execute tasks after routing |
 | `pixelSquad.modelFamily` | `copilot` | Preferred model family (`copilot` or `claude`) |
+| `pixelSquad.autoPopulateWorkspaceContext` | `true` | Automatically capture active editor, open tabs, git state, and relevant files for each task |
+| `pixelSquad.workspaceContextMaxFiles` | `6` | Maximum number of workspace files auto-included as context |
 
 ## Smoke Test
 
@@ -77,5 +92,5 @@ Use `PIXEL_SQUAD_RECORD_STEP_DELAY_MS=2500 npm run demo:e2e:record` if you want 
 
 - Repository: https://github.com/AkashAi7/Pixel-Squad
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.1.4` runs the `Release VSIX` workflow.
+- Pushing a tag like `v0.1.6` runs the `Release VSIX` workflow.
 - The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.
