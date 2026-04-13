@@ -4,6 +4,9 @@ export interface PersonaAssignment {
   personaId: string;
   title: string;
   detail: string;
+  dependsOnPersonaIds?: string[];
+  requiredSkillIds?: string[];
+  progressLabel?: string;
 }
 
 export interface PlanningResult {

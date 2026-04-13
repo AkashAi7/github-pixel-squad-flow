@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -175,6 +175,7 @@
     "build": "npm run build:webview && npm run build:extension",
     "build:extension": "node ./esbuild.mjs",
     "build:webview": "npm --prefix webview-ui run build",
+    "demo:e2e:record": "npm run build && node ./test/e2e/recordHostDemo.mjs",
     "package:vsix": "npm run build && npx @vscode/vsce package --out pixel-squad.vsix",
     "test:e2e": "npm run build && node ./test/e2e/runTest.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",

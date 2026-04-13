@@ -6,6 +6,7 @@ export type TaskStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
 export type TaskSource = 'factory' | 'copilot-chat' | 'claude-chat';
 export type ProviderState = 'ready' | 'unavailable';
 export type RoomTheme = 'frontend' | 'backend' | 'devops' | 'testing' | 'design' | 'general';
+export type ActivityCategory = 'system' | 'task' | 'agent' | 'provider';
 
 /* ── Room theme palette ────────────────────────────────── */
 
@@ -25,6 +26,13 @@ export interface PersonaTemplate {
   title: string;
   specialty: string;
   color: string;
+  skills?: AgentSkill[];
+}
+
+export interface AgentSkill {
+  id: string;
+  label: string;
+  level: number;
 }
 
 export interface SquadAgent {
@@ -79,6 +87,17 @@ export interface TaskCard {
   source: TaskSource;
   detail: string;
   output?: string;
+  dependsOn?: string[];
+  requiredSkillIds?: string[];
+  progress?: TaskProgress;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface TaskProgress {
+  value: number;
+  total: number;
+  label: string;
 }
 
 export interface ProviderHealth {
@@ -92,6 +111,17 @@ export interface SquadSettings {
   modelFamily: string;
 }
 
+export interface ActivityEntry {
+  id: string;
+  category: ActivityCategory;
+  message: string;
+  timestamp: number;
+  taskId?: string;
+  agentId?: string;
+  roomId?: string;
+  provider?: Provider;
+}
+
 export interface WorkspaceSnapshot {
   projectName: string;
   rooms: Room[];
@@ -99,6 +129,26 @@ export interface WorkspaceSnapshot {
   agents: SquadAgent[];
   tasks: TaskCard[];
   providers: ProviderHealth[];
-  activityFeed: string[];
+  activityFeed: ActivityEntry[];
   settings: SquadSettings;
+}
+
+export function createActivityEntry(
+  message: string,
+  category: ActivityCategory,
+  details: Partial<Omit<ActivityEntry, 'id' | 'category' | 'message' | 'timestamp'>> & {
+    id?: string;
+    timestamp?: number;
+  } = {},
+): ActivityEntry {
+  return {
+    id: details.id ?? `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    category,
+    message,
+    timestamp: details.timestamp ?? Date.now(),
+    taskId: details.taskId,
+    agentId: details.agentId,
+    roomId: details.roomId,
+    provider: details.provider,
+  };
 }

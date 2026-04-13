@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+- Add structured activity entries, task progress metadata, dependency metadata, and persona skill hints across the shared model, coordinator, persistence layer, and webview protocol.
+- Rework the Task Wall into a grouped and filterable board with progress bars, assignee context, dependency badges, and categorized activity feed rendering.
+- Enrich Copilot and Claude planning so routed tasks carry dependency, skill, and progress hints, with deterministic fallback planning normalized through shared helper logic.
+- Add a recordable real VS Code host demo flow via `npm run demo:e2e:record` and document the release/demo workflow in the README.
+
 ## 0.1.4
 
 - Rework the factory board into an animated room stage so agents move within each room instead of stacking as static tiles.

@@ -1,4 +1,4 @@
-import type { Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
+import type { ActivityEntry, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
 
 export interface WebviewReadyMessage {
   type: 'webviewReady';
@@ -86,6 +86,7 @@ export interface BootstrapStateMessage {
 export interface ActivityMessage {
   type: 'activity';
   message: string;
+  activity: ActivityEntry;
 }
 
 export interface TaskOutputMessage {

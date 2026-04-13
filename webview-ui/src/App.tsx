@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { WorkspaceSnapshot, SquadAgent, TaskCard, Provider, RoomTheme } from '../../src/shared/model/index.js';
+import type { ActivityEntry, ActivityCategory, WorkspaceSnapshot, SquadAgent, TaskCard, Provider, RoomTheme, TaskStatus } from '../../src/shared/model/index.js';
 import { AGENT_MOOD, xpForLevel } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
@@ -13,6 +13,62 @@ declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 const vscode = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (_message: unknown) => undefined };
+
+const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
+const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'provider', 'system'];
+
+function taskProgressForStatus(status: TaskStatus) {
+  switch (status) {
+    case 'queued':
+      return { value: 0, total: 3, label: 'Queued' };
+    case 'active':
+      return { value: 1, total: 3, label: 'Executing' };
+    case 'review':
+      return { value: 2, total: 3, label: 'Review' };
+    case 'done':
+      return { value: 3, total: 3, label: 'Complete' };
+    case 'failed':
+      return { value: 3, total: 3, label: 'Failed' };
+  }
+}
+
+function normalizeActivityEntry(entry: ActivityEntry | string, index: number): ActivityEntry {
+  if (typeof entry === 'string') {
+    return {
+      id: `legacy-activity-${index}`,
+      category: 'system',
+      message: entry,
+      timestamp: Date.now() - index,
+    };
+  }
+
+  return {
+    ...entry,
+    id: entry.id ?? `activity-${Date.now()}-${index}`,
+    category: entry.category ?? 'system',
+    timestamp: entry.timestamp ?? Date.now() - index,
+  };
+}
+
+function normalizeSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
+  return {
+    ...snapshot,
+    tasks: snapshot.tasks.map((task) => ({
+      ...task,
+      dependsOn: task.dependsOn ?? [],
+      requiredSkillIds: task.requiredSkillIds ?? [],
+      progress: task.progress ?? taskProgressForStatus(task.status),
+    })),
+    activityFeed: (snapshot.activityFeed as Array<ActivityEntry | string>).map((entry, index) => normalizeActivityEntry(entry, index)),
+  };
+}
+
+function formatActivityTime(timestamp: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(timestamp);
+}
 
 function agentActions(agent: SquadAgent): Array<{ label: string; action: string }> {
   switch (agent.status) {
@@ -52,26 +108,33 @@ function App() {
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [activity, setActivity] = useState<string[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [prompt, setPrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
   const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee'>('status');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
+  const [taskPersonaFilter, setTaskPersonaFilter] = useState<string | 'all'>('all');
+  const [activityFilter, setActivityFilter] = useState<ActivityCategory | 'all'>('all');
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
       if (event.data.type === 'bootstrapState') {
-        setSnapshot(event.data.snapshot);
-        setActivity(event.data.snapshot.activityFeed);
-        setSelectedAgentId((prev) => prev ?? event.data.snapshot.agents[0]?.id ?? null);
+        const nextSnapshot = normalizeSnapshot(event.data.snapshot);
+        setSnapshot(nextSnapshot);
+        setActivity(nextSnapshot.activityFeed);
+        setSelectedAgentId((prev) => prev ?? nextSnapshot.agents[0]?.id ?? null);
         setIsSubmitting(false);
         setIsAssigning(false);
       }
 
       if (event.data.type === 'activity') {
-        setActivity((current) => [event.data.message, ...current].slice(0, 20));
+        const nextActivity = normalizeActivityEntry(event.data.activity ?? event.data.message, 0);
+        setActivity((current) => [nextActivity, ...current].slice(0, 20));
       }
 
       if (event.data.type === 'taskOutput') {
@@ -98,6 +161,56 @@ function App() {
     () => snapshot?.rooms.find((r) => r.id === spawnRoomId) ?? null,
     [spawnRoomId, snapshot],
   );
+
+  const agentsById = useMemo(
+    () => new Map(snapshot?.agents.map((agent) => [agent.id, agent]) ?? []),
+    [snapshot],
+  );
+
+  const filteredTasks = useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.tasks.filter((task) => {
+      const assignee = agentsById.get(task.assigneeId);
+      const personaId = assignee?.personaId ?? 'unknown';
+      const statusMatch = taskStatusFilter === 'all' || task.status === taskStatusFilter;
+      const providerMatch = taskProviderFilter === 'all' || task.provider === taskProviderFilter;
+      const personaMatch = taskPersonaFilter === 'all' || personaId === taskPersonaFilter;
+      return statusMatch && providerMatch && personaMatch;
+    });
+  }, [agentsById, snapshot, taskPersonaFilter, taskProviderFilter, taskStatusFilter]);
+
+  const taskGroups = useMemo(() => {
+    if (!snapshot) return [] as Array<{ key: string; label: string; tasks: TaskCard[] }>;
+
+    if (taskGroupBy === 'assignee') {
+      const groups = new Map<string, { label: string; tasks: TaskCard[] }>();
+      for (const task of filteredTasks) {
+        const assignee = agentsById.get(task.assigneeId);
+        const key = assignee?.id ?? 'unassigned';
+        const existing = groups.get(key);
+        const label = assignee?.name ?? 'Unassigned';
+        if (existing) {
+          existing.tasks.push(task);
+        } else {
+          groups.set(key, { label, tasks: [task] });
+        }
+      }
+
+      return Array.from(groups.entries()).map(([key, value]) => ({ key, label: value.label, tasks: value.tasks }));
+    }
+
+    return TASK_STATUS_ORDER
+      .map((status) => ({
+        key: status,
+        label: status === 'done' ? 'Done' : status === 'active' ? 'Active' : status[0].toUpperCase() + status.slice(1),
+        tasks: filteredTasks.filter((task) => task.status === status),
+      }))
+      .filter((group) => group.tasks.length > 0);
+  }, [agentsById, filteredTasks, snapshot, taskGroupBy]);
+
+  const filteredActivity = useMemo(() => {
+    return activity.filter((entry) => activityFilter === 'all' || entry.category === activityFilter);
+  }, [activity, activityFilter]);
 
   if (!snapshot) {
     return (
@@ -270,6 +383,16 @@ function App() {
                 <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
                   {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
                 </span>
+                {personas.get(selectedAgent.personaId)?.skills?.length ? (
+                  <div className="skill-row">
+                    {personas.get(selectedAgent.personaId)?.skills?.map((skill) => (
+                      <span key={skill.id} className="skill-pill">
+                        {skill.label}
+                        <strong>L{skill.level}</strong>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 {/* XP / Level bar */}
                 <div className="inspector-xp">
                   <span className="inspector-xp__level">Lv.{selectedAgent.level ?? 0}</span>
@@ -363,50 +486,150 @@ function App() {
 
           {/* Task Wall */}
           <section className="panel">
-            <p className="eyebrow">Task Wall</p>
-            <div className="task-list">
-              {snapshot.tasks.map((task) => (
-                <article
-                  key={task.id}
-                  className={`task-card task-card--${task.status}${expandedTaskId === task.id ? ' task-card--expanded' : ''}`}
-                  onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+            <div className="task-wall__header">
+              <div>
+                <p className="eyebrow">Task Wall</p>
+                <p className="task-wall__copy">Group and filter the queue without losing assignee, dependency, or progress context.</p>
+              </div>
+              <div className="task-wall__modes">
+                <button
+                  type="button"
+                  className={`toggle-chip${taskGroupBy === 'status' ? ' toggle-chip--active' : ''}`}
+                  onClick={() => setTaskGroupBy('status')}
                 >
-                  <div className="task-meta">
-                    <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
-                    <span className={`provider-badge provider-badge--${task.provider}`}>
-                      {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
-                    </span>
-                    <span>{task.source}</span>
+                  By status
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-chip${taskGroupBy === 'assignee' ? ' toggle-chip--active' : ''}`}
+                  onClick={() => setTaskGroupBy('assignee')}
+                >
+                  By agent
+                </button>
+              </div>
+            </div>
+            <div className="task-filters">
+              <label className="task-filter">
+                <span>Status</span>
+                <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatus | 'all')}>
+                  <option value="all">All</option>
+                  {TASK_STATUS_ORDER.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="task-filter">
+                <span>Provider</span>
+                <select value={taskProviderFilter} onChange={(event) => setTaskProviderFilter(event.target.value as Provider | 'all')}>
+                  <option value="all">All</option>
+                  <option value="copilot">Copilot</option>
+                  <option value="claude">Claude</option>
+                </select>
+              </label>
+              <label className="task-filter">
+                <span>Persona</span>
+                <select value={taskPersonaFilter} onChange={(event) => setTaskPersonaFilter(event.target.value)}>
+                  <option value="all">All</option>
+                  {snapshot.personas.map((persona) => (
+                    <option key={persona.id} value={persona.id}>{persona.title}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="task-group-list">
+              {taskGroups.length === 0 ? <p className="task-wall__empty">No tasks match the current filters.</p> : null}
+              {taskGroups.map((group) => (
+                <section key={group.key} className="task-group">
+                  <div className="task-group__header">
+                    <h3>{group.label}</h3>
+                    <span>{group.tasks.length}</span>
                   </div>
-                  <h3>{task.title}</h3>
-                  <p>{task.detail}</p>
-                  {task.output && expandedTaskId === task.id && (
-                    <div className="task-output">
-                      <p className="eyebrow">Execution Output</p>
-                      <pre>{task.output}</pre>
-                    </div>
-                  )}
-                  <div className="task-controls" onClick={(e) => e.stopPropagation()}>
-                    {taskActions(task).map(({ label, action }) => (
-                      <button
-                        key={action}
-                        type="button"
-                        className={`control-btn control-btn--${action}`}
-                        onClick={() => vscode.postMessage({ type: 'taskAction', taskId: task.id, action })}
-                      >{label}</button>
-                    ))}
+                  <div className="task-list">
+                    {group.tasks.map((task) => {
+                      const assignee = agentsById.get(task.assigneeId);
+                      const persona = assignee ? personas.get(assignee.personaId) : null;
+                      const dependencyCount = task.dependsOn?.length ?? 0;
+                      const progress = task.progress ?? taskProgressForStatus(task.status);
+                      const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
+
+                      return (
+                        <article
+                          key={task.id}
+                          className={`task-card task-card--${task.status}${expandedTaskId === task.id ? ' task-card--expanded' : ''}`}
+                          onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                        >
+                          <div className="task-meta">
+                            <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
+                            <span className={`provider-badge provider-badge--${task.provider}`}>
+                              {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
+                            </span>
+                            <span>{task.source}</span>
+                            {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
+                          </div>
+                          <h3>{task.title}</h3>
+                          <p>{task.detail}</p>
+                          <div className="task-card__footer">
+                            <div className="task-card__identity">
+                              <strong>{assignee?.name ?? 'Unassigned'}</strong>
+                              <span>{persona?.title ?? 'Unknown persona'}</span>
+                            </div>
+                            <div className="task-progress" title={progress.label}>
+                              <div className="task-progress__bar">
+                                <div className="task-progress__fill" style={{ width: progressWidth }} />
+                              </div>
+                              <span>{progress.label}</span>
+                            </div>
+                          </div>
+                          {task.output && expandedTaskId === task.id && (
+                            <div className="task-output">
+                              <p className="eyebrow">Execution Output</p>
+                              <pre>{task.output}</pre>
+                            </div>
+                          )}
+                          <div className="task-controls" onClick={(e) => e.stopPropagation()}>
+                            {taskActions(task).map(({ label, action }) => (
+                              <button
+                                key={action}
+                                type="button"
+                                className={`control-btn control-btn--${action}`}
+                                onClick={() => vscode.postMessage({ type: 'taskAction', taskId: task.id, action })}
+                              >{label}</button>
+                            ))}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
-                </article>
+                </section>
               ))}
             </div>
           </section>
 
           {/* Activity Feed */}
           <section className="panel">
-            <p className="eyebrow">Activity Feed</p>
+            <div className="task-wall__header">
+              <div>
+                <p className="eyebrow">Activity Feed</p>
+                <p className="task-wall__copy">Structured events are now grouped by category so provider chatter and task flow are easier to scan.</p>
+              </div>
+              <label className="task-filter task-filter--compact">
+                <span>Filter</span>
+                <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityCategory | 'all')}>
+                  {ACTIVITY_FILTERS.map((filter) => (
+                    <option key={filter} value={filter}>{filter}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <ul className="activity-feed">
-              {activity.map((item, index) => (
-                <li key={`${item}-${index}`}>{item}</li>
+              {filteredActivity.map((item) => (
+                <li key={item.id} className={`activity-feed__item activity-feed__item--${item.category}`}>
+                  <div className="activity-feed__meta">
+                    <span className={`activity-badge activity-badge--${item.category}`}>{item.category}</span>
+                    <time>{formatActivityTime(item.timestamp)}</time>
+                  </div>
+                  <p>{item.message}</p>
+                </li>
               ))}
             </ul>
           </section>

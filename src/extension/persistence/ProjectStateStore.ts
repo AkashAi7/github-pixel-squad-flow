@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import type { WorkspaceSnapshot } from '../../shared/model/index.js';
+import { createActivityEntry, type ActivityEntry, type PersonaTemplate, type TaskCard, type TaskProgress, type TaskStatus, type WorkspaceSnapshot } from '../../shared/model/index.js';
 import { createDefaultSnapshot } from './defaultSnapshot.js';
 
 export class ProjectStateStore {
@@ -21,7 +21,9 @@ export class ProjectStateStore {
 
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(raw) as WorkspaceSnapshot;
+      return this.normalizeSnapshot(JSON.parse(raw) as Partial<WorkspaceSnapshot> & {
+        activityFeed?: Array<ActivityEntry | string>;
+      });
     } catch {
       const snapshot = createDefaultSnapshot();
       this.save(snapshot);
@@ -47,5 +49,79 @@ export class ProjectStateStore {
 
   private getFilePath(): string {
     return path.join(this.rootPath ?? '.', '.pixel-squad', 'project.json');
+  }
+
+  private normalizeSnapshot(snapshot: Partial<WorkspaceSnapshot> & { activityFeed?: Array<ActivityEntry | string> }): WorkspaceSnapshot {
+    const fallback = createDefaultSnapshot();
+    const personaDefaults = new Map(fallback.personas.map((persona) => [persona.id, persona]));
+
+    return {
+      projectName: snapshot.projectName ?? fallback.projectName,
+      rooms: snapshot.rooms ?? fallback.rooms,
+      personas: (snapshot.personas ?? fallback.personas).map((persona) => this.normalizePersona(persona, personaDefaults)),
+      agents: snapshot.agents ?? fallback.agents,
+      tasks: (snapshot.tasks ?? fallback.tasks).map((task) => this.normalizeTask(task)),
+      providers: snapshot.providers ?? fallback.providers,
+      activityFeed: this.normalizeActivityFeed(snapshot.activityFeed ?? fallback.activityFeed),
+      settings: {
+        ...fallback.settings,
+        ...snapshot.settings,
+      },
+    };
+  }
+
+  private normalizePersona(persona: PersonaTemplate, personaDefaults: Map<string, PersonaTemplate>): PersonaTemplate {
+    const fallback = personaDefaults.get(persona.id);
+    return {
+      ...fallback,
+      ...persona,
+      skills: persona.skills ?? fallback?.skills ?? [],
+    };
+  }
+
+  private normalizeTask(task: TaskCard): TaskCard {
+    const createdAt = task.createdAt ?? Date.now();
+    return {
+      ...task,
+      dependsOn: task.dependsOn ?? [],
+      requiredSkillIds: task.requiredSkillIds ?? [],
+      progress: task.progress ?? this.progressForStatus(task.status),
+      createdAt,
+      updatedAt: task.updatedAt ?? createdAt,
+    };
+  }
+
+  private normalizeActivityFeed(feed: Array<ActivityEntry | string>): ActivityEntry[] {
+    const now = Date.now();
+    return feed.map((entry, index) => {
+      if (typeof entry === 'string') {
+        return createActivityEntry(entry, 'system', {
+          id: `activity-legacy-${index}`,
+          timestamp: now - index,
+        });
+      }
+
+      return {
+        ...entry,
+        id: entry.id ?? `activity-${now}-${index}`,
+        category: entry.category ?? 'system',
+        timestamp: entry.timestamp ?? now - index,
+      };
+    });
+  }
+
+  private progressForStatus(status: TaskStatus): TaskProgress {
+    switch (status) {
+      case 'queued':
+        return { value: 0, total: 3, label: 'Queued' };
+      case 'active':
+        return { value: 1, total: 3, label: 'Executing' };
+      case 'review':
+        return { value: 2, total: 3, label: 'Review' };
+      case 'done':
+        return { value: 3, total: 3, label: 'Complete' };
+      case 'failed':
+        return { value: 3, total: 3, label: 'Failed' };
+    }
   }
 }

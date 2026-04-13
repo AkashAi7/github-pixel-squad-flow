@@ -46,6 +46,25 @@ function readSnapshot(snapshotPath) {
   return JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
 }
 
+function activityIncludes(activityFeed, text) {
+  return activityFeed.some((entry) => {
+    if (typeof entry === 'string') {
+      return entry.includes(text);
+    }
+
+    return typeof entry?.message === 'string' && entry.message.includes(text);
+  });
+}
+
+function hasTaskMetadata(task) {
+  return Array.isArray(task.dependsOn)
+    && Array.isArray(task.requiredSkillIds)
+    && task.progress
+    && typeof task.progress.value === 'number'
+    && typeof task.progress.total === 'number'
+    && typeof task.progress.label === 'string';
+}
+
 async function run() {
   const extension = vscode.extensions.getExtension('akashai7.pixel-squad');
   assert.ok(extension, 'Expected Pixel Squad extension to be installed in the test host.');
@@ -93,7 +112,7 @@ async function run() {
   const routedSnapshot = await poll(() => {
     const snapshot = readSnapshot(snapshotPath);
     const hasRoutedEffects = snapshot.tasks.length > baseline.tasks.length
-      && snapshot.activityFeed.some((message) => message.includes('Task received:'));
+      && activityIncludes(snapshot.activityFeed, 'Task received:');
 
     if (!hasRoutedEffects) {
       return undefined;
@@ -103,12 +122,16 @@ async function run() {
   });
 
   assert.ok(
-    routedSnapshot.activityFeed.some((message) => message.includes('Task received:')),
+    activityIncludes(routedSnapshot.activityFeed, 'Task received:'),
     'Expected createTask command to update the activity feed.',
   );
   assert.ok(
     routedSnapshot.tasks.length > baseline.tasks.length,
     'Expected createTask command to persist routed tasks.',
+  );
+  assert.ok(
+    routedSnapshot.tasks.slice(0, routedSnapshot.tasks.length - baseline.tasks.length).every(hasTaskMetadata),
+    'Expected routed tasks to include dependency, skill, and progress metadata.',
   );
 
   const assignTaskPrompt = 'Audit the settings migration path and report any regressions.';
@@ -137,7 +160,7 @@ async function run() {
   });
 
   assert.ok(
-    assignedSnapshot.snapshot.activityFeed.some((message) => message.includes('Task assigned to Mica:')),
+    activityIncludes(assignedSnapshot.snapshot.activityFeed, 'Task assigned to Mica:'),
     'Expected assignTask command to persist assignment activity.',
   );
 
@@ -152,18 +175,22 @@ async function run() {
   const smokeSnapshot = await poll(() => {
     const snapshot = readSnapshot(snapshotPath);
     const hasSmokeEffects = snapshot.tasks.length > baseline.tasks.length
-      && snapshot.activityFeed.some((message) => message.includes('Task received:'));
+      && activityIncludes(snapshot.activityFeed, 'Task received:');
 
     return hasSmokeEffects ? snapshot : undefined;
   });
 
   assert.ok(
-    smokeSnapshot.activityFeed.some((message) => message.includes('Task received:')),
+    activityIncludes(smokeSnapshot.activityFeed, 'Task received:'),
     'Expected smoke test to update the activity feed.',
   );
   assert.ok(
     smokeSnapshot.tasks.length > baseline.tasks.length,
     'Expected smoke test to add routed tasks to the snapshot.',
+  );
+  assert.ok(
+    smokeSnapshot.tasks.slice(0, smokeSnapshot.tasks.length - baseline.tasks.length).every(hasTaskMetadata),
+    'Expected smoke test tasks to carry metadata for progress and dependency-aware scheduling.',
   );
   assert.ok(
     smokeSnapshot.agents.some((agent) => agent.status === 'executing' || agent.status === 'planning' || agent.status === 'waiting'),

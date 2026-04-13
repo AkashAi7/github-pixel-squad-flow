@@ -1,15 +1,69 @@
-import type { WorkspaceSnapshot } from '../../shared/model/index.js';
+import { createActivityEntry, type WorkspaceSnapshot } from '../../shared/model/index.js';
 
 export function createDefaultSnapshot(): WorkspaceSnapshot {
   return {
     projectName: 'Pixel Squad',
     personas: [
-      { id: 'frontend', title: 'Frontend', specialty: 'Interface systems', color: '#f25f5c' },
-      { id: 'backend', title: 'Backend', specialty: 'APIs and runtime orchestration', color: '#247ba0' },
-      { id: 'tester', title: 'Tester', specialty: 'Verification and regression pressure', color: '#70c1b3' },
-      { id: 'lead', title: 'Lead', specialty: 'Routing and prioritization', color: '#ffe066' },
-      { id: 'devops', title: 'DevOps', specialty: 'CI/CD, infra, and deployment', color: '#8d6e63' },
-      { id: 'designer', title: 'Designer', specialty: 'UX research and visual design', color: '#ce93d8' },
+      {
+        id: 'frontend',
+        title: 'Frontend',
+        specialty: 'Interface systems',
+        color: '#f25f5c',
+        skills: [
+          { id: 'ui-systems', label: 'UI Systems', level: 4 },
+          { id: 'motion', label: 'Motion', level: 3 },
+        ],
+      },
+      {
+        id: 'backend',
+        title: 'Backend',
+        specialty: 'APIs and runtime orchestration',
+        color: '#247ba0',
+        skills: [
+          { id: 'coordination', label: 'Coordination', level: 4 },
+          { id: 'persistence', label: 'Persistence', level: 3 },
+        ],
+      },
+      {
+        id: 'tester',
+        title: 'Tester',
+        specialty: 'Verification and regression pressure',
+        color: '#70c1b3',
+        skills: [
+          { id: 'regression', label: 'Regression', level: 4 },
+          { id: 'qa-signoff', label: 'QA Signoff', level: 3 },
+        ],
+      },
+      {
+        id: 'lead',
+        title: 'Lead',
+        specialty: 'Routing and prioritization',
+        color: '#ffe066',
+        skills: [
+          { id: 'planning', label: 'Planning', level: 5 },
+          { id: 'prioritization', label: 'Prioritization', level: 5 },
+        ],
+      },
+      {
+        id: 'devops',
+        title: 'DevOps',
+        specialty: 'CI/CD, infra, and deployment',
+        color: '#8d6e63',
+        skills: [
+          { id: 'delivery', label: 'Delivery', level: 4 },
+          { id: 'observability', label: 'Observability', level: 3 },
+        ],
+      },
+      {
+        id: 'designer',
+        title: 'Designer',
+        specialty: 'UX research and visual design',
+        color: '#ce93d8',
+        skills: [
+          { id: 'ux-research', label: 'UX Research', level: 4 },
+          { id: 'visual-design', label: 'Visual Design', level: 4 },
+        ],
+      },
     ],
     rooms: [
       {
@@ -96,6 +150,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'claude',
         source: 'factory',
         detail: 'Command, view container, bundle entry, and icon are defined.',
+        progress: { value: 3, total: 3, label: 'Complete' },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       },
       {
         id: 'task-2',
@@ -105,6 +162,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'copilot',
         source: 'factory',
         detail: 'Rooms, personas, and tasks are visible in the panel.',
+        progress: { value: 3, total: 3, label: 'Complete' },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       },
       {
         id: 'task-3',
@@ -114,6 +174,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         provider: 'copilot',
         source: 'factory',
         detail: 'Task routing uses GitHub Copilot or Claude for planning.',
+        progress: { value: 3, total: 3, label: 'Complete' },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       },
     ],
     providers: [
@@ -129,9 +192,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       },
     ],
     activityFeed: [
-      'Pixel Squad coordinator online.',
-      'Dual-provider mode: Copilot + Claude.',
-      'Factory ready — create rooms and spawn agents to begin.',
+      createActivityEntry('Pixel Squad coordinator online.', 'system'),
+      createActivityEntry('Dual-provider mode: Copilot + Claude.', 'provider', { provider: 'copilot' }),
+      createActivityEntry('Factory ready — create rooms and spawn agents to begin.', 'system'),
     ],
     settings: {
       autoExecute: false,

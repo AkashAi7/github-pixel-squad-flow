@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import type { AgentStatus, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
-import { ROOM_THEME_META, levelFromXp } from '../../shared/model/index.js';
+import type { ActivityCategory, ActivityEntry, AgentStatus, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import { ROOM_THEME_META, createActivityEntry, levelFromXp } from '../../shared/model/index.js';
 import type { ActivityMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { CopilotAdapter } from '../providers/copilot/CopilotAdapter.js';
@@ -49,6 +49,9 @@ export class Coordinator {
     const plan = await adapter.createPlan(normalizedPrompt, this.snapshot.personas, model, token);
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
+    const createdAt = Date.now();
+    const stagedTaskIds = plan.assignments.map(() => this.makeId('task'));
+    const personaTaskMap = new Map<string, string>();
 
     for (const [index, assignment] of plan.assignments.entries()) {
       const agent = updatedAgents.find((item) => item.personaId === assignment.personaId)
@@ -63,15 +66,31 @@ export class Coordinator {
         summary: assignment.detail,
       };
       updatedAgents[updatedAgents.findIndex((item) => item.id === agent.id)] = refreshedAgent;
+      const dependencyIds = assignment.dependsOnPersonaIds
+        ?.map((personaId) => personaTaskMap.get(personaId))
+        .filter((taskId): taskId is string => Boolean(taskId))
+        ?? [];
+      const inferredDependencyIds = dependencyIds.length > 0
+        ? dependencyIds
+        : index > 0
+          ? [stagedTaskIds[index - 1]]
+          : [];
+
       newTasks.push({
-        id: this.makeId('task'),
+        id: stagedTaskIds[index],
         title: assignment.title,
         status: index === 0 ? 'active' : 'queued',
         assigneeId: refreshedAgent.id,
         provider: refreshedAgent.provider,
         source: 'factory',
         detail: assignment.detail,
+        dependsOn: inferredDependencyIds,
+        requiredSkillIds: assignment.requiredSkillIds ?? [],
+        progress: this.progressForStatus(index === 0 ? 'active' : 'queued', assignment.progressLabel),
+        createdAt,
+        updatedAt: createdAt,
       });
+      personaTaskMap.set(assignment.personaId, stagedTaskIds[index]);
     }
 
     this.snapshot = {
@@ -79,14 +98,11 @@ export class Coordinator {
       agents: updatedAgents,
       tasks: [...newTasks, ...this.snapshot.tasks].slice(0, 40),
       providers: this.getProviderHealths(),
-      activityFeed: [
-        `Task received: ${plan.title}`,
-        plan.providerDetail,
-        ...this.snapshot.activityFeed,
-      ].slice(0, 12),
       settings: this.getSettings(),
     };
     this.store.save(this.snapshot);
+    this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
+    this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
 
     // Auto-execute first active task if enabled
     if (this.getSettings().autoExecute && newTasks.length > 0) {
@@ -124,6 +140,11 @@ export class Coordinator {
       provider: agent.provider,
       source: 'factory',
       detail: normalizedPrompt,
+      dependsOn: [],
+      requiredSkillIds: [],
+      progress: this.progressForStatus('active'),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     const updatedAgents = this.snapshot.agents.map((a) => a.id === agentId ? updatedAgent : a);
@@ -134,14 +155,22 @@ export class Coordinator {
       agents: updatedAgents,
       tasks: [task, ...this.snapshot.tasks].slice(0, 40),
       providers: this.getProviderHealths(),
-      activityFeed: [
-        `Task assigned to ${agent.name}: ${task.title}`,
-        `${agent.name} started working in ${room?.name ?? 'unknown room'}`,
-        ...this.snapshot.activityFeed,
-      ].slice(0, 20),
       settings: this.getSettings(),
     };
     this.store.save(this.snapshot);
+    this.appendActivity(`Task assigned to ${agent.name}: ${task.title}`, {
+      category: 'task',
+      taskId: task.id,
+      agentId: agent.id,
+      roomId: room?.id,
+      provider: agent.provider,
+    });
+    this.appendActivity(`${agent.name} started working in ${room?.name ?? 'unknown room'}`, {
+      category: 'agent',
+      agentId: agent.id,
+      roomId: room?.id,
+      provider: agent.provider,
+    });
 
     // Auto-execute
     if (this.getSettings().autoExecute) {
@@ -157,6 +186,17 @@ export class Coordinator {
       return 'Task not found.';
     }
 
+    const blockedDependencies = this.getBlockedDependencies(task);
+    if (blockedDependencies.length > 0) {
+      const dependencyNames = blockedDependencies.map((dependency) => dependency.title).join(', ');
+      this.appendActivity(`Task "${task.title}" is blocked by: ${dependencyNames}.`, {
+        category: 'task',
+        taskId: task.id,
+        provider: task.provider,
+      });
+      return `Task is blocked until these dependencies complete: ${dependencyNames}.`;
+    }
+
     const agent = this.snapshot.agents.find((a) => a.id === task.assigneeId);
     if (!agent) {
       return 'No agent assigned to this task.';
@@ -168,9 +208,14 @@ export class Coordinator {
     }
 
     // Update task to active, agent to executing
-    this.updateTask(taskId, { status: 'active' });
+    this.updateTask(taskId, { status: 'active', progress: this.progressForStatus('active') });
     this.updateAgent(agent.id, { status: 'executing', summary: `Executing: ${task.title}` });
-    this.appendActivity(`${agent.name} started executing "${task.title}" via ${task.provider}.`);
+    this.appendActivity(`${agent.name} started executing "${task.title}" via ${task.provider}.`, {
+      category: 'task',
+      taskId,
+      agentId: agent.id,
+      provider: task.provider,
+    });
 
     const adapter = this.providers[task.provider] ?? this.copilot;
     const result = await adapter.executeTask(task, agent, persona, model, token);
@@ -179,16 +224,30 @@ export class Coordinator {
       const newXp = (agent.xp ?? 0) + 25;
       const newLevel = levelFromXp(newXp);
       const leveledUp = newLevel > (agent.level ?? 0);
-      this.updateTask(taskId, { status: 'review', output: result.output });
+      this.updateTask(taskId, { status: 'review', output: result.output, progress: this.progressForStatus('review') });
       this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — awaiting review.`, xp: newXp, level: newLevel });
-      this.appendActivity(`${agent.name} finished "${task.title}" — moved to review.`);
+      this.appendActivity(`${agent.name} finished "${task.title}" — moved to review.`, {
+        category: 'task',
+        taskId,
+        agentId: agent.id,
+        provider: task.provider,
+      });
       if (leveledUp) {
-        this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`);
+        this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`, {
+          category: 'agent',
+          agentId: agent.id,
+          provider: agent.provider,
+        });
       }
     } else {
-      this.updateTask(taskId, { status: 'failed', output: result.output });
+      this.updateTask(taskId, { status: 'failed', output: result.output, progress: this.progressForStatus('failed') });
       this.updateAgent(agent.id, { status: 'failed', summary: `Failed: ${task.title}` });
-      this.appendActivity(`${agent.name} failed on "${task.title}".`);
+      this.appendActivity(`${agent.name} failed on "${task.title}".`, {
+        category: 'task',
+        taskId,
+        agentId: agent.id,
+        provider: task.provider,
+      });
     }
 
     this.taskOutputBus.publish({ type: 'taskOutput', taskId, output: result.output });
@@ -241,11 +300,15 @@ export class Coordinator {
     }
 
     if (!newStatus) {
-      this.appendActivity(`Cannot ${action} task "${task.title}" (currently ${task.status}).`);
+      this.appendActivity(`Cannot ${action} task "${task.title}" (currently ${task.status}).`, {
+        category: 'task',
+        taskId,
+        provider: task.provider,
+      });
       return;
     }
 
-    const updates: Partial<TaskCard> = { status: newStatus };
+    const updates: Partial<TaskCard> = { status: newStatus, progress: this.progressForStatus(newStatus) };
     if (action === 'retry') {
       updates.output = undefined;
     }
@@ -258,13 +321,21 @@ export class Coordinator {
         const leveledUp = newLevel > (agent.level ?? 0);
         this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}`, xp: newXp, level: newLevel });
         if (leveledUp) {
-          this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`);
+          this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`, {
+            category: 'agent',
+            agentId: agent.id,
+            provider: agent.provider,
+          });
         }
       }
     }
 
     this.updateTask(taskId, updates);
-    this.appendActivity(`Task "${task.title}": ${action} → ${newStatus}.`);
+    this.appendActivity(`Task "${task.title}": ${action} → ${newStatus}.`, {
+      category: 'task',
+      taskId,
+      provider: task.provider,
+    });
     this.store.save(this.snapshot);
   }
 
@@ -284,7 +355,7 @@ export class Coordinator {
       ...this.snapshot,
       rooms: [...this.snapshot.rooms, room],
     };
-    this.appendActivity(`Room "${room.name}" created.`);
+    this.appendActivity(`Room "${room.name}" created.`, { category: 'system', roomId: room.id });
     this.store.save(this.snapshot);
     return room;
   }
@@ -300,7 +371,7 @@ export class Coordinator {
       rooms: this.snapshot.rooms.filter((r) => r.id !== roomId),
       agents: this.snapshot.agents.filter((a) => !orphanedAgentIds.has(a.id)),
     };
-    this.appendActivity(`Room "${room.name}" deleted (${orphanedAgentIds.size} agents removed).`);
+    this.appendActivity(`Room "${room.name}" deleted (${orphanedAgentIds.size} agents removed).`, { category: 'system', roomId });
     this.store.save(this.snapshot);
   }
 
@@ -333,7 +404,12 @@ export class Coordinator {
         r.id === roomId ? { ...r, agentIds: [...r.agentIds, agent.id] } : r,
       ),
     };
-    this.appendActivity(`Agent "${agent.name}" spawned in "${room.name}" (${provider}).`);
+    this.appendActivity(`Agent "${agent.name}" spawned in "${room.name}" (${provider}).`, {
+      category: 'agent',
+      agentId: agent.id,
+      roomId,
+      provider,
+    });
     this.store.save(this.snapshot);
     return agent;
   }
@@ -349,10 +425,10 @@ export class Coordinator {
         r.id === agent.roomId ? { ...r, agentIds: r.agentIds.filter((id) => id !== agentId) } : r,
       ),
       tasks: this.snapshot.tasks.map((t) =>
-        t.assigneeId === agentId ? { ...t, status: 'failed' as TaskStatus } : t,
+        t.assigneeId === agentId ? { ...t, status: 'failed' as TaskStatus, progress: this.progressForStatus('failed') } : t,
       ),
     };
-    this.appendActivity(`Agent "${agent.name}" removed.`);
+    this.appendActivity(`Agent "${agent.name}" removed.`, { category: 'agent', agentId, roomId: agent.roomId, provider: agent.provider });
     this.store.save(this.snapshot);
   }
 
@@ -367,18 +443,18 @@ export class Coordinator {
   }
 
   notifyWebviewConnected(): void {
-    this.appendActivity('Factory panel connected to coordinator.');
+    this.appendActivity('Factory panel connected to coordinator.', { category: 'system' });
   }
 
   selectAgent(agentId: string): void {
-    this.appendActivity(`Inspector focused on ${agentId}.`);
+    this.appendActivity(`Inspector focused on ${agentId}.`, { category: 'agent', agentId });
   }
 
   private updateTask(taskId: string, updates: Partial<TaskCard>): void {
     this.snapshot = {
       ...this.snapshot,
       tasks: this.snapshot.tasks.map((t) =>
-        t.id === taskId ? { ...t, ...updates } : t
+        t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t
       ),
     };
   }
@@ -405,14 +481,45 @@ export class Coordinator {
     return [this.copilot.getHealth(), this.claude.getHealth()];
   }
 
-  private appendActivity(message: string): void {
+  private appendActivity(
+    message: string,
+    metadata: Partial<Omit<ActivityEntry, 'id' | 'message' | 'timestamp' | 'category'>> & { category?: ActivityCategory } = {},
+  ): void {
+    const activity = createActivityEntry(message, metadata.category ?? 'system', metadata);
     this.snapshot = {
       ...this.snapshot,
       providers: this.getProviderHealths(),
-      activityFeed: [message, ...this.snapshot.activityFeed].slice(0, 20),
+      activityFeed: [activity, ...this.snapshot.activityFeed].slice(0, 20),
     };
     this.store.save(this.snapshot);
-    this.activityBus.publish({ type: 'activity', message });
+    this.activityBus.publish({ type: 'activity', message, activity });
+  }
+
+  private getBlockedDependencies(task: TaskCard): TaskCard[] {
+    const dependencyIds = task.dependsOn ?? [];
+    if (dependencyIds.length === 0) {
+      return [];
+    }
+
+    return dependencyIds
+      .map((dependencyId) => this.snapshot.tasks.find((candidate) => candidate.id === dependencyId))
+      .filter((dependency): dependency is TaskCard => dependency !== undefined)
+      .filter((dependency) => dependency.status !== 'done');
+  }
+
+  private progressForStatus(status: TaskStatus, label?: string): TaskProgress {
+    switch (status) {
+      case 'queued':
+        return { value: 0, total: 3, label: label ?? 'Queued' };
+      case 'active':
+        return { value: 1, total: 3, label: label ?? 'Executing' };
+      case 'review':
+        return { value: 2, total: 3, label: label ?? 'Review' };
+      case 'done':
+        return { value: 3, total: 3, label: label ?? 'Complete' };
+      case 'failed':
+        return { value: 3, total: 3, label: label ?? 'Failed' };
+    }
   }
 
   private makeId(prefix: string): string {

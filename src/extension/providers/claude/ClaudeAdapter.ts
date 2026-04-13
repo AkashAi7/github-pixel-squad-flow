@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import type { PersonaTemplate, ProviderHealth, SquadAgent, TaskCard } from '../../../shared/model/index.js';
 import type { ExecutionResult, PersonaAssignment, PlanningResult, ProviderAdapter } from '../types.js';
+import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments } from '../planningHints.js';
 
 /**
  * Claude adapter — tries vscode.lm models with vendor/family containing "claude"
@@ -140,10 +141,13 @@ export class ClaudeAdapter implements ProviderAdapter {
     return [
       'You are Pixel Squad, a routing planner for a multi-agent software factory.',
       'Return valid JSON only with this exact shape:',
-      '{"title":"string","summary":"string","assignments":[{"personaId":"string","title":"string","detail":"string"}]}',
+      '{"title":"string","summary":"string","assignments":[{"personaId":"string","title":"string","detail":"string","dependsOnPersonaIds":["string"],"requiredSkillIds":["string"],"progressLabel":"string"}]}',
       'Do not include markdown fences or commentary.',
-      `Available personas: ${personas.map((p) => `${p.id} (${p.title}: ${p.specialty})`).join(', ')}.`,
+      `Available personas: ${describePersonasForPrompt(personas)}.`,
       'Use 1 to 3 assignments max. Prefer concrete software implementation tasks.',
+      'If one assignment must happen after another, populate dependsOnPersonaIds with the personaId it depends on.',
+      'Choose requiredSkillIds only from the listed persona skills.',
+      'Set progressLabel to a short stage summary such as Ready to start, Waiting on prior task, or Review ready.',
       `User task: ${prompt}`,
     ].join(' ');
   }
@@ -153,14 +157,28 @@ export class ClaudeAdapter implements ProviderAdapter {
     const raw = JSON.parse(normalized) as {
       title?: string;
       summary?: string;
-      assignments?: Array<{ personaId?: string; title?: string; detail?: string }>;
+      assignments?: Array<{
+        personaId?: string;
+        title?: string;
+        detail?: string;
+        dependsOnPersonaIds?: string[];
+        requiredSkillIds?: string[];
+        progressLabel?: string;
+      }>;
     };
 
     const personaIds = new Set(personas.map((p) => p.id));
-    const assignments = (raw.assignments ?? [])
+    const assignments = enrichAssignments((raw.assignments ?? [])
       .filter((item) => item.personaId && item.title && item.detail && personaIds.has(item.personaId))
       .slice(0, 3)
-      .map((item) => ({ personaId: item.personaId!, title: item.title!, detail: item.detail! }));
+      .map((item) => ({
+        personaId: item.personaId!,
+        title: item.title!,
+        detail: item.detail!,
+        dependsOnPersonaIds: item.dependsOnPersonaIds,
+        requiredSkillIds: item.requiredSkillIds,
+        progressLabel: item.progressLabel,
+      })), personas, text);
 
     if (!raw.title || !raw.summary || assignments.length === 0) {
       throw new Error('Model response was missing required planning fields.');
@@ -170,30 +188,10 @@ export class ClaudeAdapter implements ProviderAdapter {
   }
 
   private createFallbackPlan(prompt: string, personas: PersonaTemplate[], detail: string): PlanningResult {
-    const lower = prompt.toLowerCase();
-    const assignments: PersonaAssignment[] = [];
-    const has = (v: string): boolean => lower.includes(v);
-    const ensure = (personaId: string, title: string, d: string): void => {
-      if (assignments.some((a) => a.personaId === personaId)) return;
-      if (!personas.some((p) => p.id === personaId)) return;
-      assignments.push({ personaId, title, detail: d });
-    };
-
-    ensure('lead', 'Shape the delivery plan', `Break down the request and coordinate: ${prompt}`);
-    if (has('ui') || has('frontend') || has('webview') || has('design')) {
-      ensure('frontend', 'Build the interface slice', 'Implement the visible UX and wire it to state.');
-    }
-    if (has('api') || has('backend') || has('persist') || has('data') || assignments.length < 2) {
-      ensure('backend', 'Implement the runtime changes', 'Update extension host, persistence, or provider code.');
-    }
-    if (has('test') || has('verify') || assignments.length < 3) {
-      ensure('tester', 'Validate the flow', 'Check error handling, smoke-test, and document gaps.');
-    }
-
     return {
       title: prompt.length > 72 ? `${prompt.slice(0, 69)}...` : prompt,
       summary: 'Pixel Squad generated a deterministic routing plan because a live Claude model was unavailable or failed.',
-      assignments: assignments.slice(0, 3),
+      assignments: createDeterministicAssignments(prompt, personas),
       providerDetail: detail,
     };
   }
