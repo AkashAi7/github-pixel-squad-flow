@@ -6,7 +6,7 @@ export type TaskStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
 export type TaskSource = 'factory' | 'copilot-chat' | 'claude-chat';
 export type ProviderState = 'ready' | 'unavailable';
 export type RoomTheme = 'frontend' | 'backend' | 'devops' | 'testing' | 'design' | 'general';
-export type ActivityCategory = 'system' | 'task' | 'agent' | 'provider';
+export type ActivityCategory = 'system' | 'task' | 'agent' | 'provider' | 'agent-chat';
 export type ApprovalState = 'pending' | 'applied' | 'rejected';
 export type FileEditAction = 'create' | 'replace';
 export type CommandExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed';
@@ -88,6 +88,24 @@ export interface Room {
   color: string;
   agentIds: string[];
 }
+
+/* ── Agent Mailbox types ──────────────────────────────── */
+
+export type AgentMessageType = 'request' | 'inform' | 'query' | 'response';
+
+export interface AgentMessage {
+  id: string;
+  fromAgentId: string;
+  toAgentId: string;
+  roomId: string;
+  type: AgentMessageType;
+  content: string;
+  taskId?: string;
+  timestamp: number;
+  read?: boolean;
+}
+
+/* ── Handoff packets ─────────────────────────────────── */
 
 export interface HandoffPacket {
   fromTaskId: string;

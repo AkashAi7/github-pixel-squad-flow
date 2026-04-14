@@ -33,9 +33,14 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       this.postMessage(message);
     });
 
+    const unsubChat = this.coordinator.agentChatBus.subscribe((message) => {
+      this.postMessage(message);
+    });
+
     webviewView.onDidDispose(() => {
       unsubscribe();
       unsubOutput();
+      unsubChat();
     });
 
     webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
@@ -92,6 +97,8 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
 
       if (message.type === 'assignTask') {
         const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
+        // Ack immediately so webview clears the spinner before full sync
+        this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
         this.syncSnapshot();
         void vscode.window.showInformationMessage(summary);
       }

@@ -1,18 +1,52 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 
 import type { WorkspaceContext, WorkspaceFileContext } from '../../shared/model/index.js';
+
+const execFileAsync = promisify(execFile);
 
 const FILE_GLOB = '**/*.{ts,tsx,js,jsx,json,md,css,scss,html,mjs,cjs,yml,yaml}';
 const EXCLUDE_GLOB = '**/{node_modules,dist,.git,.pixel-squad,out,coverage}/**';
 const MAX_FILES = 6;
 const MAX_LINES = 120;
+const CACHE_TTL_MS = 8_000;
+
+interface CacheEntry<T> { value: T; ts: number; }
 
 export class WorkspaceContextService {
+  private gitCache = new Map<string, CacheEntry<string>>();
+  private fileListCache: CacheEntry<vscode.Uri[]> | undefined;
+
   constructor(private readonly rootPath: string | undefined) {}
 
+  /**
+   * Lightweight snapshot: grabs only editor state and cached git info.
+   * Returns immediately without blocking the extension host.
+   */
+  captureLightweight(): WorkspaceContext {
+    const activeEditor = vscode.window.activeTextEditor;
+    const activeFile = this.toRelativePath(activeEditor?.document.uri.fsPath);
+    const selectedText = activeEditor && !activeEditor.selection.isEmpty
+      ? activeEditor.document.getText(activeEditor.selection).slice(0, 1600)
+      : undefined;
+
+    return {
+      workspaceRoot: this.rootPath,
+      branch: this.getCached('branch'),
+      gitStatus: this.getCached('status')?.split(/\r?\n/).filter(Boolean).slice(0, 20),
+      activeFile,
+      selectedText,
+      relevantFiles: [],
+    };
+  }
+
+  /**
+   * Full async capture: git calls, file discovery, snippet reading.
+   * All I/O is non-blocking.
+   */
   async capture(prompt: string, maxFiles = MAX_FILES): Promise<WorkspaceContext> {
     const activeEditor = vscode.window.activeTextEditor;
     const activeFile = this.toRelativePath(activeEditor?.document.uri.fsPath);
@@ -20,14 +54,18 @@ export class WorkspaceContextService {
       ? activeEditor.document.getText(activeEditor.selection).slice(0, 1600)
       : undefined;
 
-    const relevantFiles = this.rootPath
-      ? await this.collectRelevantFiles(prompt, activeEditor?.document.uri.fsPath, maxFiles)
-      : [];
+    const [branch, gitStatus, relevantFiles] = await Promise.all([
+      this.safeGitAsync(['branch', '--show-current']),
+      this.safeGitAsync(['status', '--short', '--branch']),
+      this.rootPath
+        ? this.collectRelevantFiles(prompt, activeEditor?.document.uri.fsPath, maxFiles)
+        : Promise.resolve([]),
+    ]);
 
     return {
       workspaceRoot: this.rootPath,
-      branch: this.rootPath ? this.safeGit(['branch', '--show-current']) : undefined,
-      gitStatus: this.rootPath ? this.safeGit(['status', '--short', '--branch']).split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
+      branch: branch || undefined,
+      gitStatus: gitStatus ? gitStatus.split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
       activeFile,
       selectedText,
       relevantFiles,
@@ -36,7 +74,8 @@ export class WorkspaceContextService {
 
   private async collectRelevantFiles(prompt: string, activeFsPath?: string, maxFiles = MAX_FILES): Promise<WorkspaceFileContext[]> {
     const keywordTokens = prompt.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2);
-    const changedFiles = new Set(this.safeGit(['status', '--short']).split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).replace(/\\/g, '/')));
+    const statusRaw = await this.safeGitAsync(['status', '--short']);
+    const changedFiles = new Set(statusRaw.split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).replace(/\\/g, '/')));
     const openTabs = new Set(
       vscode.window.tabGroups.all
         .flatMap((group) => group.tabs)
@@ -45,7 +84,7 @@ export class WorkspaceContextService {
         .map((value) => this.toRelativePath(value))
         .filter((value): value is string => Boolean(value)),
     );
-    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 80);
+    const uris = await this.findFilesCached();
     const scored = uris
       .map((uri) => {
         const relativePath = this.toRelativePath(uri.fsPath);
@@ -91,6 +130,15 @@ export class WorkspaceContextService {
     }));
   }
 
+  private async findFilesCached(): Promise<vscode.Uri[]> {
+    if (this.fileListCache && Date.now() - this.fileListCache.ts < CACHE_TTL_MS) {
+      return this.fileListCache.value;
+    }
+    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 80);
+    this.fileListCache = { value: uris, ts: Date.now() };
+    return uris;
+  }
+
   private readSnippet(filePath: string): string {
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
@@ -100,18 +148,34 @@ export class WorkspaceContextService {
     }
   }
 
-  private safeGit(args: string[]): string {
+  private getCached(key: string): string | undefined {
+    const entry = this.gitCache.get(key);
+    if (entry && Date.now() - entry.ts < CACHE_TTL_MS) {
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  private async safeGitAsync(args: string[]): Promise<string> {
     if (!this.rootPath) {
       return '';
     }
-
+    const cacheKey = args.join(' ');
+    const cached = this.getCached(cacheKey);
+    if (cached !== undefined) {
+      return cached;
+    }
     try {
-      return execFileSync('git', args, {
+      const { stdout } = await execFileAsync('git', args, {
         cwd: this.rootPath,
         encoding: 'utf8',
         windowsHide: true,
-      }).trim();
+      });
+      const result = stdout.trim();
+      this.gitCache.set(cacheKey, { value: result, ts: Date.now() });
+      return result;
     } catch {
+      this.gitCache.set(cacheKey, { value: '', ts: Date.now() });
       return '';
     }
   }

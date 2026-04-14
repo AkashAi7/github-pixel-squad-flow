@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -83,7 +83,7 @@
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Automatically execute tasks with GitHub Copilot after routing them through the squad."
         },
         "pixelSquad.modelFamily": {

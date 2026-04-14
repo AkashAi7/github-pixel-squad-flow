@@ -3,16 +3,20 @@ import * as path from 'node:path';
 import { exec, type ExecException } from 'node:child_process';
 import * as vscode from 'vscode';
 
-import type { ActivityCategory, ActivityEntry, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import type { ActivityCategory, ActivityEntry, AgentMessage, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
 import { ROOM_THEME_META, createActivityEntry, levelFromXp } from '../../shared/model/index.js';
-import type { ActivityMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
+import type { ActivityMessage, AgentChatMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { TaskScheduler } from './TaskScheduler.js';
+import { AgentMailbox } from './AgentMailbox.js';
 import { CopilotAdapter } from '../providers/copilot/CopilotAdapter.js';
 import { ClaudeAdapter } from '../providers/claude/ClaudeAdapter.js';
 import type { ProviderAdapter } from '../providers/types.js';
 import { ProjectStateStore } from '../persistence/ProjectStateStore.js';
 import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js';
+
+/** Maximum multi-turn iterations per task execution to prevent infinite loops. */
+const MAX_MAILBOX_TURNS = 3;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -24,10 +28,12 @@ export class Coordinator {
   private readonly rootPath: string | undefined;
   private readonly store: ProjectStateStore;
   private readonly workspaceContext: WorkspaceContextService;
-  private readonly scheduler = new TaskScheduler(3);
+  private readonly scheduler = new TaskScheduler(6);
+  private readonly mailbox = new AgentMailbox();
   private snapshot: WorkspaceSnapshot;
   readonly activityBus = new EventBus<ActivityMessage>();
   readonly taskOutputBus = new EventBus<TaskOutputMessage>();
+  readonly agentChatBus = new EventBus<AgentChatMessage>();
 
   constructor(rootPath?: string) {
     this.rootPath = rootPath;
@@ -43,7 +49,7 @@ export class Coordinator {
   getSettings() {
     const config = vscode.workspace.getConfiguration('pixelSquad');
     return {
-      autoExecute: config.get<boolean>('autoExecute', false),
+      autoExecute: config.get<boolean>('autoExecute', true),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 6),
@@ -138,16 +144,13 @@ export class Coordinator {
       return 'Pixel Squad ignored an empty task.';
     }
 
-    const settings = this.getSettings();
-    const workspaceContext = settings.autoPopulateWorkspaceContext
-      ? await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
-      : { relevantFiles: [] };
-
     const agent = this.snapshot.agents.find((a) => a.id === agentId);
     if (!agent) {
       return 'Agent not found.';
     }
 
+    // Optimistic: create the task immediately with lightweight context
+    const lightContext = this.workspaceContext.captureLightweight();
     const updatedAgent: SquadAgent = {
       ...agent,
       status: 'executing' as AgentStatus,
@@ -164,7 +167,7 @@ export class Coordinator {
       detail: normalizedPrompt,
       dependsOn: [],
       requiredSkillIds: [],
-      workspaceContext,
+      workspaceContext: lightContext,
       progress: this.progressForStatus('active'),
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -195,9 +198,18 @@ export class Coordinator {
       provider: agent.provider,
     });
 
-    // Auto-execute
-    if (this.getSettings().autoExecute) {
-      void this.executeTask(task.id);
+    // Enrich context and auto-execute in the background (non-blocking)
+    const settings = this.getSettings();
+    if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
+      void (async () => {
+        if (settings.autoPopulateWorkspaceContext) {
+          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles);
+          this.updateTask(task.id, { workspaceContext: fullContext });
+        }
+        if (settings.autoExecute) {
+          void this.executeTask(task.id);
+        }
+      })();
     }
 
     return `Task assigned to ${agent.name} (${agent.provider}).`;
@@ -267,8 +279,62 @@ export class Coordinator {
     });
 
     const adapter = this.providers[task.provider] ?? this.copilot;
-    const executionTask = this.snapshot.tasks.find((candidate) => candidate.id === taskId) ?? { ...task, workspaceContext };
-    const result = await adapter.executeTask(executionTask, agent, persona, workspaceContext, model, token, room, handoffPackets);
+
+    // ── Multi-turn mailbox execution loop ──
+    let lastResult: import('../providers/types.js').ExecutionResult = { output: '', success: false };
+    for (let turn = 0; turn < MAX_MAILBOX_TURNS; turn++) {
+      const inboxMessages = this.mailbox.drain(agent.id);
+      if (turn > 0 && inboxMessages.length === 0) {
+        // No new messages arrived — no reason to keep looping
+        break;
+      }
+      if (turn > 0) {
+        this.appendActivity(`${agent.name} received ${inboxMessages.length} message(s) — executing turn ${turn + 1}.`, {
+          category: 'agent-chat',
+          agentId: agent.id,
+          taskId,
+          provider: task.provider,
+        });
+      }
+
+      const executionTask = this.snapshot.tasks.find((candidate) => candidate.id === taskId) ?? { ...task, workspaceContext };
+      const result = await adapter.executeTask(
+        executionTask, agent, persona, workspaceContext, model, token, room, handoffPackets,
+        inboxMessages.length > 0 ? inboxMessages : undefined,
+      );
+      lastResult = result;
+
+      // Route outgoing agent messages through the mailbox
+      if (result.outgoingMessages && result.outgoingMessages.length > 0) {
+        for (const outMsg of result.outgoingMessages) {
+          const agentMsg: AgentMessage = {
+            id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+            fromAgentId: agent.id,
+            toAgentId: outMsg.toAgentId,
+            roomId: agent.roomId,
+            type: outMsg.type ?? 'inform',
+            content: outMsg.content,
+            taskId,
+            timestamp: Date.now(),
+          };
+          this.mailbox.send(agentMsg);
+          this.agentChatBus.publish({ type: 'agentChat', message: agentMsg });
+          this.appendActivity(`💬 ${agent.name} → ${this.agentNameById(outMsg.toAgentId)}: ${outMsg.content.slice(0, 120)}`, {
+            category: 'agent-chat',
+            agentId: agent.id,
+            taskId,
+            provider: task.provider,
+          });
+        }
+      }
+
+      // If the agent says it's done (or didn't set done=false), stop the loop
+      if (result.done !== false) {
+        break;
+      }
+    }
+
+    const result = lastResult;
     const hydratedPlan = this.hydrateExecutionPlan(result.plan);
 
     if (result.success) {
@@ -295,6 +361,11 @@ export class Coordinator {
           agentId: agent.id,
           provider: agent.provider,
         });
+      }
+
+      // Broadcast task completion to room peers so they can pick up context
+      if (room) {
+        this.mailbox.broadcastToRoom(agent.id, room.id, room.agentIds, `I finished "${task.title}": ${result.output.slice(0, 200)}`, 'inform', taskId);
       }
     } else {
       this.updateTask(taskId, { status: 'failed', output: result.output, progress: this.progressForStatus('failed') });
@@ -526,6 +597,7 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
+    this.mailbox.clear();
     this.store.save(this.snapshot);
   }
 
@@ -735,6 +807,10 @@ export class Coordinator {
           output: dep.output ?? '',
         } satisfies HandoffPacket;
       });
+  }
+
+  private agentNameById(agentId: string): string {
+    return this.snapshot.agents.find((a) => a.id === agentId)?.name ?? agentId;
   }
 
   /**

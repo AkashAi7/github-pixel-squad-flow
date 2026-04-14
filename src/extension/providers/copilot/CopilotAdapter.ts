@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import type { HandoffPacket, PersonaTemplate, ProviderHealth, ProposedFileEdit, ProposedTerminalCommand, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../../shared/model/index.js';
-import type { ExecutionResult, PlanningResult, ProviderAdapter } from '../types.js';
+import type { AgentMessage, HandoffPacket, PersonaTemplate, ProviderHealth, ProposedFileEdit, ProposedTerminalCommand, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../../shared/model/index.js';
+import type { ExecutionResult, OutgoingAgentMessage, PlanningResult, ProviderAdapter } from '../types.js';
 import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments } from '../planningHints.js';
 
 export class CopilotAdapter implements ProviderAdapter {
@@ -83,6 +83,7 @@ export class CopilotAdapter implements ProviderAdapter {
     token?: vscode.CancellationToken,
     room?: Room,
     handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
   ): Promise<ExecutionResult> {
     const resolvedModel = model ?? (await this.pickModel());
     if (!resolvedModel) {
@@ -99,11 +100,13 @@ export class CopilotAdapter implements ProviderAdapter {
         `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
         `Your role: ${persona.title}.`,
         'Return valid JSON only with this exact shape:',
-        '{"summary":"string","output":"string","fileEdits":[{"filePath":"relative/path","action":"create|replace","summary":"string","content":"full file content"}],"terminalCommands":[{"command":"string","summary":"string"}],"tests":["string"],"notes":["string"]}',
+        '{"summary":"string","output":"string","fileEdits":[{"filePath":"relative/path","action":"create|replace","summary":"string","content":"full file content"}],"terminalCommands":[{"command":"string","summary":"string"}],"tests":["string"],"notes":["string"],"agentMessages":[{"toAgentId":"string","content":"string"}],"done":true}',
         'Use only workspace-relative paths for fileEdits.',
         'fileEdits should contain at most 3 items and only when you are confident.',
         'If you are changing an existing file, return the full replacement content.',
         'If no file change is appropriate, return an empty array.',
+        'agentMessages: optional array of messages to send to other agents in your room. Use this to request help, share findings, or coordinate work. Set toAgentId to the target agent ID.',
+        'done: set to true when your work is complete. Set to false if you need to wait for a reply from another agent.',
       ];
 
       // Room context
@@ -123,6 +126,15 @@ export class CopilotAdapter implements ProviderAdapter {
           if (packet.output) { promptLines.push(`Output: ${packet.output.slice(0, 500)}`); }
         }
         promptLines.push('--- End handoff ---');
+      }
+
+      // Inbox messages from other agents
+      if (inboxMessages && inboxMessages.length > 0) {
+        promptLines.push('--- Messages from other agents ---');
+        for (const msg of inboxMessages) {
+          promptLines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${msg.content}`);
+        }
+        promptLines.push('--- End messages ---');
       }
 
       promptLines.push(
@@ -157,7 +169,13 @@ export class CopilotAdapter implements ProviderAdapter {
       };
 
       const parsed = this.parseExecutionPlan(text);
-      return { output: parsed.output, success: true, plan: parsed.plan };
+      return {
+        output: parsed.output,
+        success: true,
+        plan: parsed.plan,
+        outgoingMessages: parsed.outgoingMessages,
+        done: parsed.done,
+      };
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Unknown error';
       return {
@@ -236,7 +254,7 @@ export class CopilotAdapter implements ProviderAdapter {
     };
   }
 
-  private parseExecutionPlan(text: string): { output: string; plan: TaskExecutionPlan } {
+  private parseExecutionPlan(text: string): { output: string; plan: TaskExecutionPlan; outgoingMessages?: OutgoingAgentMessage[]; done: boolean } {
     const normalized = text.trim().replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
     const raw = JSON.parse(normalized) as {
       summary?: string;
@@ -245,6 +263,8 @@ export class CopilotAdapter implements ProviderAdapter {
       terminalCommands?: ProposedTerminalCommand[];
       tests?: string[];
       notes?: string[];
+      agentMessages?: Array<{ toAgentId?: string; content?: string; type?: string }>;
+      done?: boolean;
     };
 
     const plan: TaskExecutionPlan = {
@@ -256,9 +276,15 @@ export class CopilotAdapter implements ProviderAdapter {
       notes: (raw.notes ?? []).filter(Boolean).slice(0, 8),
     };
 
+    const outgoingMessages: OutgoingAgentMessage[] = (raw.agentMessages ?? [])
+      .filter((m) => m.toAgentId && m.content)
+      .map((m) => ({ toAgentId: m.toAgentId!, content: m.content!, type: (m.type as OutgoingAgentMessage['type']) }));
+
     return {
       output: raw.output?.trim() || plan.summary,
       plan,
+      outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
+      done: raw.done !== false,
     };
   }
 

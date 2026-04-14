@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.7
+
+- Add **agent mailbox system**: each agent gets an in-memory inbox; the Coordinator runs a multi-turn execution loop (up to 3 turns) where agents check for incoming messages between LM calls and can send messages to other agents in their room.
+- Add **`AgentMessage` model type** with `AgentMessageType` (`request` | `inform` | `query` | `response`) for structured inter-agent communication.
+- Add **`AgentMailbox` class** (`send`, `drain`, `peek`, `broadcastToRoom`, `clear`) for routing messages between agents.
+- Add **`AgentChatMessage` protocol message** so the webview receives real-time agent-to-agent chatter.
+- Add **`agentChatBus`** on the Coordinator and wire it through to the webview via `PixelSquadViewProvider`.
+- Add **`agent-chat` activity category** so inter-agent messages appear in the Activity Feed with a dedicated filter.
+- Extend **`ExecutionResult`** with `outgoingMessages` and `done` fields for multi-turn support.
+- Update **Copilot and Claude adapters** to accept `inboxMessages`, inject them into prompts, and parse `agentMessages`/`done` from LM JSON responses.
+- On task completion, **broadcast a summary** to all room peers via the mailbox so co-located agents gain context.
+
 ## 0.1.6
 
 - Add **task handoff system**: completed predecessor tasks automatically generate `HandoffPacket` objects that carry summary, files changed, commands run, tests, and open issues to downstream tasks, giving continuity across the agent chain.

@@ -1,4 +1,4 @@
-import type { HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../shared/model/index.js';
+import type { AgentMessage, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../shared/model/index.js';
 
 export interface PersonaAssignment {
   personaId: string;
@@ -16,10 +16,21 @@ export interface PlanningResult {
   providerDetail: string;
 }
 
+/** A single outgoing message the LM wants to send to another agent. */
+export interface OutgoingAgentMessage {
+  toAgentId: string;
+  content: string;
+  type?: AgentMessage['type'];
+}
+
 export interface ExecutionResult {
   output: string;
   success: boolean;
   plan?: TaskExecutionPlan;
+  /** Messages the agent wants to send to other agents (parsed from LM response). */
+  outgoingMessages?: OutgoingAgentMessage[];
+  /** When true the agent considers this turn its final answer. Defaults to true for backwards compat. */
+  done?: boolean;
 }
 
 export interface ProviderAdapter {
@@ -41,5 +52,6 @@ export interface ProviderAdapter {
     token?: import('vscode').CancellationToken,
     room?: Room,
     handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
   ): Promise<ExecutionResult>;
 }

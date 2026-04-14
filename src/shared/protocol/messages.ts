@@ -1,4 +1,4 @@
-import type { ActivityEntry, CustomPersonaDraft, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
+import type { ActivityEntry, AgentMessage, CustomPersonaDraft, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
 
 export interface WebviewReadyMessage {
   type: 'webviewReady';
@@ -96,4 +96,15 @@ export interface TaskOutputMessage {
   output: string;
 }
 
-export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage;
+export interface AssignAckMessage {
+  type: 'assignAck';
+  agentId: string;
+  taskId: string;
+}
+
+export interface AgentChatMessage {
+  type: 'agentChat';
+  message: AgentMessage;
+}
+
+export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage;

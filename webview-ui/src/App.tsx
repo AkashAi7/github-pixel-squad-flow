@@ -15,7 +15,7 @@ const vscode = typeof acquireVsCodeApi === 'function'
   : { postMessage: (_message: unknown) => undefined };
 
 const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
-const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'provider', 'system'];
+const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'agent-chat', 'provider', 'system'];
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -284,6 +284,10 @@ function App() {
         setIsAssigning(false);
       }
 
+      if (event.data.type === 'assignAck') {
+        setIsAssigning(false);
+      }
+
       if (event.data.type === 'activity') {
         const nextActivity = normalizeActivityEntry(event.data.activity ?? event.data.message, 0);
         setActivity((current) => [nextActivity, ...current].slice(0, 20));
@@ -291,6 +295,11 @@ function App() {
 
       if (event.data.type === 'taskOutput') {
         setExpandedTaskId(event.data.taskId);
+      }
+
+      if (event.data.type === 'agentChat') {
+        // Agent-to-agent messages are also logged via activity feed ('agent-chat' category).
+        // This handler can be extended for a dedicated chat panel in the future.
       }
     };
 
