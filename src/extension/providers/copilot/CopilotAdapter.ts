@@ -256,7 +256,7 @@ export class CopilotAdapter implements ProviderAdapter {
 
   private parseExecutionPlan(text: string): { output: string; plan: TaskExecutionPlan; outgoingMessages?: OutgoingAgentMessage[]; done: boolean } {
     const normalized = text.trim().replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-    const raw = JSON.parse(normalized) as {
+    type RawPlan = {
       summary?: string;
       output?: string;
       fileEdits?: ProposedFileEdit[];
@@ -266,6 +266,24 @@ export class CopilotAdapter implements ProviderAdapter {
       agentMessages?: Array<{ toAgentId?: string; content?: string; type?: string }>;
       done?: boolean;
     };
+    let raw: RawPlan;
+    try {
+      raw = JSON.parse(normalized) as RawPlan;
+    } catch {
+      // Model returned prose instead of JSON (e.g. "I need to ...") — surface it gracefully
+      return {
+        output: normalized.slice(0, 400) || 'Model returned a non-JSON response.',
+        plan: {
+          summary: 'Model returned a non-JSON response. Review the output in notes.',
+          fileEdits: [],
+          terminalCommands: [],
+          commandResults: [],
+          tests: [],
+          notes: [normalized.slice(0, 800) || 'No output captured.'],
+        },
+        done: true,
+      };
+    }
 
     const plan: TaskExecutionPlan = {
       summary: raw.summary?.trim() || 'Execution plan prepared for review.',

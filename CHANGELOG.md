@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.15
+
+- **Fix: prose response no longer crashes task execution** — when Claude or Copilot returns plain English instead of a JSON execution plan (e.g. `"I need to ..."` due to context limits or a refusal), the adapter now catches the parse error gracefully and surfaces the model's text in the task notes instead of failing with `Unexpected token 'I' is not valid JSON`. Tasks complete with `done: true` so the factory never gets stuck.
+
 ## 0.1.14
 
 - **Parallel agent execution**: Tasks no longer chain sequentially by default. Previously every task after the first was given an implicit dependency on its predecessor, causing agents to queue even when their work was fully independent. Now only planner-declared `dependsOnPersonaIds` create real dependencies — independent subtasks run concurrently across all 6 scheduler slots.
