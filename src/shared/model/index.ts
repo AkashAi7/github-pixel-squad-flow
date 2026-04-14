@@ -126,6 +126,8 @@ export interface TaskCard {
   executionPlan?: TaskExecutionPlan;
   approvalState?: ApprovalState;
   handoffPackets?: HandoffPacket[];
+  /** Groups tasks created in the same planning call so completion can be batched. */
+  batchId?: string;
   createdAt?: number;
   updatedAt?: number;
 }

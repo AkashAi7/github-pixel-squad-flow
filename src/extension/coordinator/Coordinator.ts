@@ -92,6 +92,7 @@ export class Coordinator {
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
     const createdAt = Date.now();
+    const batchId = this.makeId('batch');
     const stagedTaskIds = plan.assignments.map(() => this.makeId('task'));
     const personaTaskMap = new Map<string, string>();
 
@@ -129,6 +130,7 @@ export class Coordinator {
         requiredSkillIds: assignment.requiredSkillIds ?? [],
         workspaceContext,
         progress: this.progressForStatus(index === 0 ? 'active' : 'queued', assignment.progressLabel),
+        batchId,
         createdAt,
         updatedAt: createdAt,
       });
@@ -446,6 +448,14 @@ export class Coordinator {
     this.scheduler.finish(taskId);
     this.taskOutputBus.publish({ type: 'taskOutput', taskId, output: result.output });
     this.store.save(this.snapshot);
+
+    // Status bar flash — instant feedback for every completion
+    if (result.success) {
+      vscode.window.setStatusBarMessage(`$(check) ${agent.name} finished "${task.title}"`, 5000);
+    }
+
+    // Batch completion notification — fire once when ALL tasks in the batch are done
+    this.notifyBatchCompletionIfReady(task);
 
     // Auto-promote downstream tasks whose dependencies are now met
     this.promoteReadyTasks();
@@ -886,6 +896,50 @@ export class Coordinator {
 
   private agentNameById(agentId: string): string {
     return this.snapshot.agents.find((a) => a.id === agentId)?.name ?? agentId;
+  }
+
+  /**
+   * Fire a VS Code information notification once when every task in the same
+   * batch (same batchId) has reached 'done' or 'failed'. Only fires once per
+   * batch to avoid spamming the user.
+   */
+  private notifyBatchCompletionIfReady(completedTask: TaskCard): void {
+    const batchId = completedTask.batchId;
+    if (!batchId) {
+      return;
+    }
+
+    const batchTasks = this.snapshot.tasks.filter((t) => t.batchId === batchId);
+    if (batchTasks.length === 0) {
+      return;
+    }
+
+    const allSettled = batchTasks.every((t) => t.status === 'done' || t.status === 'failed' || t.status === 'review');
+    if (!allSettled) {
+      return;
+    }
+
+    const doneCount = batchTasks.filter((t) => t.status === 'done').length;
+    const failedCount = batchTasks.filter((t) => t.status === 'failed').length;
+    const reviewCount = batchTasks.filter((t) => t.status === 'review').length;
+
+    const parts = [
+      doneCount > 0 ? `${doneCount} done` : '',
+      reviewCount > 0 ? `${reviewCount} needs review` : '',
+      failedCount > 0 ? `${failedCount} failed` : '',
+    ].filter(Boolean).join(' · ');
+
+    const label = failedCount === 0 && reviewCount === 0 ? '$(check-all) Pixel Squad' : '$(warning) Pixel Squad';
+    const btnLabel = reviewCount > 0 ? 'Open Panel' : undefined;
+
+    void vscode.window.showInformationMessage(
+      `${label}: all ${batchTasks.length} agent task(s) settled — ${parts}.`,
+      ...(btnLabel ? [btnLabel] : []),
+    ).then((selection) => {
+      if (selection === 'Open Panel') {
+        void vscode.commands.executeCommand('pixelSquad.openInEditor');
+      }
+    });
   }
 
   /**

@@ -67,14 +67,13 @@ export function enrichAssignments(
   const personaIds = new Set(personas.map((persona) => persona.id));
   const personaMap = new Map(personas.map((persona) => [persona.id, persona]));
 
-  return assignments.slice(0, 3).map((assignment, index) => {
+  return assignments.slice(0, 3).map((assignment, _index) => {
     const persona = personaMap.get(assignment.personaId);
-    const dependencyIds = unique((assignment.dependsOnPersonaIds ?? []).filter((value) => value !== assignment.personaId && personaIds.has(value)));
-    const normalizedDependencies = dependencyIds.length > 0
-      ? dependencyIds
-      : index > 0
-        ? [assignments[index - 1].personaId]
-        : [];
+    // Only use explicit deps supplied by the planner — never infer sequential chaining
+    // from position. Tasks with no stated dependencies are free to run in parallel.
+    const normalizedDependencies = unique(
+      (assignment.dependsOnPersonaIds ?? []).filter((value) => value !== assignment.personaId && personaIds.has(value))
+    );
 
     const normalizedSkillIds = unique(
       (assignment.requiredSkillIds ?? []).filter((skillId) => personaSkillIds(persona ?? { id: '', title: '', specialty: '', color: '' }).includes(skillId))
@@ -119,12 +118,64 @@ export function createDeterministicAssignments(prompt: string, personas: Persona
   return enrichAssignments(assignments.slice(0, 3), personas, prompt);
 }
 
-function defaultProgressLabel(index: number): string {
-  if (index === 0) {
-    return 'Ready to start';
+/**
+ * Returns a single-assignment fast-route plan when the prompt clearly maps to
+ * one persona with high keyword confidence, eliminating the LLM planning call.
+ *
+ * Returns undefined when the prompt is ambiguous or multi-domain (caller should
+ * fall through to the LLM planner).
+ */
+export function tryFastRoute(prompt: string, personas: PersonaTemplate[]): PersonaAssignment[] | undefined {
+  const lower = prompt.toLowerCase();
+
+  const FAST_ROUTE_BINS: Array<{ personaId: string; keywords: string[]; title: string; detail: string }> = [
+    {
+      personaId: 'tester',
+      keywords: ['test', 'regression', 'qa', 'verify', 'validation', 'spec', 'coverage', 'failing test'],
+      title: 'Validate and test',
+      detail: prompt,
+    },
+    {
+      personaId: 'devops',
+      keywords: ['deploy', 'ci', 'pipeline', 'infra', 'docker', 'release', 'workflow', 'yml', 'yaml', 'github action'],
+      title: 'DevOps task',
+      detail: prompt,
+    },
+    {
+      personaId: 'designer',
+      keywords: ['design', 'ux', 'wireframe', 'mockup', 'journey', 'copy', 'typography', 'visual'],
+      title: 'Design task',
+      detail: prompt,
+    },
+  ];
+
+  // Count domain hits across bins
+  const hits = FAST_ROUTE_BINS.map((bin) => ({
+    bin,
+    score: bin.keywords.filter((kw) => lower.includes(kw)).length,
+  })).filter((h) => h.score > 0);
+
+  // Only fast-route when exactly one domain wins with score >= 2 (clear unambiguous match)
+  if (hits.length !== 1 || hits[0].score < 2) {
+    return undefined;
   }
-  if (index === 1) {
-    return 'Waiting on prior task';
+
+  const winner = hits[0].bin;
+  const persona = personas.find((p) => p.id === winner.personaId);
+  if (!persona) {
+    return undefined;
   }
-  return 'Queued behind dependencies';
+
+  return [{
+    personaId: winner.personaId,
+    title: winner.title,
+    detail: winner.detail,
+    dependsOnPersonaIds: [],
+    requiredSkillIds: inferRequiredSkillIds(persona, prompt, winner.title, winner.detail),
+    progressLabel: 'Ready to start',
+  }];
+}
+
+function defaultProgressLabel(_index: number): string {
+  return 'Ready to start';
 }

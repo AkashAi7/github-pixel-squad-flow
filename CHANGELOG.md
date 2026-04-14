@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.17] — 2026-04-14
+### Fixed
+- **Parallel execution root cause**: `enrichAssignments` was injecting a sequential `dependsOnPersonaIds` fallback (`index > 0 ? [prev] : []`) even when the LLM returned no dependencies. Tasks now run in parallel by default unless the planner explicitly declares ordering.
+- **Progress label**: Removed hard-coded "Waiting on prior task" for index-1 assignments — all undeclared-dep tasks now show "Ready to start".
+### Added
+- **Fast-path routing**: Prompts that clearly match a single persona with ≥2 keyword hits (`tester`, `devops`, `designer`) skip the LLM planning call entirely — zero-latency routing.
+- **Slim planning prompt**: Removed file contents and git status from the planning prompt (kept only branch + active file). Routing decisions don't need full file context — shorter prompt = faster LLM response.
+- **VS Code status bar flash**: `$(check) <AgentName> finished "<task>"` appears for 5 seconds after every task completes.
+- **Batch completion notification**: When all tasks from the same planning call reach `done`/`review`/`failed`, a single VS Code info toast fires with a count summary and an "Open Panel" button.
+- **Webview done flash**: Completed task cards pulse with a green glow animation (`done-flash` keyframe) so the user sees completion immediately in the panel.
+- **`batchId` on `TaskCard`**: Tasks from the same `createTask()` call share a `batchId` enabling the batch-complete notification.
+
 ## 0.1.16
 
 - **Fix: `Cannot access 'dependencyIds' before initialization`** — `dependencyIds` was declared after it was referenced (temporal dead zone bug introduced in v0.1.14). Moved the declaration above the `refreshedAgent` block so the variable is always initialized before use. `@pixelSquad` routing no longer crashes immediately on every task.

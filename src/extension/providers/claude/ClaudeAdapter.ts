@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import type { AgentMessage, HandoffPacket, PersonaTemplate, ProviderHealth, ProposedFileEdit, ProposedTerminalCommand, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../../shared/model/index.js';
 import type { ExecutionResult, OutgoingAgentMessage, PlanningResult, ProviderAdapter } from '../types.js';
-import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments } from '../planningHints.js';
+import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments, tryFastRoute } from '../planningHints.js';
 
 /**
  * Claude adapter — tries vscode.lm models with vendor/family containing "claude"
@@ -27,6 +27,18 @@ export class ClaudeAdapter implements ProviderAdapter {
     model?: vscode.LanguageModelChat,
     token?: vscode.CancellationToken,
   ): Promise<PlanningResult> {
+    // Fast path: skip LLM for clearly single-domain tasks (zero network latency)
+    const fastAssignments = tryFastRoute(prompt, personas);
+    if (fastAssignments) {
+      this.lastHealth = { provider: 'claude', state: 'ready', detail: 'Fast-routed via keyword match (no LLM call).' };
+      return {
+        title: prompt.length > 72 ? `${prompt.slice(0, 69)}...` : prompt,
+        summary: 'Pixel Squad fast-routed this task to the best-matched agent without a planning call.',
+        assignments: fastAssignments,
+        providerDetail: this.lastHealth.detail,
+      };
+    }
+
     const resolvedModel = model ?? (await this.pickModel());
     if (!resolvedModel) {
       this.lastHealth = {
@@ -195,23 +207,21 @@ export class ClaudeAdapter implements ProviderAdapter {
   }
 
   private buildPrompt(prompt: string, personas: PersonaTemplate[], workspaceContext: WorkspaceContext): string {
+    // Keep planning prompts lean — routing doesn't need full file content.
+    const contextHints = [
+      workspaceContext.branch ? `branch: ${workspaceContext.branch}` : '',
+      workspaceContext.activeFile ? `active file: ${workspaceContext.activeFile}` : '',
+    ].filter(Boolean).join(', ');
+
     return [
       'You are Pixel Squad, a routing planner for a multi-agent software factory.',
-      'Return valid JSON only with this exact shape:',
+      'Return valid JSON only — no markdown fences, no commentary:',
       '{"title":"string","summary":"string","assignments":[{"personaId":"string","title":"string","detail":"string","dependsOnPersonaIds":["string"],"requiredSkillIds":["string"],"progressLabel":"string"}]}',
-      'Do not include markdown fences or commentary.',
-      `Available personas: ${describePersonasForPrompt(personas)}.`,
-      `Workspace branch: ${workspaceContext.branch || 'unknown'}.`,
-      `Active file: ${workspaceContext.activeFile || 'none'}.`,
-      `Selected text: ${workspaceContext.selectedText || 'none'}.`,
-      `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}.`,
-      `Relevant files:\n${this.describeRelevantFiles(workspaceContext)}`,
-      'Use 1 to 3 assignments max. Prefer concrete software implementation tasks.',
-      'If one assignment must happen after another, populate dependsOnPersonaIds with the personaId it depends on.',
-      'Choose requiredSkillIds only from the listed persona skills.',
-      'Set progressLabel to a short stage summary such as Ready to start, Waiting on prior task, or Review ready.',
-      `User task: ${prompt}`,
-    ].join(' ');
+      `Personas: ${describePersonasForPrompt(personas)}.`,
+      contextHints ? `Context: ${contextHints}.` : '',
+      'Rules: Use 1 assignment for a single-domain task. Use 2-3 only when the work genuinely spans independent components. Tasks without stated ordering can run in parallel — only populate dependsOnPersonaIds when task B truly cannot start until task A is done.',
+      `Task: ${prompt}`,
+    ].filter(Boolean).join(' ');
   }
 
   private parsePlan(text: string, personas: PersonaTemplate[]): PlanningResult {

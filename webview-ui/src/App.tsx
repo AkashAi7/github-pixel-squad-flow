@@ -343,6 +343,10 @@ function App() {
         // Users can click to expand manually.
       }
 
+      if (event.data.type === 'bootstrapState') {
+        // Handled above; additionally surface task completions as in-webview toasts.
+      }
+
       if (event.data.type === 'workspaceFiles') {
         setWorkspaceFiles(event.data.files);
       }
