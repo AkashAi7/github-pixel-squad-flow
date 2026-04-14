@@ -196,7 +196,7 @@ function RoomStage({
 }: RoomStageProps) {
   const [motions, setMotions] = useState<Record<string, AgentMotion>>({});
   const tickRef = useRef(0);
-  const agentSignature = roomAgents.map((agent) => `${agent.id}:${agent.status}:${agent.level}`).join('|');
+  const agentSignature = roomAgents.map((agent) => `${agent.id}:${agent.status}`).join('|');
   const taskMap = useMemo(
     () => new Map(tasks.filter((task) => task.status === 'active' || task.status === 'queued').map((task) => [task.assigneeId, task])),
     [tasks],
@@ -267,7 +267,7 @@ function RoomStage({
               </span>
               <span className="pixel-agent__caption">
                 <span className="pixel-agent__label">{agent.name}</span>
-                <span className="pixel-agent__meta">Lv.{agent.level} · {mood.label}</span>
+                <span className="pixel-agent__meta">{mood.label}</span>
               </span>
             </button>
             <button
@@ -313,10 +313,17 @@ export function FactoryBoard({
       <div className="factory-board__grid">
         {rooms.map((room) => {
           const roomAgents = agents.filter((a) => a.roomId === room.id);
+          const roomActiveTasks = tasks.filter((task) => {
+            const assignee = agents.find((agent) => agent.id === task.assigneeId);
+            return assignee?.roomId === room.id && (task.status === 'active' || task.status === 'queued' || task.status === 'review');
+          }).length;
+          const roomBusyAgents = roomAgents.filter((agent) => agent.status !== 'idle' && agent.status !== 'completed').length;
+          const roomHasSelection = roomAgents.some((agent) => agent.id === selectedAgentId);
+          const roomHasLiveWork = roomActiveTasks > 0 || roomBusyAgents > 0;
           return (
             <article
               key={room.id}
-              className="factory-room"
+              className={`factory-room${roomHasSelection ? ' factory-room--selected' : ''}${roomHasLiveWork ? ' factory-room--live' : ''}`}
               style={{
                 ['--room-color' as string]: room.color,
                 background: THEME_FLOORS[room.theme] ?? THEME_FLOORS.general,
@@ -327,6 +334,9 @@ export function FactoryBoard({
                   <strong>{room.name}</strong>
                   <span className="factory-room__theme">{room.theme}</span>
                 </div>
+                <span className={`factory-room__state${roomHasLiveWork ? ' factory-room__state--live' : ''}`}>
+                  {roomHasLiveWork ? 'Live' : 'Ready'}
+                </span>
                 <div className="factory-room__actions">
                   <button
                     type="button"
@@ -347,6 +357,11 @@ export function FactoryBoard({
                 </div>
               </header>
               <p className="factory-room__purpose">{room.purpose}</p>
+              <div className="factory-room__metrics">
+                <span className="factory-room__metric">{roomAgents.length} agents</span>
+                <span className="factory-room__metric">{roomBusyAgents} busy</span>
+                <span className="factory-room__metric">{roomActiveTasks} queued</span>
+              </div>
               <RoomStage
                 room={room}
                 roomAgents={roomAgents}

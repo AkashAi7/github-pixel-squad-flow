@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { ActivityEntry, ActivityCategory, CommandExecutionResult, HandoffPacket, ProposedFileEdit, Provider, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskStatus, WorkspaceSnapshot } from '../../src/shared/model/index.js';
-import { AGENT_MOOD, xpForLevel } from '../../src/shared/model/index.js';
+import { AGENT_MOOD } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
@@ -16,6 +16,7 @@ const vscode = typeof acquireVsCodeApi === 'function'
 
 const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
 const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'agent-chat', 'provider', 'system'];
+type WorkspaceView = 'factory' | 'rooms' | 'tasks' | 'activity';
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -68,6 +69,26 @@ function formatActivityTime(timestamp: number): string {
     hour: 'numeric',
     minute: '2-digit',
   }).format(timestamp);
+}
+
+function isCardActivation(event: React.KeyboardEvent<HTMLElement>): boolean {
+  return event.key === 'Enter' || event.key === ' ';
+}
+
+function activityCategoryMeta(category: ActivityCategory): { icon: string; label: string } {
+  switch (category) {
+    case 'task':
+      return { icon: '✓', label: 'Task' };
+    case 'agent':
+      return { icon: '◉', label: 'Agent' };
+    case 'agent-chat':
+      return { icon: '…', label: 'Chat' };
+    case 'provider':
+      return { icon: '⚙', label: 'Provider' };
+    case 'system':
+    default:
+      return { icon: '•', label: 'System' };
+  }
 }
 
 function agentActions(agent: SquadAgent): Array<{ label: string; action: string }> {
@@ -270,6 +291,7 @@ function App() {
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
+  const [activeView, setActiveView] = useState<WorkspaceView>('factory');
   const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room'>('status');
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
@@ -420,8 +442,23 @@ function App() {
     claude: snapshot.agents.filter((a) => a.provider === 'claude').length,
   };
 
+  const selectedAgentTasks = selectedAgent
+    ? snapshot.tasks.filter((task) => task.assigneeId === selectedAgent.id)
+    : [];
+
+  const selectedAgentFocusTask = selectedAgentTasks.find((task) => task.status === 'active')
+    ?? selectedAgentTasks.find((task) => task.status === 'queued' || task.status === 'review')
+    ?? selectedAgentTasks[0]
+    ?? null;
+
+  const handleSelectAgent = (agentId: string) => {
+    setSelectedAgentId(agentId);
+    setActiveView('factory');
+    vscode.postMessage({ type: 'showAgent', agentId });
+  };
+
   return (
-    <main className="shell">
+    <main className="shell shell--activitybar">
       {/* ─── Dialogs ─── */}
       {showCreateRoom && (
         <CreateRoomDialog
@@ -446,14 +483,22 @@ function App() {
       )}
 
       {/* ─── Hero ─── */}
-      <section className="hero-panel">
-        <div>
-          <p className="eyebrow">Agent Factory · Copilot + Claude</p>
-          <h1>{snapshot.projectName}</h1>
-          <p className="hero-copy">
-            Create rooms, spawn pixel agents, and orchestrate your squad across
-            GitHub Copilot and Claude — all inside VS Code.
-          </p>
+      <section className="hero-panel hero-panel--activitybar">
+        <div className="hero-panel__header">
+          <div className="hero-panel__titleblock">
+            <p className="eyebrow">Agent Factory · Copilot + Claude</p>
+            <h1>{snapshot.projectName}</h1>
+            <p className="hero-copy">
+              Route work, inspect agents, and steer the squad from a tighter activity-bar control surface.
+            </p>
+          </div>
+          <div className="hero-panel__summary">
+            <span className="hero-summary-pill">{snapshot.rooms.length} rooms</span>
+            <span className="hero-summary-pill">{snapshot.agents.length} agents</span>
+            <span className="hero-summary-pill">{stats.active} running</span>
+          </div>
+        </div>
+        <div className="hero-panel__body">
           <div className="stats-bar">
             <span className="stat">{stats.total} tasks</span>
             <span className="stat stat--active">{stats.active} active</span>
@@ -461,6 +506,28 @@ function App() {
             {stats.failed > 0 && <span className="stat stat--failed">{stats.failed} failed</span>}
             <span className="stat stat--copilot">⚡ {stats.copilot} copilot</span>
             <span className="stat stat--claude">🧠 {stats.claude} claude</span>
+            <button
+              type="button"
+              className={`stat-toggle${snapshot.settings.autoExecute ? ' stat-toggle--on' : ''}`}
+              onClick={() => vscode.postMessage({ type: 'toggleAutoExecute' })}
+              title="Toggle automatic task execution and auto-apply behavior"
+            >
+              Auto-execute: {snapshot.settings.autoExecute ? 'On' : 'Off'}
+            </button>
+          </div>
+          <div className="provider-strip provider-strip--compact">
+            {snapshot.providers.map((provider) => (
+              <article key={provider.provider} className={`provider-chip provider-chip--compact provider-chip--${provider.state}`}>
+                <span className="provider-chip__icon">
+                  {provider.provider === 'copilot' ? '⚡' : '🧠'}
+                </span>
+                <div className="provider-chip__content">
+                  <strong>{provider.provider}</strong>
+                  <p>{provider.detail}</p>
+                </div>
+                <span className="provider-chip__state">{provider.state}</span>
+              </article>
+            ))}
           </div>
           <div className="task-composer">
             <label className="composer-label" htmlFor="task-prompt">Route a new task</label>
@@ -504,55 +571,64 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="provider-strip">
-          {snapshot.providers.map((provider) => (
-            <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
-              <span className="provider-chip__icon">
-                {provider.provider === 'copilot' ? '⚡' : '🧠'}
-              </span>
-              <span>{provider.provider}</span>
-              <strong>{provider.state}</strong>
-              <p>{provider.detail}</p>
-            </article>
-          ))}
+      </section>
+
+      <section className="workspace-nav panel">
+        <div className="workspace-nav__header">
+          <p className="eyebrow">Workspace Views</p>
+          <span className="workspace-nav__hint">Factory control, roster, queue, and feed.</span>
+        </div>
+        <div className="workspace-nav__tabs">
+          <button
+            type="button"
+            className={`workspace-nav__tab${activeView === 'factory' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('factory')}
+          >
+            <span>Factory</span>
+            <strong>{snapshot.agents.length}</strong>
+          </button>
+          <button
+            type="button"
+            className={`workspace-nav__tab${activeView === 'rooms' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('rooms')}
+          >
+            <span>Rooms</span>
+            <strong>{snapshot.rooms.length}</strong>
+          </button>
+          <button
+            type="button"
+            className={`workspace-nav__tab${activeView === 'tasks' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('tasks')}
+          >
+            <span>Tasks</span>
+            <strong>{stats.total}</strong>
+          </button>
+          <button
+            type="button"
+            className={`workspace-nav__tab${activeView === 'activity' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('activity')}
+          >
+            <span>Feed</span>
+            <strong>{filteredActivity.length}</strong>
+          </button>
         </div>
       </section>
 
-      {/* ─── Factory Board ─── */}
-      <FactoryBoard
-        rooms={snapshot.rooms}
-        agents={snapshot.agents}
-        personas={snapshot.personas}
-        tasks={snapshot.tasks}
-        selectedAgentId={selectedAgentId}
-        onSelectAgent={(agentId) => {
-          setSelectedAgentId(agentId);
-          vscode.postMessage({ type: 'showAgent', agentId });
-        }}
-        onSpawnAgent={(roomId) => setSpawnRoomId(roomId)}
-        onDeleteRoom={(roomId) => vscode.postMessage({ type: 'deleteRoom', roomId })}
-        onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
-      />
+      {activeView === 'factory' ? (
+        <section className="workspace-stack">
+          <FactoryBoard
+            rooms={snapshot.rooms}
+            agents={snapshot.agents}
+            personas={snapshot.personas}
+            tasks={snapshot.tasks}
+            selectedAgentId={selectedAgentId}
+            onSelectAgent={handleSelectAgent}
+            onSpawnAgent={(roomId) => setSpawnRoomId(roomId)}
+            onDeleteRoom={(roomId) => vscode.postMessage({ type: 'deleteRoom', roomId })}
+            onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
+          />
 
-      {/* ─── Detail Columns ─── */}
-      <section className="layout">
-        <div className="column column--rooms">
-          {snapshot.rooms.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              agents={snapshot.agents.filter((a) => a.roomId === room.id)}
-              personas={snapshot.personas}
-              selectedAgentId={selectedAgentId}
-              onSelectAgent={(agentId) => {
-                setSelectedAgentId(agentId);
-                vscode.postMessage({ type: 'showAgent', agentId });
-              }}
-            />
-          ))}
-        </div>
-
-        <aside className="column column--side">
+          <aside className="column column--side column--stacked">
           {/* Inspector */}
           <section className="panel inspector-panel">
             <p className="eyebrow">Selected Agent</p>
@@ -581,17 +657,6 @@ function App() {
                     ))}
                   </div>
                 ) : null}
-                {/* XP / Level bar */}
-                <div className="inspector-xp">
-                  <span className="inspector-xp__level">Lv.{selectedAgent.level ?? 0}</span>
-                  <div className="inspector-xp__bar">
-                    <div
-                      className="inspector-xp__fill"
-                      style={{ width: `${Math.min(100, Math.round(((selectedAgent.xp ?? 0) / xpForLevel((selectedAgent.level ?? 0) + 1)) * 100))}%` }}
-                    />
-                  </div>
-                  <span className="inspector-xp__text">{selectedAgent.xp ?? 0} / {xpForLevel((selectedAgent.level ?? 0) + 1)} XP</span>
-                </div>
                 <p className="inspector-copy">{selectedAgent.summary}</p>
                 <dl className="facts">
                   <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
@@ -599,6 +664,23 @@ function App() {
                   <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
                   <div><dt>Mood</dt><dd>{AGENT_MOOD[selectedAgent.status].emoji} {AGENT_MOOD[selectedAgent.status].label}</dd></div>
                 </dl>
+                <section className="inspector-spotlight">
+                  <p className="eyebrow">Current Focus</p>
+                  {selectedAgentFocusTask ? (
+                    <div className="inspector-spotlight__card">
+                      <div className="inspector-spotlight__meta">
+                        <span className={`status-badge status-badge--${selectedAgentFocusTask.status}`}>{selectedAgentFocusTask.status}</span>
+                        <span className={`provider-badge provider-badge--${selectedAgentFocusTask.provider}`}>
+                          {selectedAgentFocusTask.provider === 'copilot' ? '⚡' : '🧠'} {selectedAgentFocusTask.provider}
+                        </span>
+                      </div>
+                      <strong>{selectedAgentFocusTask.title}</strong>
+                      <p>{selectedAgentFocusTask.detail}</p>
+                    </div>
+                  ) : (
+                    <p className="inspector-copy">No active assignment. Use the task box below to give this agent work.</p>
+                  )}
+                </section>
                 <div className="agent-controls">
                   {agentActions(selectedAgent).map(({ label, action }) => (
                     <button
@@ -609,21 +691,28 @@ function App() {
                     >{label}</button>
                   ))}
                 </div>
-                {/* ── Agent Work (tasks assigned to this agent) ── */}
-                <div className="agent-work">
-                  <p className="eyebrow">Agent Work</p>
-                  {(() => {
-                    const agentTasks = snapshot.tasks.filter((t) => t.assigneeId === selectedAgent.id);
-                    if (agentTasks.length === 0) {
-                      return <p className="inspector-copy">No tasks assigned yet.</p>;
-                    }
-                    return (
+                <details className="inspector-section" open={selectedAgentTasks.length > 0}>
+                  <summary>
+                    <span>Agent Work</span>
+                    <strong>{selectedAgentTasks.length}</strong>
+                  </summary>
+                  <div className="agent-work">
+                    {selectedAgentTasks.length === 0 ? <p className="inspector-copy">No tasks assigned yet.</p> : null}
+                    {selectedAgentTasks.length > 0 ? (
                       <div className="agent-work__list">
-                        {agentTasks.map((task) => (
+                        {selectedAgentTasks.map((task) => (
                           <article
                             key={task.id}
                             className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
                             onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                            onKeyDown={(event) => {
+                              if (!isCardActivation(event)) return;
+                              event.preventDefault();
+                              setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={expandedTaskId === task.id}
                           >
                             <div className="agent-work__meta">
                               <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
@@ -669,12 +758,15 @@ function App() {
                           </article>
                         ))}
                       </div>
-                    );
-                  })()}
-                </div>
-                {/* ── Pinned Context Files ── */}
-                <div className="agent-pinned-files">
-                  <p className="eyebrow">Pinned Context Files</p>
+                    ) : null}
+                  </div>
+                </details>
+                <details className="inspector-section">
+                  <summary>
+                    <span>Pinned Context Files</span>
+                    <strong>{(selectedAgent.pinnedFiles ?? []).length}</strong>
+                  </summary>
+                  <div className="agent-pinned-files">
                   {(selectedAgent.pinnedFiles ?? []).length > 0 ? (
                     <div className="pinned-file-list">
                       {(selectedAgent.pinnedFiles ?? []).map((filePath) => (
@@ -759,7 +851,8 @@ function App() {
                       </div>
                     </div>
                   )}
-                </div>
+                  </div>
+                </details>
                 {/* Assign task to this agent */}
                 <div className="assign-task">
                   <label className="composer-label" htmlFor="agent-task-prompt">Assign task to {selectedAgent.name}</label>
@@ -786,11 +879,33 @@ function App() {
                 </div>
               </>
             ) : (
-              <p className="inspector-copy">Pick an agent from a room to inspect it.</p>
+              <p className="inspector-copy">Pick an agent from the factory floor to inspect it.</p>
             )}
           </section>
+          </aside>
+        </section>
+      ) : null}
 
-          {/* Task Wall */}
+      {activeView === 'rooms' ? (
+        <section className="workspace-stack">
+          <div className="column column--rooms column--stacked">
+            {snapshot.rooms.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                agents={snapshot.agents.filter((a) => a.roomId === room.id)}
+                personas={snapshot.personas}
+                selectedAgentId={selectedAgentId}
+                onSelectAgent={handleSelectAgent}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {activeView === 'tasks' ? (
+        <section className="workspace-stack">
+          <aside className="column column--side column--stacked">
           <section className="panel">
             <div className="task-wall__header">
               <div>
@@ -861,6 +976,7 @@ function App() {
                     {group.tasks.map((task) => {
                       const assignee = agentsById.get(task.assigneeId);
                       const persona = assignee ? personas.get(assignee.personaId) : null;
+                      const roomName = assignee ? snapshot.rooms.find((room) => room.id === assignee.roomId)?.name ?? 'No Room' : 'No Room';
                       const dependencyCount = task.dependsOn?.length ?? 0;
                       const progress = task.progress ?? taskProgressForStatus(task.status);
                       const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
@@ -870,6 +986,14 @@ function App() {
                           key={task.id}
                           className={`task-card task-card--${task.status}${expandedTaskId === task.id ? ' task-card--expanded' : ''}`}
                           onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                          onKeyDown={(event) => {
+                            if (!isCardActivation(event)) return;
+                            event.preventDefault();
+                            setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={expandedTaskId === task.id}
                         >
                           <div className="task-meta">
                             <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
@@ -880,8 +1004,14 @@ function App() {
                             {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
                             {task.approvalState ? <span className="task-chip">{task.approvalState}</span> : null}
                           </div>
-                          <h3>{task.title}</h3>
-                          <p>{task.detail}</p>
+                          <div className="task-card__topline">
+                            <div className="task-card__headline">
+                              <h3>{task.title}</h3>
+                              <span className="task-card__room">{roomName}</span>
+                            </div>
+                            <span className="task-card__progress-chip">{progress.label}</span>
+                          </div>
+                          <p className="task-card__detail">{task.detail}</p>
                           <div className="task-card__footer">
                             <div className="task-card__identity">
                               <strong>{assignee?.name ?? 'Unassigned'}</strong>
@@ -990,8 +1120,13 @@ function App() {
               ))}
             </div>
           </section>
+          </aside>
+        </section>
+      ) : null}
 
-          {/* Activity Feed */}
+      {activeView === 'activity' ? (
+        <section className="workspace-stack">
+          <aside className="column column--side column--stacked">
           <section className="panel">
             <div className="task-wall__header">
               <div>
@@ -1008,19 +1143,27 @@ function App() {
               </label>
             </div>
             <ul className="activity-feed">
-              {filteredActivity.map((item) => (
-                <li key={item.id} className={`activity-feed__item activity-feed__item--${item.category}`}>
-                  <div className="activity-feed__meta">
-                    <span className={`activity-badge activity-badge--${item.category}`}>{item.category}</span>
-                    <time>{formatActivityTime(item.timestamp)}</time>
-                  </div>
-                  <p>{item.message}</p>
-                </li>
-              ))}
+              {filteredActivity.length === 0 ? <li className="activity-feed__empty">No activity matches the current filter.</li> : null}
+              {filteredActivity.map((item) => {
+                const meta = activityCategoryMeta(item.category);
+                return (
+                  <li key={item.id} className={`activity-feed__item activity-feed__item--${item.category}`}>
+                    <div className="activity-feed__meta">
+                      <div className="activity-feed__meta-main">
+                        <span className={`activity-badge activity-badge--${item.category}`}>{meta.icon} {meta.label}</span>
+                        <span className="activity-feed__verb">{item.category.replace('-', ' ')}</span>
+                      </div>
+                      <time>{formatActivityTime(item.timestamp)}</time>
+                    </div>
+                    <p>{item.message}</p>
+                  </li>
+                );
+              })}
             </ul>
           </section>
-        </aside>
-      </section>
+          </aside>
+        </section>
+      ) : null}
     </main>
   );
 }

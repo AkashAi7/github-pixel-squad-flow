@@ -126,6 +126,13 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
         const files = await this.coordinator.getWorkspaceFiles();
         this.postMessage({ type: 'workspaceFiles', files });
       }
+
+      if (message.type === 'toggleAutoExecute') {
+        const config = vscode.workspace.getConfiguration('pixelSquad');
+        const current = config.get<boolean>('autoExecute', false);
+        await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
+        this.syncSnapshot();
+      }
     });
   }
 
@@ -159,12 +166,16 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** Return agents list for CLI QuickPick */
-  getAgents(): Array<{ id: string; name: string; status: string; provider: string; persona: string; xp: number; level: number }> {
+  getAgents(): Array<{ id: string; name: string; status: string; provider: string; persona: string }> {
     const snap = this.coordinator.getSnapshot();
     return snap.agents.map((a) => {
       const persona = snap.personas.find((p) => p.id === a.personaId);
-      return { id: a.id, name: a.name, status: a.status, provider: a.provider, persona: persona?.title ?? a.personaId, xp: a.xp ?? 0, level: a.level ?? 0 };
+      return { id: a.id, name: a.name, status: a.status, provider: a.provider, persona: persona?.title ?? a.personaId };
     });
+  }
+
+  refresh(): void {
+    this.syncSnapshot();
   }
 
   /** Assign a task to a specific agent (CLI entry point) */

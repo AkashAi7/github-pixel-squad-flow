@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.9
+
+- Move the Pixel Squad view container from the **bottom panel to the Activity Bar** so the factory board is always one click away as a first-class sidebar.
+- Add **`toggleAutoExecute` menu button** in the panel title bar so users can flip auto-execute on/off without opening settings — also wired as a `ToggleAutoExecuteMessage` from the webview.
+- Fix `autoExecute` default to **`false`** (opt-in) to prevent tasks from being auto-executed on first launch; `getSnapshot()` now injects live VS Code config at read time so settings are always fresh.
+- Remove the **XP / level system** from agents — `xp`, `level`, `xpForLevel`, and `levelFromXp` are gone; the faculty inspector and room stage no longer show `Lv.N` labels or award XP on task completion.
+- Rewrite the **CSS design system** using VS Code theme tokens (`--ps-bg`, `--ps-panel`, `--ps-accent`, `--ps-text`, etc.) and switch from Georgia/serif to the `Segoe UI` system-ui sans-serif stack for native IDE feel.
+- Add **`focus-visible` keyboard-navigation ring** across all interactive elements (buttons, inputs, textareas, selects).
+- Add **room state badges** (`Live` / `Ready`) and a **metrics row** (`N agents · N busy · N queued`) to each room card on the factory board.
+- Rooms with active work receive a `factory-room--live` highlight; the room containing the currently selected agent receives `factory-room--selected`.
+- Upgrade the Activity Feed to render **structured `ActivityEntry` objects** with category icon badges (system / task / agent / provider) and relative timestamps instead of raw strings.
+- Add `refresh()` public method on `PixelSquadViewProvider` so the `toggleAutoExecute` command can push updated state to the webview without a full re-render.
+
 ## 0.1.8
 
 - Add **per-agent pinned context files** so each agent can carry its own curated workspace context between tasks.

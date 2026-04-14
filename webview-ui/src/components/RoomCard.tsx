@@ -10,6 +10,7 @@ interface RoomCardProps {
 
 export function RoomCard({ room, agents, personas, selectedAgentId, onSelectAgent }: RoomCardProps) {
   const personaMap = new Map(personas.map((persona) => [persona.id, persona]));
+  const busyAgents = agents.filter((agent) => agent.status !== 'idle' && agent.status !== 'completed').length;
 
   return (
     <section className="room-card">
@@ -19,7 +20,10 @@ export function RoomCard({ room, agents, personas, selectedAgentId, onSelectAgen
           <h2>{room.name}</h2>
           <p className="room-purpose">{room.purpose}</p>
         </div>
-        <span className="room-count">{agents.length} agents</span>
+        <div className="room-counts">
+          <span className="room-count">{agents.length} agents</span>
+          <span className="room-count room-count--muted">{busyAgents} busy</span>
+        </div>
       </header>
 
       <div className="room-grid">

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Squad Placement Prototypes</title>
+  <link rel="stylesheet" href="./vscode-shell.css" />
+</head>
+<body class="prototype-page">
+  <div class="page-shell">
+    <section class="intro-bar">
+      <div class="intro-copy">
+        <p class="eyebrow">VS Code Accurate Mockups</p>
+        <h1>Pixel Squad placement previews in a VS Code-like shell.</h1>
+        <p>These pages now use the same chrome, spacing, tabs, activity rail, sidebar density, and status bar model so the difference you are evaluating is primarily the placement of the Pixel Squad view, not unrelated UI styling.</p>
+      </div>
+      <div class="toolbar-actions">
+        <a class="primary-link" href="./bottom-panel-prototype.html">Bottom Panel</a>
+        <a class="ghost-link" href="./activitybar-prototype.html">Activity Bar</a>
+        <a class="ghost-link" href="./secondary-sidebar-prototype.html">Secondary Sidebar</a>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <article class="compare-card">
+        <div class="compare-head">
+          <div class="compare-copy">
+            <p class="eyebrow">Option A</p>
+            <h2>Bottom Panel</h2>
+            <p>Matches the current contributed panel model beside Terminal, Problems, and Output.</p>
+          </div>
+          <div class="meta-chip">Current manifest direction</div>
+        </div>
+        <div class="compare-preview">
+          <div class="vscode-window" style="min-height:520px;grid-template-rows:35px auto 1fr 22px;">
+            <div class="titlebar">
+              <div class="window-controls"><span></span><span></span><span></span></div>
+              <div class="command-center">pixeltrial [Administrator]</div>
+              <div class="top-actions"><span></span><span></span><span></span></div>
+            </div>
+            <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+            <div class="workbench layout-basic">
+              <aside class="activitybar"><div class="activity-item">📁</div><div class="activity-item">🔎</div><div class="activity-item">⑂</div><div class="activity-item">🧩</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+              <aside class="sidebar"><div class="pane-title"><span>Explorer</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="tree-group"><div class="tree-item active"><span>Pixel-Squad</span></div><div class="tree-item"><span>src</span></div><div class="tree-item"><span>webview-ui</span></div><div class="tree-item"><span>package.json</span></div></div></div></aside>
+              <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">3</div><div class="code-content">## Table of Contents</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab">Problems</button><button class="panel-tab">Output</button><button class="panel-tab">Terminal</button><button class="panel-tab active">Pixel Squad</button></div><div class="panel-body"><div class="pixel-host"><div class="pixel-topline">Agent Factory · Copilot + Claude</div><div class="pixel-title">Pixel Squad</div><div class="pixel-subtitle">The extension opens as a lower workbench destination and shares space with runtime tooling.</div></div></div></section></main>
+              <aside class="right-pane"><div class="pane-title"><span>Chat</span><div class="actions"><span>+</span></div></div><div class="pane-body"><div class="bubble">Pixel Squad is visible only when this bottom tab is selected.</div></div></aside>
+            </div>
+            <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span></div></div>
+          </div>
+        </div>
+        <div class="cta-row"><a class="primary-link" href="./bottom-panel-prototype.html">Open Bottom Panel Prototype</a></div>
+      </article>
+
+      <article class="compare-card">
+        <div class="compare-head">
+          <div class="compare-copy">
+            <p class="eyebrow">Option B</p>
+            <h2>Activity Bar</h2>
+            <p>Pixel Squad gets a dedicated icon on the primary left rail and takes over the sidebar when selected.</p>
+          </div>
+          <div class="meta-chip">Strongest product fit</div>
+        </div>
+        <div class="compare-preview">
+          <div class="vscode-window" style="min-height:520px;grid-template-rows:35px auto 1fr 22px;">
+            <div class="titlebar"><div class="window-controls"><span></span><span></span><span></span></div><div class="command-center">pixeltrial [Administrator]</div><div class="top-actions"><span></span><span></span><span></span></div></div>
+            <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+            <div class="workbench layout-basic">
+              <aside class="activitybar"><div class="activity-item">📁</div><div class="activity-item">🔎</div><div class="activity-item">⑂</div><div class="activity-item active">🤖</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+              <aside class="sidebar"><div class="pane-title"><span>Pixel Squad</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="side-nav"><button class="view-tab active">Agent Factory</button><button class="view-tab">Rooms</button><button class="view-tab">Providers</button><button class="view-tab">Activity Feed</button></div></div></aside>
+              <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">3</div><div class="code-content">## Table of Contents</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab">Problems</button><button class="panel-tab">Output</button><button class="panel-tab">Terminal</button></div><div class="panel-body"><div class="host-placeholder">Bottom panel remains free for runtime tooling.</div></div></section></main>
+              <aside class="right-pane"><div class="pane-title"><span>Chat</span><div class="actions"><span>+</span></div></div><div class="pane-body"><div class="bubble">Pixel Squad becomes part of the primary navigation model.</div></div></aside>
+            </div>
+            <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span></div></div>
+          </div>
+        </div>
+        <div class="cta-row"><a class="primary-link" href="./activitybar-prototype.html">Open Activity Bar Prototype</a></div>
+      </article>
+
+      <article class="compare-card">
+        <div class="compare-head">
+          <div class="compare-copy">
+            <p class="eyebrow">Option C</p>
+            <h2>Secondary Sidebar</h2>
+            <p>Explorer stays on the left while Pixel Squad persists in a right-hand auxiliary region.</p>
+          </div>
+          <div class="meta-chip">Hybrid workflow</div>
+        </div>
+        <div class="compare-preview">
+          <div class="vscode-window" style="min-height:520px;grid-template-rows:35px auto 1fr 22px;">
+            <div class="titlebar"><div class="window-controls"><span></span><span></span><span></span></div><div class="command-center">pixeltrial [Administrator]</div><div class="top-actions"><span></span><span></span><span></span></div></div>
+            <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+            <div class="workbench layout-secondary">
+              <aside class="activitybar"><div class="activity-item active">📁</div><div class="activity-item">🔎</div><div class="activity-item">⑂</div><div class="activity-item">🧩</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+              <aside class="sidebar"><div class="pane-title"><span>Explorer</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="tree-group"><div class="tree-item active"><span>Pixel-Squad</span></div><div class="tree-item"><span>src</span></div><div class="tree-item"><span>webview-ui</span></div><div class="tree-item"><span>package.json</span></div></div></div></aside>
+              <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">3</div><div class="code-content">## Table of Contents</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab">Problems</button><button class="panel-tab">Output</button><button class="panel-tab">Terminal</button></div><div class="panel-body"><div class="host-placeholder">Bottom panel stays clear while Pixel Squad sits in the auxiliary right region.</div></div></section></main>
+              <aside class="secondary-sidebar"><div class="pane-title"><span>Pixel Squad</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="side-nav"><button class="view-tab active">Agent Factory</button><button class="view-tab">Rooms</button><button class="view-tab">Activity Feed</button></div></div></aside>
+            </div>
+            <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span></div></div>
+          </div>
+        </div>
+        <div class="cta-row"><a class="primary-link" href="./secondary-sidebar-prototype.html">Open Secondary Sidebar Prototype</a></div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

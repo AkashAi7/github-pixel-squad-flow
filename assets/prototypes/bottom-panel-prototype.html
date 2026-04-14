@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Squad Bottom Panel Prototype</title>
+  <link rel="stylesheet" href="./vscode-shell.css" />
+</head>
+<body class="prototype-page">
+  <div class="page-shell">
+    <section class="intro-bar">
+      <div class="intro-copy">
+        <p class="eyebrow">Prototype A</p>
+        <h1>Bottom panel placement</h1>
+        <p>This preview mirrors how Pixel Squad would feel as a regular workbench panel. Use the tabs to switch between Terminal and Pixel Squad to evaluate the context switching cost.</p>
+      </div>
+      <div class="toolbar-actions">
+        <a class="ghost-link" href="./placement-prototypes.html">Compare All</a>
+        <a class="ghost-link" href="./activitybar-prototype.html">Activity Bar</a>
+        <a class="ghost-link" href="./secondary-sidebar-prototype.html">Secondary Sidebar</a>
+      </div>
+    </section>
+
+    <div class="vscode-window">
+      <div class="titlebar"><div class="window-controls"><span></span><span></span><span></span></div><div class="command-center">pixeltrial [Administrator]</div><div class="top-actions"><span></span><span></span><span></span></div></div>
+      <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+      <div class="workbench layout-basic">
+        <aside class="activitybar"><div class="activity-item active">📁</div><div class="activity-item">🔎</div><div class="activity-item">⑂</div><div class="activity-item">▶</div><div class="activity-item">🧩</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+        <aside class="sidebar"><div class="pane-title"><span>Explorer</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="tree-group"><div class="tree-item active"><span>Pixel-Squad</span></div><div class="tree-item"><span>CHANGELOG.md</span></div><div class="tree-item"><span>package.json</span></div><div class="tree-item"><span>src</span></div><div class="tree-item"><span>webview-ui</span></div><div class="tree-item"><span>test</span></div></div></div></aside>
+        <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div><div class="editor-tab">package.json</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">4</div><div class="code-content">## Table of Contents</div></div><div class="code-line"><div class="line-no">6</div><div class="code-content">1. [Corner Cases](#corner-cases)</div></div><div class="code-line"><div class="line-no">7</div><div class="code-content">2. [Edge Cases](#edge-cases)</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab" data-panel="problems">Problems</button><button class="panel-tab" data-panel="output">Output</button><button class="panel-tab" data-panel="terminal">Terminal</button><button class="panel-tab active" data-panel="pixel">Pixel Squad</button></div><div class="panel-body"><div class="panel-view" id="problems-view"><div class="host-placeholder">No problems have been detected in the current workspace.</div></div><div class="panel-view" id="output-view"><div class="sample-output">[extension host] Pixel Squad activated
+[build] vite build completed successfully
+[telemetry] view registration completed</div></div><div class="panel-view" id="terminal-view"><div class="sample-output">PS C:\Users\akashdwivedi\OneDrive - Microsoft\Desktop\Agentic SDLC Projects\Pixel-Squad&gt; npm run build
+&gt; pixel-squad@0.1.4 build
+&gt; node esbuild.mjs</div></div><div class="panel-view active" id="pixel-view"><div class="pixel-host"><div class="pixel-topline">Agent Factory · Copilot + Claude</div><div class="pixel-title">Pixel Squad</div><div class="pixel-subtitle">Create rooms, spawn pixel agents, and orchestrate your squad across GitHub Copilot and Claude.</div><div class="pixel-stats"><span class="stat">5 Tasks</span><span class="stat">0 Active</span><span class="stat">5 Done</span><span class="stat">3 Copilot</span><span class="stat">1 Claude</span></div><div class="pixel-composer">Build a settings screen, persist preferences, and add a validation pass.</div><div class="pixel-actions"><button class="mini-button primary">Route Task</button><button class="mini-button">+ Room</button><button class="mini-button">Reset</button></div><div class="pixel-grid"><section class="pixel-card"><h3>Providers</h3><div class="feed-list"><div class="feed-item"><strong>copilot</strong>READY</div><div class="feed-item"><strong>claude</strong>READY</div></div></section><section class="pixel-card"><h3>Rooms</h3><div class="room-list"><div class="room-item"><strong>Briefing Room</strong><span>New work lands here before routing.</span></div><div class="room-item"><strong>Frontend Forge</strong><span>UI, webview, motion, and layout work.</span></div><div class="room-item"><strong>Backend Engine</strong><span>Coordinator, API, and persistence work.</span></div></div></section></div></div></div></div></section></main>
+        <aside class="right-pane"><div class="pane-title"><span>Chat</span><div class="actions"><span>+</span></div></div><div class="pane-body"><div class="bubble">In this mode, Pixel Squad competes directly with Terminal and Problems for the lower panel.</div><div class="bubble">Switch tabs above to simulate how often the extension would disappear from view.</div></div></aside>
+      </div>
+      <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span><span>Port: 5500</span></div></div>
+    </div>
+
+    <section class="notes-bar"><p><strong>Assessment:</strong> the shell is now intentionally close to VS Code. What remains intentionally custom is the Pixel Squad content area itself, because that is the extension webview rather than native VS Code chrome.</p></section>
+  </div>
+  <script>
+    const panelTabs = document.querySelectorAll('.panel-tab');
+    const panelViews = document.querySelectorAll('.panel-view');
+    panelTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.panel;
+        panelTabs.forEach((item) => item.classList.toggle('active', item === tab));
+        panelViews.forEach((view) => view.classList.toggle('active', view.id === `${target}-view`));
+      });
+    });
+  </script>
+</body>
+</html>

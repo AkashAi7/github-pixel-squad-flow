@@ -55,8 +55,6 @@ export interface SquadAgent {
   roomId: string;
   summary: string;
   spriteVariant: number;
-  xp: number;
-  level: number;
   /** Workspace-relative file paths pinned to this agent for extra context. */
   pinnedFiles?: string[];
 }
@@ -73,14 +71,6 @@ export const AGENT_MOOD: Record<AgentStatus, { emoji: string; label: string }> =
   completed: { emoji: '🎉', label: 'Done!' },
   failed:    { emoji: '😵', label: 'Oops' },
 };
-
-export function xpForLevel(level: number): number {
-  return level * level * 25;
-}
-
-export function levelFromXp(xp: number): number {
-  return Math.floor(Math.sqrt(xp / 25));
-}
 
 export interface Room {
   id: string;

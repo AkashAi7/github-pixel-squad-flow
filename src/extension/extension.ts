@@ -62,6 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const config = vscode.workspace.getConfiguration('pixelSquad');
       const current = config.get<boolean>('autoExecute', false);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
+      provider.refresh();
       void vscode.window.showInformationMessage(`Pixel Squad auto-execute: ${!current ? 'ON' : 'OFF'}`);
     }),
     vscode.commands.registerCommand('pixelSquad.createRoom', async () => {
@@ -84,8 +85,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const pick = await vscode.window.showQuickPick(
         agents.map((a) => ({
           label: `$(person) ${a.name}`,
-          description: `Lv.${a.level} · ${a.provider} · ${a.status}`,
-          detail: `${a.persona} · ${a.xp} XP`,
+          description: `${a.provider} · ${a.status}`,
+          detail: a.persona,
           agentId: a.id,
         })),
         { placeHolder: 'Pick an agent to assign a task to', matchOnDescription: true },
@@ -115,8 +116,8 @@ export function activate(context: vscode.ExtensionContext): void {
       const pick = await vscode.window.showQuickPick(
         agents.map((a) => ({
           label: `$(person) ${a.name}`,
-          description: `Lv.${a.level} · ${a.provider} · ${a.status}`,
-          detail: `${a.persona} · ${a.xp} XP`,
+          description: `${a.provider} · ${a.status}`,
+          detail: a.persona,
           agentId: a.id,
         })),
         { placeHolder: 'Your Pixel Squad agents (pick to assign a task)', matchOnDescription: true },

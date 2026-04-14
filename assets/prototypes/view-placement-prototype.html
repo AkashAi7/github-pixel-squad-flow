@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Squad View Placement Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1017;
+      --bg-elevated: #111927;
+      --bg-panel: #161f30;
+      --bg-soft: #1d2940;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 224, 102, 0.24);
+      --text: #eef3fb;
+      --muted: #8ea0b8;
+      --accent: #ffe066;
+      --accent-2: #44c3ff;
+      --danger: #f25f5c;
+      --success: #70c1b3;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+      --radius: 20px;
+      --font: "Segoe UI", "Inter", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      background:
+        radial-gradient(circle at top left, rgba(68, 195, 255, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(242, 95, 92, 0.14), transparent 24%),
+        linear-gradient(180deg, #0b1017 0%, #0f1623 100%);
+      color: var(--text);
+    }
+
+    .prototype-shell {
+      width: min(1440px, calc(100vw - 40px));
+      margin: 24px auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.4fr .9fr;
+      gap: 18px;
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, rgba(17, 25, 39, 0.96), rgba(12, 18, 29, 0.96));
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.02;
+    }
+
+    .hero p,
+    .summary-card p,
+    .hint-panel p,
+    .panel-content p,
+    .sidebar-content p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .mode-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .mode-button,
+    .ghost-button,
+    .ui-chip,
+    .tab,
+    .activity-icon,
+    .view-item {
+      border: 1px solid transparent;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .mode-button {
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+    }
+
+    .mode-button strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .mode-button.active {
+      background: linear-gradient(180deg, rgba(255, 224, 102, 0.16), rgba(255, 224, 102, 0.06));
+      border-color: var(--border-strong);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .hero-meta {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .summary-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .summary-list span {
+      display: block;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .vscode-frame {
+      position: relative;
+      min-height: 760px;
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      overflow: hidden;
+      background: #111826;
+      box-shadow: var(--shadow);
+    }
+
+    .titlebar {
+      height: 54px;
+      display: grid;
+      grid-template-columns: 220px 1fr 240px;
+      align-items: center;
+      gap: 14px;
+      padding: 0 18px;
+      background: #0e1520;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .window-dots span {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .window-dots span:nth-child(1) { background: #ff5f57; }
+    .window-dots span:nth-child(2) { background: #ffbd2e; }
+    .window-dots span:nth-child(3) { background: #28c840; }
+
+    .searchbar {
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .title-actions {
+      justify-self: end;
+      display: flex;
+      gap: 8px;
+    }
+
+    .title-actions span {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .frame-body {
+      display: grid;
+      grid-template-columns: 56px 250px minmax(0, 1fr) 330px;
+      min-height: calc(760px - 54px);
+      background: linear-gradient(180deg, #111826 0%, #0d1320 100%);
+    }
+
+    .activitybar {
+      background: #0b1018;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 8px;
+    }
+
+    .activity-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+    }
+
+    .activity-icon:hover,
+    .tab:hover,
+    .view-item:hover,
+    .ghost-button:hover,
+    .ui-chip:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .activity-icon.active {
+      background: linear-gradient(180deg, rgba(255, 224, 102, 0.22), rgba(255, 224, 102, 0.06));
+      border-color: var(--border-strong);
+      color: var(--accent);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .sidebar {
+      background: rgba(12, 18, 29, 0.94);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .sidebar-header,
+    .chat-header,
+    .editor-tabs,
+    .panel-tabs {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header,
+    .chat-header {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .sidebar-content,
+    .chat-content {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .editor-zone {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+    }
+
+    .editor-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px 0;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .editor-tab {
+      padding: 10px 12px;
+      border-radius: 12px 12px 0 0;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-bottom: none;
+    }
+
+    .editor-tab.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .editor-canvas {
+      padding: 22px;
+      display: grid;
+      align-content: start;
+      gap: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0)),
+        repeating-linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 1px, transparent 28px);
+    }
+
+    .doc-title {
+      font-size: 32px;
+      font-weight: 750;
+      margin-top: 12px;
+    }
+
+    .doc-line {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .doc-line.short { width: 38%; }
+    .doc-line.med { width: 64%; }
+    .doc-line.long { width: 82%; }
+
+    .panel-region {
+      height: 290px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      border-top: 1px solid var(--border);
+      background: rgba(2, 6, 13, 0.88);
+    }
+
+    .panel-tabs {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      min-height: 44px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .tab.active {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border);
+    }
+
+    .tab.pixel-active {
+      color: var(--accent);
+      background: rgba(255, 224, 102, 0.12);
+      border-color: var(--border-strong);
+    }
+
+    .panel-content {
+      padding: 18px;
+      display: none;
+      grid-template-columns: 1.25fr .95fr;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(24, 36, 56, 0.9), rgba(13, 20, 31, 0.96));
+    }
+
+    .panel-content.active,
+    .sidebar-pixel.active {
+      display: grid;
+    }
+
+    .factory-card {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 224, 102, 0.12);
+      background: linear-gradient(180deg, rgba(7, 13, 21, 0.92), rgba(15, 22, 33, 0.92));
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .factory-card h3,
+    .factory-stats strong,
+    .sidebar-pixel h3 {
+      margin: 0;
+    }
+
+    .factory-card h3,
+    .sidebar-pixel h3 {
+      font-size: 16px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .factory-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .factory-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ui-chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .ui-chip strong { color: var(--text); }
+
+    .factory-message {
+      min-height: 96px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #09111d;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #adc0d6;
+      line-height: 1.45;
+    }
+
+    .factory-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ghost-button {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+    }
+
+    .ghost-button.primary {
+      background: rgba(255, 224, 102, 0.18);
+      border-color: var(--border-strong);
+      color: var(--accent);
+    }
+
+    .room-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .room-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      gap: 4px;
+    }
+
+    .room-item strong { font-size: 14px; }
+
+    .room-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sidebar-pixel {
+      display: none;
+      padding: 16px;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .view-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .view-item {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      text-align: left;
+    }
+
+    .view-item.active {
+      background: rgba(255, 224, 102, 0.12);
+      border-color: var(--border-strong);
+      color: var(--accent);
+    }
+
+    .chat-zone {
+      background: rgba(7, 11, 18, 0.96);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-bubble {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      line-height: 1.45;
+      border: 1px solid var(--border);
+    }
+
+    .hint-panel {
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(17, 25, 39, 0.94);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 12px;
+      position: sticky;
+      top: 24px;
+    }
+
+    .hint-panel h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .hint-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .hint-item {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+    }
+
+    .hint-item strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .legend span {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend .active-marker {
+      color: var(--accent);
+      border-color: var(--border-strong);
+      background: rgba(255, 224, 102, 0.12);
+    }
+
+    .footer-note {
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .panel-hidden .panel-content {
+      display: none !important;
+    }
+
+    .panel-hidden .panel-region {
+      height: 108px;
+    }
+
+    .sidebar-collapsed .sidebar {
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+      border-right: none;
+    }
+
+    @media (max-width: 1200px) {
+      .hero,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .hint-panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .frame-body {
+        grid-template-columns: 52px 0 minmax(0, 1fr);
+      }
+
+      .chat-zone {
+        display: none;
+      }
+
+      .panel-content {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Interactive Prototype</p>
+        <h1>Compare Pixel Squad in the bottom panel and the activity bar before implementation.</h1>
+        <p>Use the controls below or click directly inside the mock VS Code window. The prototype changes the frame layout and lets you open Pixel Squad either as a bottom tab or as its own sidebar section.</p>
+        <div class="mode-switch">
+          <button class="mode-button active" data-mode="panel">
+            <strong>Bottom Panel</strong>
+            Current behavior beside Terminal, Problems, and Output.
+          </button>
+          <button class="mode-button" data-mode="activitybar">
+            <strong>Activity Bar</strong>
+            Pixel Squad gets its own icon and dedicated sidebar space.
+          </button>
+        </div>
+      </div>
+      <div class="hero-meta">
+        <div class="summary-card">
+          <strong id="summary-title">Bottom Panel Fit</strong>
+          <p id="summary-copy">Keeps Pixel Squad secondary to editing. Good when orchestration is occasional and terminal work stays dominant.</p>
+        </div>
+        <div class="summary-list">
+          <div class="summary-card">
+            <strong>How to interact</strong>
+            <p>Click the <span style="color:var(--accent)">Pixel Squad</span> tab in the bottom panel or click the Pixel Squad icon in the left activity rail.</p>
+          </div>
+          <div class="summary-card">
+            <strong>Prototype intent</strong>
+            <p>This is a static HTML prototype, not the extension webview. It isolates the layout decision only.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="vscode-frame" id="frame">
+        <div class="titlebar">
+          <div class="window-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="searchbar">pixelttrial [Administrator]</div>
+          <div class="title-actions" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="frame-body" id="frameBody">
+          <aside class="activitybar">
+            <button class="activity-icon" title="Explorer">📁</button>
+            <button class="activity-icon" title="Search">🔎</button>
+            <button class="activity-icon" title="Source Control">⑂</button>
+            <button class="activity-icon" title="Run">▶</button>
+            <button class="activity-icon" title="Extensions">🧩</button>
+            <button class="activity-icon" id="pixelActivityButton" title="Pixel Squad">🤖</button>
+          </aside>
+
+          <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+              <span id="sidebarTitle">Explorer</span>
+              <span>•••</span>
+            </div>
+
+            <div class="sidebar-content" id="defaultSidebar">
+              <div class="room-item"><strong>Pixel-Squad</strong><span>src / webview-ui / test</span></div>
+              <div class="room-item"><strong>Speckit-and-beyond</strong><span>recipe-manager / workshop</span></div>
+              <div class="room-item"><strong>README.md</strong><span>Open in editor</span></div>
+              <div class="room-item"><strong>package.json</strong><span>Contributes → viewsContainers</span></div>
+            </div>
+
+            <div class="sidebar-pixel" id="pixelSidebar">
+              <h3>Pixel Squad</h3>
+              <p>Dedicated sidebar placement. This turns the extension into a workspace surface instead of a tab in the bottom panel.</p>
+              <div class="view-list">
+                <button class="view-item active">Agent Factory</button>
+                <button class="view-item">Rooms</button>
+                <button class="view-item">Providers</button>
+                <button class="view-item">Activity Feed</button>
+              </div>
+              <div class="factory-card">
+                <div class="factory-title">Pixel Squad</div>
+                <p>Create rooms, spawn agents, and route work without opening the bottom panel.</p>
+                <div class="factory-stats">
+                  <span class="ui-chip"><strong>5</strong> tasks</span>
+                  <span class="ui-chip"><strong>1</strong> active</span>
+                  <span class="ui-chip"><strong>3</strong> Copilot</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <main class="editor-zone">
+            <div class="editor-tabs">
+              <div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div>
+              <div class="editor-tab">package.json</div>
+            </div>
+
+            <div class="editor-canvas">
+              <div class="doc-title"># Corner Cases, Edge Cases and Business Plan</div>
+              <div class="doc-line long"></div>
+              <div class="doc-line med"></div>
+              <div class="doc-line short"></div>
+              <div class="doc-line long"></div>
+              <div class="doc-line med"></div>
+            </div>
+
+            <section class="panel-region" id="panelRegion">
+              <div class="panel-tabs">
+                <button class="tab">Problems</button>
+                <button class="tab">Output</button>
+                <button class="tab">Debug Console</button>
+                <button class="tab">Terminal</button>
+                <button class="tab">Ports</button>
+                <button class="tab pixel-active" id="pixelPanelButton">Pixel Squad</button>
+              </div>
+              <div class="panel-content active" id="pixelPanelContent">
+                <div class="factory-card">
+                  <h3>Agent Factory · Copilot + Claude</h3>
+                  <div class="factory-title">Pixel Squad</div>
+                  <p>Create rooms, spawn pixel agents, and orchestrate your squad across GitHub Copilot and Claude.</p>
+                  <div class="factory-stats">
+                    <button class="ui-chip"><strong>5</strong> tasks</button>
+                    <button class="ui-chip"><strong>0</strong> active</button>
+                    <button class="ui-chip"><strong>5</strong> done</button>
+                    <button class="ui-chip"><strong>3</strong> Copilot</button>
+                  </div>
+                  <div class="factory-message">Build a settings screen, persist preferences, and add a validation pass.</div>
+                  <div class="factory-actions">
+                    <button class="ghost-button primary">Route Task</button>
+                    <button class="ghost-button">+ Room</button>
+                    <button class="ghost-button">Reset</button>
+                  </div>
+                </div>
+                <div class="factory-card">
+                  <h3>Rooms</h3>
+                  <div class="room-list">
+                    <div class="room-item"><strong>Briefing Room</strong><span>New work lands here before routing.</span></div>
+                    <div class="room-item"><strong>Frontend Forge</strong><span>UI, webview, motion, and layout work.</span></div>
+                    <div class="room-item"><strong>Backend Engine</strong><span>Coordinator, API, and persistence work.</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <aside class="chat-zone">
+            <div class="chat-header">
+              <span>Chat</span>
+              <span>＋</span>
+            </div>
+            <div class="chat-content">
+              <div class="chat-bubble">This area stays unchanged. The layout decision only affects whether Pixel Squad sits beside Terminal or becomes a first-class sidebar destination.</div>
+              <div class="chat-bubble">Try clicking the left robot icon after switching to Activity Bar mode.</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <aside class="hint-panel">
+        <p class="eyebrow">What Changes</p>
+        <h2 id="detailHeading">Bottom panel behavior</h2>
+        <div class="hint-list" id="hintList">
+          <div class="hint-item">
+            <strong>Space tradeoff</strong>
+            Pixel Squad shares height with Terminal and Problems. It works, but orchestration competes with debugging tools.
+          </div>
+          <div class="hint-item">
+            <strong>User posture</strong>
+            Best when the extension is supporting work, not the primary surface.
+          </div>
+          <div class="hint-item">
+            <strong>Click target</strong>
+            Use the highlighted Pixel Squad tab in the bottom strip.
+          </div>
+        </div>
+        <div class="legend">
+          <span class="active-marker">Highlighted = Pixel Squad entry point</span>
+          <span>Click inside the mock UI</span>
+          <span>No extension code changed yet</span>
+        </div>
+      </aside>
+    </section>
+
+    <div class="footer-note">
+      Prototype file: <strong>assets/prototypes/view-placement-prototype.html</strong>. If you decide on the Activity Bar layout, the implementation change is in the extension manifest, not the webview itself.
+    </div>
+  </div>
+
+  <script>
+    const modeButtons = Array.from(document.querySelectorAll('.mode-button'));
+    const pixelPanelButton = document.getElementById('pixelPanelButton');
+    const pixelActivityButton = document.getElementById('pixelActivityButton');
+    const frame = document.getElementById('frame');
+    const detailHeading = document.getElementById('detailHeading');
+    const hintList = document.getElementById('hintList');
+    const summaryTitle = document.getElementById('summary-title');
+    const summaryCopy = document.getElementById('summary-copy');
+    const sidebarTitle = document.getElementById('sidebarTitle');
+    const defaultSidebar = document.getElementById('defaultSidebar');
+    const pixelSidebar = document.getElementById('pixelSidebar');
+    const pixelPanelContent = document.getElementById('pixelPanelContent');
+
+    const content = {
+      panel: {
+        summaryTitle: 'Bottom Panel Fit',
+        summaryCopy: 'Keeps Pixel Squad secondary to editing. Good when orchestration is occasional and terminal work stays dominant.',
+        heading: 'Bottom panel behavior',
+        hints: [
+          ['Space tradeoff', 'Pixel Squad shares height with Terminal and Problems. It works, but orchestration competes with debugging tools.'],
+          ['User posture', 'Best when the extension is supporting work, not the primary surface.'],
+          ['Click target', 'Use the highlighted Pixel Squad tab in the bottom strip.']
+        ]
+      },
+      activitybar: {
+        summaryTitle: 'Activity Bar Fit',
+        summaryCopy: 'Makes Pixel Squad a first-class workspace surface with a dedicated icon and more persistent visibility.',
+        heading: 'Activity bar behavior',
+        hints: [
+          ['Space tradeoff', 'The main sidebar becomes the home for Pixel Squad, leaving the bottom panel free for Terminal and Problems.'],
+          ['User posture', 'Best when routing, rooms, and agent management are central to the workflow.'],
+          ['Click target', 'Use the highlighted robot icon in the activity rail to open the Pixel Squad sidebar.']
+        ]
+      }
+    };
+
+    let currentMode = 'panel';
+
+    function setMode(mode) {
+      currentMode = mode;
+
+      modeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+      });
+
+      const isPanel = mode === 'panel';
+
+      pixelPanelButton.classList.toggle('pixel-active', isPanel);
+      pixelActivityButton.classList.toggle('active', !isPanel);
+      pixelPanelContent.classList.toggle('active', isPanel);
+      pixelSidebar.classList.toggle('active', !isPanel);
+      defaultSidebar.style.display = isPanel ? 'grid' : 'none';
+      sidebarTitle.textContent = isPanel ? 'Explorer' : 'Pixel Squad';
+      frame.classList.toggle('panel-hidden', !isPanel);
+
+      const view = content[mode];
+      summaryTitle.textContent = view.summaryTitle;
+      summaryCopy.textContent = view.summaryCopy;
+      detailHeading.textContent = view.heading;
+      hintList.innerHTML = view.hints.map(([title, body]) => `
+        <div class="hint-item">
+          <strong>${title}</strong>
+          ${body}
+        </div>
+      `).join('');
+    }
+
+    modeButtons.forEach((button) => {
+      button.addEventListener('click', () => setMode(button.dataset.mode));
+    });
+
+    pixelPanelButton.addEventListener('click', () => setMode('panel'));
+    pixelActivityButton.addEventListener('click', () => setMode('activitybar'));
+
+    setMode('panel');
+  </script>
+</body>
+</html>

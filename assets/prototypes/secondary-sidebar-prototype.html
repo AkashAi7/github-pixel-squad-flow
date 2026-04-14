@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Squad Secondary Sidebar Prototype</title>
+  <link rel="stylesheet" href="./vscode-shell.css" />
+</head>
+<body class="prototype-page">
+  <div class="page-shell">
+    <section class="intro-bar"><div class="intro-copy"><p class="eyebrow">Prototype C</p><h1>Secondary sidebar placement</h1><p>This preview keeps Explorer on the left and docks Pixel Squad in the right auxiliary sidebar. Use the toggle and internal tabs to judge the density and multitasking feel.</p></div><div class="toolbar-actions"><a class="ghost-link" href="./placement-prototypes.html">Compare All</a><a class="ghost-link" href="./bottom-panel-prototype.html">Bottom Panel</a><a class="ghost-link" href="./activitybar-prototype.html">Activity Bar</a></div></section>
+    <div class="vscode-window">
+      <div class="titlebar"><div class="window-controls"><span></span><span></span><span></span></div><div class="command-center">pixeltrial [Administrator]</div><div class="top-actions"><button class="host-toggle active" id="aux-toggle">Secondary Sidebar</button></div></div>
+      <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+      <div class="workbench layout-secondary">
+        <aside class="activitybar"><div class="activity-item active">📁</div><div class="activity-item">🔎</div><div class="activity-item">⑂</div><div class="activity-item">▶</div><div class="activity-item">🧩</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+        <aside class="sidebar"><div class="pane-title"><span>Explorer</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="tree-group"><div class="tree-item active"><span>Pixel-Squad</span></div><div class="tree-item"><span>CHANGELOG.md</span></div><div class="tree-item"><span>package.json</span></div><div class="tree-item"><span>src</span></div><div class="tree-item"><span>webview-ui</span></div><div class="tree-item"><span>test</span></div></div></div></aside>
+        <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div><div class="editor-tab">package.json</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">4</div><div class="code-content">## Table of Contents</div></div><div class="code-line"><div class="line-no">6</div><div class="code-content">1. [Corner Cases](#corner-cases)</div></div><div class="code-line"><div class="line-no">7</div><div class="code-content">2. [Edge Cases](#edge-cases)</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab active">Problems</button><button class="panel-tab">Output</button><button class="panel-tab">Terminal</button><button class="panel-tab">Ports</button></div><div class="panel-body"><div class="host-placeholder">This mode leaves both the primary Explorer and bottom panel available.</div></div></section></main>
+        <aside class="secondary-sidebar" id="secondary-sidebar"><div class="pane-title"><span>Pixel Squad</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="side-nav"><button class="nav-tab active" data-right="factory">Agent Factory</button><button class="nav-tab" data-right="rooms">Rooms</button><button class="nav-tab" data-right="activity">Activity Feed</button></div><div class="secondary-view active" id="right-factory-view"><div class="pixel-host"><div class="pixel-topline">Agent Factory · Copilot + Claude</div><div class="pixel-title">Pixel Squad</div><div class="pixel-subtitle">Keep Pixel Squad persistent on the right while preserving the familiar Explorer + editor flow on the left.</div><div class="pixel-stats"><span class="stat">5 Tasks</span><span class="stat">1 Active</span><span class="stat">3 Copilot</span></div><div class="pixel-actions"><button class="mini-button primary">Route Task</button><button class="mini-button">+ Room</button></div></div></div><div class="secondary-view" id="right-rooms-view"><div class="room-list"><div class="room-item"><strong>Briefing Room</strong><span>New work lands here before routing.</span></div><div class="room-item"><strong>Frontend Forge</strong><span>UI, motion, and layout work.</span></div><div class="room-item"><strong>Backend Engine</strong><span>Coordinator, API, and persistence work.</span></div></div></div><div class="secondary-view" id="right-activity-view"><div class="feed-list"><div class="feed-item"><strong>now</strong>Pixel Squad coordinator online.</div><div class="feed-item"><strong>now</strong>Dual-provider mode: Copilot + Claude.</div><div class="feed-item"><strong>now</strong>Factory ready for new work.</div></div></div></div></aside>
+      </div>
+      <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span><span>Port: 5500</span></div></div>
+    </div>
+    <section class="notes-bar"><p><strong>Assessment:</strong> this is the most balanced option if you want continuous Pixel Squad access without reassigning the left sidebar. The tradeoff is crowding the right auxiliary region where chat and inspectors often live.</p></section>
+  </div>
+  <script>
+    const rightTabs = document.querySelectorAll('.nav-tab');
+    const rightViews = { factory: document.getElementById('right-factory-view'), rooms: document.getElementById('right-rooms-view'), activity: document.getElementById('right-activity-view') };
+    rightTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const key = tab.dataset.right;
+        rightTabs.forEach((item) => item.classList.toggle('active', item === tab));
+        Object.entries(rightViews).forEach(([name, view]) => view.classList.toggle('active', name === key));
+      });
+    });
+    const auxToggle = document.getElementById('aux-toggle');
+    const secondarySidebar = document.getElementById('secondary-sidebar');
+    auxToggle.addEventListener('click', () => {
+      secondarySidebar.classList.toggle('collapsed');
+      auxToggle.classList.toggle('active', !secondarySidebar.classList.contains('collapsed'));
+      auxToggle.textContent = secondarySidebar.classList.contains('collapsed') ? 'Show Secondary Sidebar' : 'Secondary Sidebar';
+    });
+  </script>
+</body>
+</html>

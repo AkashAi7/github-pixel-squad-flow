@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Squad Activity Bar Prototype</title>
+  <link rel="stylesheet" href="./vscode-shell.css" />
+</head>
+<body class="prototype-page">
+  <div class="page-shell">
+    <section class="intro-bar">
+      <div class="intro-copy"><p class="eyebrow">Prototype B</p><h1>Activity bar placement</h1><p>This preview shows Pixel Squad as a primary VS Code destination with its own activity bar icon and left sidebar content area. Use the rail and internal tabs to inspect how the view behaves.</p></div>
+      <div class="toolbar-actions"><a class="ghost-link" href="./placement-prototypes.html">Compare All</a><a class="ghost-link" href="./bottom-panel-prototype.html">Bottom Panel</a><a class="ghost-link" href="./secondary-sidebar-prototype.html">Secondary Sidebar</a></div>
+    </section>
+
+    <div class="vscode-window">
+      <div class="titlebar"><div class="window-controls"><span></span><span></span><span></span></div><div class="command-center">pixeltrial [Administrator]</div><div class="top-actions"><span></span><span></span><span></span></div></div>
+      <div class="menubar"><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div>
+      <div class="workbench layout-basic">
+        <aside class="activitybar"><div class="activity-item" data-host="explorer">📁</div><div class="activity-item" data-host="search">🔎</div><div class="activity-item" data-host="source">⑂</div><div class="activity-item active" data-host="pixel">🤖</div><div class="activity-spacer"></div><div class="activity-item">⚙</div></aside>
+        <aside class="sidebar"><div class="pane-title"><span id="host-title">Pixel Squad</span><div class="actions"><span>⋯</span></div></div><div class="pane-body"><div class="host-view" id="explorer-host"><div class="tree-group"><div class="tree-item active"><span>Pixel-Squad</span></div><div class="tree-item"><span>CHANGELOG.md</span></div><div class="tree-item"><span>package.json</span></div><div class="tree-item"><span>src</span></div><div class="tree-item"><span>webview-ui</span></div></div></div><div class="host-view" id="search-host"><div class="bubble">Search results for: pixel squad</div><div class="bubble">package.json → viewsContainers</div><div class="bubble">extension.ts → registerWebviewViewProvider</div></div><div class="host-view" id="source-host"><div class="bubble">Changes</div><div class="bubble">package.json</div><div class="bubble">extension.ts</div></div><div class="host-view active" id="pixel-host-view"><div class="side-nav"><button class="view-tab active" data-view="factory">Agent Factory</button><button class="view-tab" data-view="rooms">Rooms</button><button class="view-tab" data-view="providers">Providers</button><button class="view-tab" data-view="activity">Activity Feed</button></div><div class="secondary-view active" id="factory-view"><div class="pixel-host"><div class="pixel-topline">Agent Factory · Copilot + Claude</div><div class="pixel-title">Pixel Squad</div><div class="pixel-subtitle">Create rooms, spawn pixel agents, and orchestrate work from a dedicated sidebar destination.</div><div class="pixel-stats"><span class="stat">5 Tasks</span><span class="stat">1 Active</span><span class="stat">3 Copilot</span><span class="stat">1 Claude</span></div><div class="pixel-actions"><button class="mini-button primary">Route Task</button><button class="mini-button">+ Room</button></div></div></div><div class="secondary-view" id="rooms-view"><div class="room-list"><div class="room-item"><strong>Briefing Room</strong><span>New work lands here before routing.</span></div><div class="room-item"><strong>Frontend Forge</strong><span>UI, motion, and layout work.</span></div><div class="room-item"><strong>Backend Engine</strong><span>Coordinator, API, and persistence work.</span></div></div></div><div class="secondary-view" id="providers-view"><div class="feed-list"><div class="feed-item"><strong>copilot</strong>READY</div><div class="feed-item"><strong>claude</strong>READY</div></div></div><div class="secondary-view" id="activity-view"><div class="feed-list"><div class="feed-item"><strong>now</strong>Pixel Squad coordinator online.</div><div class="feed-item"><strong>now</strong>Dual-provider mode: Copilot + Claude.</div><div class="feed-item"><strong>now</strong>Factory ready for new work.</div></div></div></div></div></aside>
+        <main class="editor-column"><div class="editor-tabs"><div class="editor-tab active">CORNER_EDGE_CASES_AND_BUSINESS_PLAN.md</div><div class="editor-tab">package.json</div></div><div class="breadcrumbs"><span>abc</span><span>Corner Cases</span><span>Edge Cases & Business Plan</span></div><div class="editor-surface"><div class="code-line"><div class="line-no">1</div><div class="code-content"># Corner Cases, Edge Cases and Business Plan</div></div><div class="code-line"><div class="line-no">2</div><div class="code-content">---</div></div><div class="code-line"><div class="line-no">4</div><div class="code-content">## Table of Contents</div></div><div class="code-line"><div class="line-no">6</div><div class="code-content">1. [Corner Cases](#corner-cases)</div></div><div class="code-line"><div class="line-no">7</div><div class="code-content">2. [Edge Cases](#edge-cases)</div></div></div><div class="editor-footer"><span>Ln 1, Col 1</span><span>Spaces: 3</span><span>UTF-8</span><span>Markdown</span></div><section class="panel-region"><div class="panel-tabs"><button class="panel-tab active">Problems</button><button class="panel-tab">Output</button><button class="panel-tab">Terminal</button><button class="panel-tab">Ports</button></div><div class="panel-body"><div class="host-placeholder">Bottom panel is still available for debugging and terminal work because Pixel Squad lives in the left sidebar.</div></div></section></main>
+        <aside class="right-pane"><div class="pane-title"><span>Chat</span><div class="actions"><span>+</span></div></div><div class="pane-body"><div class="bubble">This mode treats Pixel Squad as first-class navigation rather than an occasional tool surface.</div><div class="bubble">The main tradeoff is consuming the primary sidebar that Explorer would otherwise own.</div></div></aside>
+      </div>
+      <div class="statusbar"><div class="left"><span>main</span><span>0 ⚠</span><span>0 ✕</span></div><div class="right"><span>Go Live</span><span>Port: 5500</span></div></div>
+    </div>
+
+    <section class="notes-bar"><p><strong>Assessment:</strong> this is the closest match to a genuine VS Code extension container if Pixel Squad becomes its own activity bar icon and sidebar view.</p></section>
+  </div>
+  <script>
+    const hostButtons = document.querySelectorAll('.activity-item[data-host]');
+    const hostViews = { explorer: document.getElementById('explorer-host'), search: document.getElementById('search-host'), source: document.getElementById('source-host'), pixel: document.getElementById('pixel-host-view') };
+    const hostTitles = { explorer: 'Explorer', search: 'Search', source: 'Source Control', pixel: 'Pixel Squad' };
+    const hostTitle = document.getElementById('host-title');
+    hostButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.host;
+        hostButtons.forEach((item) => item.classList.toggle('active', item === button));
+        Object.entries(hostViews).forEach(([name, view]) => view.classList.toggle('active', name === key));
+        hostTitle.textContent = hostTitles[key] || 'Sidebar';
+      });
+    });
+    const viewTabs = document.querySelectorAll('.view-tab');
+    const sideViews = document.querySelectorAll('.secondary-view');
+    viewTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const key = tab.dataset.view;
+        viewTabs.forEach((item) => item.classList.toggle('active', item === tab));
+        sideViews.forEach((view) => view.classList.toggle('active', view.id === `${key}-view`));
+      });
+    });
+  </script>
+</body>
+</html>

@@ -81,6 +81,10 @@ export interface RequestWorkspaceFilesMessage {
   type: 'requestWorkspaceFiles';
 }
 
+export interface ToggleAutoExecuteMessage {
+  type: 'toggleAutoExecute';
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
@@ -95,7 +99,8 @@ export type WebviewMessage =
   | AssignTaskMessage
   | PinFilesMessage
   | PinActiveFileMessage
-  | RequestWorkspaceFilesMessage;
+  | RequestWorkspaceFilesMessage
+  | ToggleAutoExecuteMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

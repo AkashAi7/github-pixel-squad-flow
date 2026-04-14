@@ -4,7 +4,7 @@ import { exec, type ExecException } from 'node:child_process';
 import * as vscode from 'vscode';
 
 import type { ActivityCategory, ActivityEntry, AgentMessage, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
-import { ROOM_THEME_META, createActivityEntry, levelFromXp } from '../../shared/model/index.js';
+import { ROOM_THEME_META, createActivityEntry } from '../../shared/model/index.js';
 import type { ActivityMessage, AgentChatMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { TaskScheduler } from './TaskScheduler.js';
@@ -43,13 +43,16 @@ export class Coordinator {
   }
 
   getSnapshot(): WorkspaceSnapshot {
-    return this.snapshot;
+    return {
+      ...this.snapshot,
+      settings: this.getSettings(),
+    };
   }
 
   getSettings() {
     const config = vscode.workspace.getConfiguration('pixelSquad');
     return {
-      autoExecute: config.get<boolean>('autoExecute', true),
+      autoExecute: config.get<boolean>('autoExecute', false),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 6),
@@ -358,10 +361,6 @@ export class Coordinator {
     const hydratedPlan = this.hydrateExecutionPlan(result.plan);
 
     if (result.success) {
-      const newXp = (agent.xp ?? 0) + 25;
-      const newLevel = levelFromXp(newXp);
-      const leveledUp = newLevel > (agent.level ?? 0);
-
       // When autoExecute is on, skip review and apply files immediately
       const autoApply = this.getSettings().autoExecute;
       const hasPlanArtifacts = hydratedPlan && (hydratedPlan.fileEdits.length > 0 || hydratedPlan.terminalCommands.length > 0);
@@ -386,7 +385,7 @@ export class Coordinator {
             approvalState: 'applied',
             progress: this.progressForStatus('done'),
           });
-          this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}`, xp: newXp, level: newLevel });
+          this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
           this.appendActivity(`${agent.name} finished "${task.title}" — changes auto-applied.`, {
             category: 'task',
             taskId,
@@ -402,7 +401,7 @@ export class Coordinator {
             approvalState: 'pending',
             progress: this.progressForStatus('review'),
           });
-          this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — auto-apply failed, awaiting review.`, xp: newXp, level: newLevel });
+          this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — auto-apply failed, awaiting review.` });
           this.appendActivity(`${agent.name} finished "${task.title}" — auto-apply failed, moved to review.`, {
             category: 'task',
             taskId,
@@ -421,22 +420,12 @@ export class Coordinator {
         this.updateAgent(agent.id, {
           status: autoApply ? 'idle' : 'waiting',
           summary: autoApply ? `Completed: ${task.title}` : `Completed: ${task.title} — awaiting review.`,
-          xp: newXp,
-          level: newLevel,
         });
         this.appendActivity(`${agent.name} finished "${task.title}"${autoApply ? '.' : ' — moved to review.'}`, {
           category: 'task',
           taskId,
           agentId: agent.id,
           provider: task.provider,
-        });
-      }
-
-      if (leveledUp) {
-        this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`, {
-          category: 'agent',
-          agentId: agent.id,
-          provider: agent.provider,
         });
       }
 
@@ -537,20 +526,10 @@ export class Coordinator {
       updates.approvalState = 'rejected';
     }
     if (action === 'complete') {
-      // Move assigned agent to idle and award XP
+      // Move assigned agent to idle
       const agent = this.snapshot.agents.find((a) => a.id === task.assigneeId);
       if (agent) {
-        const newXp = (agent.xp ?? 0) + 25;
-        const newLevel = levelFromXp(newXp);
-        const leveledUp = newLevel > (agent.level ?? 0);
-        this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}`, xp: newXp, level: newLevel });
-        if (leveledUp) {
-          this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`, {
-            category: 'agent',
-            agentId: agent.id,
-            provider: agent.provider,
-          });
-        }
+        this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
       }
       updates.approvalState = task.executionPlan && (task.executionPlan.fileEdits.length > 0 || task.executionPlan.terminalCommands.length > 0)
         ? 'applied'
@@ -627,8 +606,6 @@ export class Coordinator {
       roomId,
       summary: `Ready for ${persona.specialty.toLowerCase()} tasks.`,
       spriteVariant: Math.floor(Math.random() * 4),
-      xp: 0,
-      level: 0,
     };
 
     this.snapshot = {
