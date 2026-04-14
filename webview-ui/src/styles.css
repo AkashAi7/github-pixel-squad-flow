@@ -1450,6 +1450,7 @@ summary:focus-visible {
   text-transform: uppercase; letter-spacing: 0.06em;
   border: 1px solid var(--ps-border);
   border-radius: 999px;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
 }
 .status-badge--executing, .status-badge--active { background: #ffe066; color: #10161f; }
 .status-badge--planning { background: rgba(125, 140, 255, 0.24); color: #7d8cff; }
@@ -1529,19 +1530,20 @@ summary:focus-visible {
 }
 .dialog {
   max-width: 460px; width: 100%; padding: 24px;
+  max-height: calc(100vh - 48px); overflow-y: auto;
   border: 1px solid rgba(245, 239, 225, 0.18);
-  background: rgba(16, 22, 31, 0.96);
+  background: var(--vscode-editorWidget-background, rgba(16, 22, 31, 0.96));
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   display: grid; gap: 14px;
 }
 .dialog h2 { font-size: 1.3rem; }
 .dialog-label {
-  color: #ffe066; font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--vscode-input-placeholderForeground, #ffe066); font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase;
 }
 .dialog-input, .dialog-textarea {
   padding: 10px 12px;
-  border: 1px solid rgba(245, 239, 225, 0.16);
-  background: rgba(10, 15, 22, 0.9); color: inherit;
+  border: 1px solid var(--vscode-input-border, rgba(245, 239, 225, 0.16));
+  background: var(--vscode-input-background, rgba(10, 15, 22, 0.9)); color: var(--vscode-input-foreground, inherit);
 }
 .dialog-textarea { min-height: 60px; resize: vertical; }
 .dialog-actions { display: flex; gap: 10px; margin-top: 6px; }
@@ -1619,7 +1621,7 @@ summary:focus-visible {
 }
 
 /* Task output */
-.task-card { cursor: pointer; transition: border-color 0.15s; }
+.task-card { cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; }
 .task-card:hover { border-color: rgba(245, 239, 225, 0.3); }
 .task-card--expanded { border-color: rgba(125, 140, 255, 0.45); }
 
@@ -1780,4 +1782,72 @@ summary:focus-visible {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Toast Notifications (UX-05)
+   ═══════════════════════════════════════════════════ */
+.toast-container {
+  position: fixed; bottom: 20px; right: 20px;
+  z-index: 200;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  border: 1px solid rgba(245, 239, 225, 0.15);
+  background: var(--vscode-editorWidget-background, rgba(20, 27, 40, 0.97));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  color: var(--vscode-foreground, #f5efe1);
+  max-width: 280px; word-break: break-word;
+  pointer-events: auto;
+  animation: toast-slide-in 0.25s ease-out both;
+}
+.toast--info  { border-left: 3px solid rgba(125, 140, 255, 0.8); }
+.toast--success { border-left: 3px solid #70c1b3; }
+.toast--error { border-left: 3px solid #f25f5c; }
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ═══════════════════════════════════════════════════
+   First Run Banner (UX-01)
+   ═══════════════════════════════════════════════════ */
+.first-run-banner {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 224, 102, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 224, 102, 0.06);
+}
+.first-run-banner__header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.first-run-banner__title {
+  font-size: 0.9rem; font-weight: 600; color: #ffe066;
+  letter-spacing: 0.04em;
+}
+.first-run-banner__dismiss {
+  background: none; border: none; color: rgba(245, 239, 225, 0.4);
+  cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 4px;
+}
+.first-run-banner__dismiss:hover { color: rgba(245, 239, 225, 0.8); }
+.first-run-banner__steps {
+  display: grid; gap: 8px; list-style: none; padding: 0; margin: 0;
+}
+.first-run-banner__step {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 0.8rem; color: rgba(245, 239, 225, 0.75);
+}
+.first-run-banner__step-num {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255, 224, 102, 0.4);
+  border-radius: 50%;
+  font-size: 0.68rem; color: #ffe066; font-weight: 700;
 }

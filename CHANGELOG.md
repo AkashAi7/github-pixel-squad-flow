@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.13
+
+- **Fix URI routing crash** (root cause resolved): `WorkspaceContextService.capture()` is now wrapped in a top-level `try/catch` that falls back to the lightweight snapshot — a malformed tab `input` object or any unexpected runtime error can no longer propagate as "Pixel Squad routing failed". Also fixed `'input' in tab` guard to additionally check `tab.input != null` before accessing `.uri`.
+- **Fix dialog overflow/scroll**: `.dialog` CSS now sets `max-height: calc(100vh - 48px)` and `overflow-y: auto` so the Spawn Agent and Create Room dialogs are always scrollable when the custom persona form is expanded.
+- **Faster task routing**: `MAX_FILES` reduced from 10 to 4; workspace symbol search capped at 4 tokens with a 2 s `Promise.race` timeout; import-chain expansion limited to 2 extra files; `workspaceContextMaxFiles` config default lowered from 6 to 3. Task routing should feel noticeably snapper on large workspaces.
+- **UX-01 — First Run Banner**: new dismissible on-boarding banner appears inside the factory panel whenever no rooms or agents have been created yet; walks through the three-step setup (Room → Agent → Task).
+- **UX-02 — CSS state transitions**: `.task-card` now transitions `background`, `border-color`, and `box-shadow` over 0.2 s; `.status-badge` transitions `background`, `color`, and `border-color` over 0.25 s so status changes animate smoothly instead of jumping.
+- **UX-03 — VS Code CSS tokens**: `.dialog` background now uses `var(--vscode-editorWidget-background)`; `.dialog-input / .dialog-textarea` use `var(--vscode-input-background)` and `var(--vscode-input-border)`; `.dialog-label` uses `var(--vscode-input-placeholderForeground)`. All fall back to the existing dark-theme values.
+- **UX-05 — Toast notifications**: background task/provider events are now surfaced as slide-in toast notifications at the bottom-right of the panel (task completions → green, failures/provider-unavailable → red, other → info). Toasts auto-dismiss after 3.5 s.
+
 ## 0.1.12
 
 - **Secondary sidebar (manifest fix)**: `viewsContainers` key changed from `activitybar` to `secondarySideBar` in the extension manifest so VS Code places Pixel Squad in the right-hand secondary sidebar from first install — no programmatic workaround needed. Removed the unreliable one-shot `moveViewContainerToAuxiliaryBar` runtime call.

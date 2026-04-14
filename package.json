@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -106,7 +106,7 @@
         },
         "pixelSquad.workspaceContextMaxFiles": {
           "type": "number",
-          "default": 6,
+          "default": 3,
           "minimum": 1,
           "maximum": 12,
           "description": "Maximum number of workspace files to auto-include as task context during planning and execution."

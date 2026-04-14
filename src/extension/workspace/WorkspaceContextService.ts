@@ -10,7 +10,8 @@ const execFileAsync = promisify(execFile);
 
 const FILE_GLOB = '**/*.{ts,tsx,js,jsx,json,md,css,scss,html,mjs,cjs,yml,yaml,py,go,rs,java,c,cpp,h,hpp,cs,rb,php,sh,ps1,toml,ini,env}';
 const EXCLUDE_GLOB = '**/{node_modules,dist,.git,.pixel-squad,out,coverage,__pycache__,.venv,target,bin,obj}/**';
-const MAX_FILES = 10;
+const MAX_FILES = 4;
+const SYMBOLS_TIMEOUT_MS = 2_000;
 const FALLBACK_BUDGET_CHARS = 120_000;
 /** Reserve ~25% of model token budget for system prompt + response. */
 const TOKEN_RESERVE_RATIO = 0.25;
@@ -56,37 +57,43 @@ export class WorkspaceContextService {
     extraPinnedFiles?: string[],
     model?: vscode.LanguageModelChat,
   ): Promise<WorkspaceContext> {
-    const activeEditor = vscode.window.activeTextEditor;
-    const activeFile = this.toRelativePath(activeEditor?.document.uri.fsPath);
-    const selectedText = activeEditor && !activeEditor.selection.isEmpty
-      ? activeEditor.document.getText(activeEditor.selection).slice(0, 1600)
-      : undefined;
+    try {
+      const activeEditor = vscode.window.activeTextEditor;
+      const activeFile = this.toRelativePath(activeEditor?.document.uri.fsPath);
+      const selectedText = activeEditor && !activeEditor.selection.isEmpty
+        ? activeEditor.document.getText(activeEditor.selection).slice(0, 1600)
+        : undefined;
 
-    const [branch, gitStatus, relevantFiles] = await Promise.all([
-      this.safeGitAsync(['branch', '--show-current']),
-      this.safeGitAsync(['status', '--short', '--branch']),
-      this.rootPath
-        ? this.collectRelevantFiles(prompt, activeEditor?.document.uri.fsPath, maxFiles)
-        : Promise.resolve([]),
-    ]);
+      const [branch, gitStatus, relevantFiles] = await Promise.all([
+        this.safeGitAsync(['branch', '--show-current']),
+        this.safeGitAsync(['status', '--short', '--branch']),
+        this.rootPath
+          ? this.collectRelevantFiles(prompt, activeEditor?.document.uri.fsPath, maxFiles)
+          : Promise.resolve([]),
+      ]);
 
-    // Merge pinned files (priority) with auto-selected files, then apply budget
-    const pinnedContextFiles = this.readPinnedFiles(extraPinnedFiles);
-    // Pinned files come first so they survive budget trimming
-    const merged = [
-      ...pinnedContextFiles,
-      ...relevantFiles.filter((f) => !new Set(pinnedContextFiles.map((p) => p.path)).has(f.path)),
-    ];
-    const budgeted = await this.applyTokenBudget(merged, model);
+      // Merge pinned files (priority) with auto-selected files, then apply budget
+      const pinnedContextFiles = this.readPinnedFiles(extraPinnedFiles);
+      // Pinned files come first so they survive budget trimming
+      const merged = [
+        ...pinnedContextFiles,
+        ...relevantFiles.filter((f) => !new Set(pinnedContextFiles.map((p) => p.path)).has(f.path)),
+      ];
+      const budgeted = await this.applyTokenBudget(merged, model);
 
-    return {
-      workspaceRoot: this.rootPath,
-      branch: branch || undefined,
-      gitStatus: gitStatus ? gitStatus.split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
-      activeFile,
-      selectedText,
-      relevantFiles: budgeted,
-    };
+      return {
+        workspaceRoot: this.rootPath,
+        branch: branch || undefined,
+        gitStatus: gitStatus ? gitStatus.split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
+        activeFile,
+        selectedText,
+        relevantFiles: budgeted,
+      };
+    } catch {
+      // Any error during workspace context capture falls back to lightweight snapshot
+      // so a malformed URI or missing provider never surfaces as a routing failure.
+      return this.captureLightweight();
+    }
   }
 
   /** List workspace-relative paths for the file picker. */
@@ -131,7 +138,7 @@ export class WorkspaceContextService {
     const openTabs = new Set(
       vscode.window.tabGroups.all
         .flatMap((group) => group.tabs)
-        .map((tab) => ('input' in tab ? (tab.input as { uri?: vscode.Uri }).uri?.fsPath : undefined))
+        .map((tab) => ('input' in tab && tab.input != null ? (tab.input as { uri?: vscode.Uri }).uri?.fsPath : undefined))
         .filter((value): value is string => Boolean(value))
         .map((value) => this.toRelativePath(value))
         .filter((value): value is string => Boolean(value)),
@@ -194,6 +201,7 @@ export class WorkspaceContextService {
       })),
       ...importExtras
         .filter((rel) => !alreadyIncluded.has(rel))
+        .slice(0, 2)
         .map((rel) => ({
           path: rel,
           reason: 'Referenced via import from a relevant file.',
@@ -211,23 +219,27 @@ export class WorkspaceContextService {
   private async searchWorkspaceSymbols(tokens: string[]): Promise<Set<string>> {
     const hitPaths = new Set<string>();
     if (!this.rootPath) { return hitPaths; }
-    // Use tokens of 4+ chars — more likely to be real identifiers
-    const candidateTokens = tokens.filter((t) => t.length >= 4).slice(0, 6);
-    await Promise.all(
-      candidateTokens.map(async (token) => {
-        try {
-          const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-            'vscode.executeWorkspaceSymbolProvider',
-            token,
-          );
-          for (const sym of symbols ?? []) {
-            const fsPath = sym?.location?.uri?.fsPath;
-            const rel = fsPath ? this.toRelativePath(fsPath) : undefined;
-            if (rel) { hitPaths.add(rel); }
-          }
-        } catch { /* provider not available */ }
-      }),
-    );
+    // Use tokens of 4+ chars — more likely to be real identifiers; cap at 4 to keep latency low
+    const candidateTokens = tokens.filter((t) => t.length >= 4).slice(0, 4);
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, SYMBOLS_TIMEOUT_MS));
+    await Promise.race([
+      Promise.all(
+        candidateTokens.map(async (token) => {
+          try {
+            const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+              'vscode.executeWorkspaceSymbolProvider',
+              token,
+            );
+            for (const sym of symbols ?? []) {
+              const fsPath = sym?.location?.uri?.fsPath;
+              const rel = fsPath ? this.toRelativePath(fsPath) : undefined;
+              if (rel) { hitPaths.add(rel); }
+            }
+          } catch { /* provider not available */ }
+        }),
+      ),
+      timeout,
+    ]);
     return hitPaths;
   }
 

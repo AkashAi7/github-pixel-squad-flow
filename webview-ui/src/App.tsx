@@ -297,6 +297,14 @@ function App() {
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
   const [taskPersonaFilter, setTaskPersonaFilter] = useState<string | 'all'>('all');
   const [activityFilter, setActivityFilter] = useState<ActivityCategory | 'all'>('all');
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
+  const [showFirstRun, setShowFirstRun] = useState(true);
+
+  const addToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+  };
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
@@ -316,6 +324,18 @@ function App() {
       if (event.data.type === 'activity') {
         const nextActivity = normalizeActivityEntry(event.data.activity ?? event.data.message, 0);
         setActivity((current) => [nextActivity, ...current].slice(0, 20));
+        // Surface important background events as toasts
+        const cat = nextActivity.category;
+        if (cat === 'task') {
+          const msg = nextActivity.message;
+          if (msg.toLowerCase().includes('failed') || msg.toLowerCase().includes('error')) {
+            addToast(msg, 'error');
+          } else if (msg.toLowerCase().includes('complete') || msg.toLowerCase().includes('done')) {
+            addToast(msg, 'success');
+          }
+        } else if (cat === 'provider' && nextActivity.message.toLowerCase().includes('unavailable')) {
+          addToast(nextActivity.message, 'error');
+        }
       }
 
       if (event.data.type === 'taskOutput') {
@@ -459,6 +479,15 @@ function App() {
 
   return (
     <main className="shell shell--activitybar">
+      {/* ─── Toast container ─── */}
+      {toasts.length > 0 && (
+        <div className="toast-container" aria-live="polite">
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast toast--${t.type}`}>{t.message}</div>
+          ))}
+        </div>
+      )}
+
       {/* ─── Dialogs ─── */}
       {showCreateRoom && (
         <CreateRoomDialog
@@ -499,6 +528,34 @@ function App() {
           </div>
         </div>
         <div className="hero-panel__body">
+          {/* ─── First Run Banner ─── */}
+          {showFirstRun && snapshot.rooms.length === 0 && snapshot.agents.length === 0 && (
+            <div className="first-run-banner">
+              <div className="first-run-banner__header">
+                <span className="first-run-banner__title">Welcome to Pixel Squad</span>
+                <button
+                  type="button"
+                  className="first-run-banner__dismiss"
+                  aria-label="Dismiss welcome banner"
+                  onClick={() => setShowFirstRun(false)}
+                >✕</button>
+              </div>
+              <ol className="first-run-banner__steps">
+                <li className="first-run-banner__step">
+                  <span className="first-run-banner__step-num">1</span>
+                  <span>Create a <strong>Room</strong> — a logical workspace for a team of agents (e.g. "Frontend", "API").</span>
+                </li>
+                <li className="first-run-banner__step">
+                  <span className="first-run-banner__step-num">2</span>
+                  <span>Spawn an <strong>Agent</strong> inside the room — choose a persona and provider (GitHub Copilot or Claude).</span>
+                </li>
+                <li className="first-run-banner__step">
+                  <span className="first-run-banner__step-num">3</span>
+                  <span><strong>Route a task</strong> — describe any goal in the box below and press Route Task.</span>
+                </li>
+              </ol>
+            </div>
+          )}
           <div className="stats-bar">
             <span className="stat">{stats.total} tasks</span>
             <span className="stat stat--active">{stats.active} active</span>
