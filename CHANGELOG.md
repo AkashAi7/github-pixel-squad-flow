@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.11
+
+- Fix **routing crash** (`Cannot read properties of undefined (reading 'uri')`): add optional chaining in `WorkspaceContextService.searchWorkspaceSymbols` so a symbol provider returning an incomplete `SymbolInformation` object no longer throws.
+- **Secondary sidebar by default**: on first activation the extension calls `workbench.action.moveViewContainerToAuxiliaryBar` to move Pixel Squad's panel to the right-side secondary sidebar automatically. VS Code remembers the position permanently so this fires only once.
+- **Auto-execute on by default**: `pixelSquad.autoExecute` now defaults to `true`. Tasks execute and file changes are written immediately after planning — matching GitHub Copilot agent mode behaviour. Toggle the button in the factory header to switch back to review mode.
+- **Activity bar icon**: new monochrome 24×24 SVG (`icon-activitybar.svg`) that renders clearly in VS Code's activity bar.
+- **Providers tab**: fifth sidebar tab showing live LM provider status (Copilot / Claude) and agent distribution metrics.
+- **Tab labels** updated to match prototype: Factory → Agent Factory, Feed → Activity Feed.
+
 ## 0.1.10
 
 - Fix **activity bar placement**: ensure `viewsContainers` key is `activitybar` (not `panel`), and add `workbench.action.moveView` call in `showFactory` to reset VS Code's cached panel position back to the sidebar.
