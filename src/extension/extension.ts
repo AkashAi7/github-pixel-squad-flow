@@ -36,6 +36,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.showFactory', async () => {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
     }),
+    vscode.commands.registerCommand('pixelSquad.openInEditor', () => {
+      provider.openAsEditorPanel();
+    }),
     vscode.commands.registerCommand('pixelSquad.createTask', async () => {
       const prompt = await vscode.window.showInputBox({
         prompt: 'Describe the task you want Pixel Squad to route',

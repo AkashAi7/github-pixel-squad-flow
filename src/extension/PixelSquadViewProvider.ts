@@ -44,112 +44,157 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     });
 
     webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
-      if (message.type === 'webviewReady') {
-        this.coordinator.notifyWebviewConnected();
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'showAgent') {
-        this.coordinator.selectAgent(message.agentId);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'createTask') {
-        try {
-          const summary = await this.coordinator.createTask(message.prompt);
-          this.syncSnapshot();
-          void vscode.window.showInformationMessage(summary);
-        } catch (error) {
-          this.syncSnapshot();
-          const detail = error instanceof Error ? error.message : 'Unknown error';
-          void vscode.window.showErrorMessage(`Pixel Squad routing failed: ${detail}`);
-        }
-      }
-
-      if (message.type === 'resetWorkspace') {
-        this.coordinator.resetWorkspace();
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'agentAction') {
-        this.coordinator.agentAction(message.agentId, message.action);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'taskAction') {
-        try {
-          await this.coordinator.taskAction(message.taskId, message.action);
-        } catch {
-          // taskAction failure — still sync state
-        }
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'createRoom') {
-        this.coordinator.createRoom(message.name, message.theme, message.purpose);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'deleteRoom') {
-        this.coordinator.deleteRoom(message.roomId);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'spawnAgent') {
-        this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'removeAgent') {
-        this.coordinator.removeAgent(message.agentId);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'assignTask') {
-        try {
-          const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
-          this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
-          this.syncSnapshot();
-          void vscode.window.showInformationMessage(summary);
-        } catch (error) {
-          this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
-          this.syncSnapshot();
-          const detail = error instanceof Error ? error.message : 'Unknown error';
-          void vscode.window.showErrorMessage(`Task assignment failed: ${detail}`);
-        }
-      }
-
-      if (message.type === 'pinFiles') {
-        this.coordinator.pinFiles(message.agentId, message.files);
-        this.syncSnapshot();
-      }
-
-      if (message.type === 'pinActiveFile') {
-        const activeUri = vscode.window.activeTextEditor?.document.uri;
-        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (activeUri && root) {
-          const relative = vscode.workspace.asRelativePath(activeUri, false);
-          const agent = this.coordinator.getSnapshot().agents.find(a => a.id === message.agentId);
-          const current = agent?.pinnedFiles ?? [];
-          if (!current.includes(relative)) {
-            this.coordinator.pinFiles(message.agentId, [...current, relative]);
-            this.syncSnapshot();
-          }
-        }
-      }
-
-      if (message.type === 'requestWorkspaceFiles') {
-        const files = await this.coordinator.getWorkspaceFiles();
-        this.postMessage({ type: 'workspaceFiles', files });
-      }
-
-      if (message.type === 'toggleAutoExecute') {
-        const config = vscode.workspace.getConfiguration('pixelSquad');
-        const current = config.get<boolean>('autoExecute', false);
-        await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
-        this.syncSnapshot();
-      }
+      await this.handleWebviewMessage(message, () => this.syncSnapshot(), (msg) => this.postMessage(msg));
     });
+  }
+
+  /** Open Pixel Squad as a full editor-area panel — more space, sits alongside Copilot Chat */
+  openAsEditorPanel(): void {
+    const panel = vscode.window.createWebviewPanel(
+      'pixelSquad.editorPanel',
+      'Pixel Squad',
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(vscode.Uri.file(this.extensionUri.fsPath), 'dist', 'webview')
+        ],
+      }
+    );
+
+    panel.webview.html = this.getHtml(panel.webview);
+
+    const post = (msg: ExtensionMessage) => void panel.webview.postMessage(msg);
+    const sync = () => post({ type: 'bootstrapState', snapshot: this.coordinator.getSnapshot() });
+
+    const unsubActivity = this.coordinator.activityBus.subscribe(post);
+    const unsubOutput = this.coordinator.taskOutputBus.subscribe(post);
+    const unsubChat = this.coordinator.agentChatBus.subscribe(post);
+
+    panel.onDidDispose(() => {
+      unsubActivity();
+      unsubOutput();
+      unsubChat();
+    });
+
+    panel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
+      await this.handleWebviewMessage(message, sync, post);
+    });
+
+    sync();
+  }
+
+  private async handleWebviewMessage(
+    message: WebviewMessage,
+    syncSnapshot: () => void,
+    postMessage: (msg: ExtensionMessage) => void,
+  ): Promise<void> {
+    if (message.type === 'webviewReady') {
+      this.coordinator.notifyWebviewConnected();
+      syncSnapshot();
+    }
+
+    if (message.type === 'showAgent') {
+      this.coordinator.selectAgent(message.agentId);
+      syncSnapshot();
+    }
+
+    if (message.type === 'createTask') {
+      try {
+        const summary = await this.coordinator.createTask(message.prompt);
+        syncSnapshot();
+        void vscode.window.showInformationMessage(summary);
+      } catch (error) {
+        syncSnapshot();
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        void vscode.window.showErrorMessage(`Pixel Squad routing failed: ${detail}`);
+      }
+    }
+
+    if (message.type === 'resetWorkspace') {
+      this.coordinator.resetWorkspace();
+      syncSnapshot();
+    }
+
+    if (message.type === 'agentAction') {
+      this.coordinator.agentAction(message.agentId, message.action);
+      syncSnapshot();
+    }
+
+    if (message.type === 'taskAction') {
+      try {
+        await this.coordinator.taskAction(message.taskId, message.action);
+      } catch {
+        // taskAction failure — still sync state
+      }
+      syncSnapshot();
+    }
+
+    if (message.type === 'createRoom') {
+      this.coordinator.createRoom(message.name, message.theme, message.purpose);
+      syncSnapshot();
+    }
+
+    if (message.type === 'deleteRoom') {
+      this.coordinator.deleteRoom(message.roomId);
+      syncSnapshot();
+    }
+
+    if (message.type === 'spawnAgent') {
+      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona);
+      syncSnapshot();
+    }
+
+    if (message.type === 'removeAgent') {
+      this.coordinator.removeAgent(message.agentId);
+      syncSnapshot();
+    }
+
+    if (message.type === 'assignTask') {
+      try {
+        const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
+        postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
+        syncSnapshot();
+        void vscode.window.showInformationMessage(summary);
+      } catch (error) {
+        postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
+        syncSnapshot();
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        void vscode.window.showErrorMessage(`Task assignment failed: ${detail}`);
+      }
+    }
+
+    if (message.type === 'pinFiles') {
+      this.coordinator.pinFiles(message.agentId, message.files);
+      syncSnapshot();
+    }
+
+    if (message.type === 'pinActiveFile') {
+      const activeUri = vscode.window.activeTextEditor?.document.uri;
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (activeUri && root) {
+        const relative = vscode.workspace.asRelativePath(activeUri, false);
+        const agent = this.coordinator.getSnapshot().agents.find(a => a.id === message.agentId);
+        const current = agent?.pinnedFiles ?? [];
+        if (!current.includes(relative)) {
+          this.coordinator.pinFiles(message.agentId, [...current, relative]);
+          syncSnapshot();
+        }
+      }
+    }
+
+    if (message.type === 'requestWorkspaceFiles') {
+      const files = await this.coordinator.getWorkspaceFiles();
+      postMessage({ type: 'workspaceFiles', files });
+    }
+
+    if (message.type === 'toggleAutoExecute') {
+      const config = vscode.workspace.getConfiguration('pixelSquad');
+      const current = config.get<boolean>('autoExecute', false);
+      await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
+      syncSnapshot();
+    }
   }
 
   private postMessage(message: ExtensionMessage): void {

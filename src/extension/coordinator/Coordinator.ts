@@ -104,7 +104,7 @@ export class Coordinator {
 
       const refreshedAgent: SquadAgent = {
         ...agent,
-        status: index === 0 ? 'executing' : 'planning',
+        status: dependencyIds.length === 0 ? 'executing' : 'planning',
         summary: assignment.detail,
       };
       updatedAgents[updatedAgents.findIndex((item) => item.id === agent.id)] = refreshedAgent;
@@ -112,16 +112,14 @@ export class Coordinator {
         ?.map((personaId) => personaTaskMap.get(personaId))
         .filter((taskId): taskId is string => Boolean(taskId))
         ?? [];
-      const inferredDependencyIds = dependencyIds.length > 0
-        ? dependencyIds
-        : index > 0
-          ? [stagedTaskIds[index - 1]]
-          : [];
+      // Only use explicit dependencies — never force sequential chaining when
+      // tasks could run in parallel on different agents.
+      const inferredDependencyIds = dependencyIds;
 
       newTasks.push({
         id: stagedTaskIds[index],
         title: assignment.title,
-        status: index === 0 ? 'active' : 'queued',
+        status: inferredDependencyIds.length === 0 ? 'active' : 'queued',
         assigneeId: refreshedAgent.id,
         provider: refreshedAgent.provider,
         source: 'factory',
@@ -147,11 +145,11 @@ export class Coordinator {
     this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
     this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
 
-    // Auto-execute first active task if enabled
+    // Auto-execute all active (no-dep) tasks in parallel when enabled
     if (this.getSettings().autoExecute && newTasks.length > 0) {
-      const firstActive = newTasks.find((t) => t.status === 'active');
-      if (firstActive) {
-        void this.executeTask(firstActive.id);
+      const activeTasks = newTasks.filter((t) => t.status === 'active');
+      for (const t of activeTasks) {
+        void this.executeTask(t.id);
       }
     }
 

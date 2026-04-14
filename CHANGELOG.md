@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14
+
+- **Parallel agent execution**: Tasks no longer chain sequentially by default. Previously every task after the first was given an implicit dependency on its predecessor, causing agents to queue even when their work was fully independent. Now only planner-declared `dependsOnPersonaIds` create real dependencies — independent subtasks run concurrently across all 6 scheduler slots.
+- **Open in Editor Panel**: New command `Pixel Squad: Open in Editor Panel` opens the factory UI as a full-width editor panel (`ViewColumn.Beside`) alongside your code or GitHub Copilot Chat, giving far more room than the 300 px sidebar. Trigger it from the Command Palette.
+- **Chain of Dependencies view**: Expanded task cards now show a "Chain of Dependencies" section when the task has upstream dependencies. Each upstream task is rendered as a node (status badge + title + assigned agent) connected by `→` arrows to the current task, so you can see at a glance what a queued task is blocked on.
+
 ## 0.1.13
 
 - **Fix URI routing crash** (root cause resolved): `WorkspaceContextService.capture()` is now wrapped in a top-level `try/catch` that falls back to the lightweight snapshot — a malformed tab `input` object or any unexpected runtime error can no longer propagate as "Pixel Squad routing failed". Also fixed `'input' in tab` guard to additionally check `tab.input != null` before accessing `.uri`.

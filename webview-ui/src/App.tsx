@@ -1126,6 +1126,31 @@ function App() {
                               ))}
                             </div>
                           ) : null}
+                          {expandedTaskId === task.id && (task.dependsOn?.length ?? 0) > 0 ? (
+                            <div className="dep-chain">
+                              <p className="eyebrow">Chain of Dependencies</p>
+                              <div className="dep-chain__nodes">
+                                {task.dependsOn!.map((depId) => {
+                                  const depTask = snapshot.tasks.find((t) => t.id === depId);
+                                  const depAgent = depTask ? agentsById.get(depTask.assigneeId) : null;
+                                  return depTask ? (
+                                    <div key={depId} className="dep-chain__entry">
+                                      <div className="dep-chain__node">
+                                        <span className={`dep-chain__badge dep-chain__badge--${depTask.status}`}>{depTask.status}</span>
+                                        <span className="dep-chain__title">{depTask.title}</span>
+                                        {depAgent ? <span className="dep-chain__agent">{depAgent.name}</span> : null}
+                                      </div>
+                                      <span className="dep-chain__arrow" aria-hidden="true">→</span>
+                                    </div>
+                                  ) : null;
+                                })}
+                                <div className="dep-chain__node dep-chain__node--self">
+                                  <span className={`dep-chain__badge dep-chain__badge--${task.status}`}>{task.status}</span>
+                                  <span className="dep-chain__title">{task.title}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                           {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
                             <div className="task-plan">
                               <p className="eyebrow">Proposed Changes</p>
