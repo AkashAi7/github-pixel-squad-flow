@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.16
+
+- **Fix: `Cannot access 'dependencyIds' before initialization`** — `dependencyIds` was declared after it was referenced (temporal dead zone bug introduced in v0.1.14). Moved the declaration above the `refreshedAgent` block so the variable is always initialized before use. `@pixelSquad` routing no longer crashes immediately on every task.
+
 ## 0.1.15
 
 - **Fix: prose response no longer crashes task execution** — when Claude or Copilot returns plain English instead of a JSON execution plan (e.g. `"I need to ..."` due to context limits or a refusal), the adapter now catches the parse error gracefully and surfaces the model's text in the task notes instead of failing with `Unexpected token 'I' is not valid JSON`. Tasks complete with `done: true` so the factory never gets stuck.

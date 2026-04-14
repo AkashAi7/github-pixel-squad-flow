@@ -102,12 +102,6 @@ export class Coordinator {
         continue;
       }
 
-      const refreshedAgent: SquadAgent = {
-        ...agent,
-        status: dependencyIds.length === 0 ? 'executing' : 'planning',
-        summary: assignment.detail,
-      };
-      updatedAgents[updatedAgents.findIndex((item) => item.id === agent.id)] = refreshedAgent;
       const dependencyIds = assignment.dependsOnPersonaIds
         ?.map((personaId) => personaTaskMap.get(personaId))
         .filter((taskId): taskId is string => Boolean(taskId))
@@ -115,6 +109,13 @@ export class Coordinator {
       // Only use explicit dependencies — never force sequential chaining when
       // tasks could run in parallel on different agents.
       const inferredDependencyIds = dependencyIds;
+
+      const refreshedAgent: SquadAgent = {
+        ...agent,
+        status: dependencyIds.length === 0 ? 'executing' : 'planning',
+        summary: assignment.detail,
+      };
+      updatedAgents[updatedAgents.findIndex((item) => item.id === agent.id)] = refreshedAgent;
 
       newTasks.push({
         id: stagedTaskIds[index],
