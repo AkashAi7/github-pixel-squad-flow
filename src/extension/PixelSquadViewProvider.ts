@@ -102,6 +102,30 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
         this.syncSnapshot();
         void vscode.window.showInformationMessage(summary);
       }
+
+      if (message.type === 'pinFiles') {
+        this.coordinator.pinFiles(message.agentId, message.files);
+        this.syncSnapshot();
+      }
+
+      if (message.type === 'pinActiveFile') {
+        const activeUri = vscode.window.activeTextEditor?.document.uri;
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (activeUri && root) {
+          const relative = vscode.workspace.asRelativePath(activeUri, false);
+          const agent = this.coordinator.getSnapshot().agents.find(a => a.id === message.agentId);
+          const current = agent?.pinnedFiles ?? [];
+          if (!current.includes(relative)) {
+            this.coordinator.pinFiles(message.agentId, [...current, relative]);
+            this.syncSnapshot();
+          }
+        }
+      }
+
+      if (message.type === 'requestWorkspaceFiles') {
+        const files = await this.coordinator.getWorkspaceFiles();
+        this.postMessage({ type: 'workspaceFiles', files });
+      }
     });
   }
 

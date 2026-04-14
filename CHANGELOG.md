@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8
+
+- Add **per-agent pinned context files** so each agent can carry its own curated workspace context between tasks.
+- Add **quick pinning of the active editor file** from the agent inspector, alongside the searchable workspace file picker.
+- Improve task execution UX: when auto-execute is enabled, generated file edits can be applied automatically instead of forcing repeated manual execute/review clicks.
+- Reduce UI clutter by stopping completed task output from auto-expanding in the webview inspector.
+- Upgrade workspace context capture to use the model's **real token budget** (`countTokens()` and `maxInputTokens`) instead of fixed snippet limits.
+- Improve file retrieval with **workspace symbol search** and **import graph expansion**, so agents pull in more relevant code and related dependencies.
+
 ## 0.1.7
 
 - Add **agent mailbox system**: each agent gets an in-memory inbox; the Coordinator runs a multi-turn execution loop (up to 3 turns) where agents check for incoming messages between LM calls and can send messages to other agents in their room.

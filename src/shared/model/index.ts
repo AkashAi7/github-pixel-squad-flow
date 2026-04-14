@@ -57,6 +57,8 @@ export interface SquadAgent {
   spriteVariant: number;
   xp: number;
   level: number;
+  /** Workspace-relative file paths pinned to this agent for extra context. */
+  pinnedFiles?: string[];
 }
 
 /* ── Mood system ───────────────────────────────────────── */

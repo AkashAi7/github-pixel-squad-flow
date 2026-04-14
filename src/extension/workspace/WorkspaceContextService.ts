@@ -8,10 +8,12 @@ import type { WorkspaceContext, WorkspaceFileContext } from '../../shared/model/
 
 const execFileAsync = promisify(execFile);
 
-const FILE_GLOB = '**/*.{ts,tsx,js,jsx,json,md,css,scss,html,mjs,cjs,yml,yaml}';
-const EXCLUDE_GLOB = '**/{node_modules,dist,.git,.pixel-squad,out,coverage}/**';
-const MAX_FILES = 6;
-const MAX_LINES = 120;
+const FILE_GLOB = '**/*.{ts,tsx,js,jsx,json,md,css,scss,html,mjs,cjs,yml,yaml,py,go,rs,java,c,cpp,h,hpp,cs,rb,php,sh,ps1,toml,ini,env}';
+const EXCLUDE_GLOB = '**/{node_modules,dist,.git,.pixel-squad,out,coverage,__pycache__,.venv,target,bin,obj}/**';
+const MAX_FILES = 10;
+const FALLBACK_BUDGET_CHARS = 120_000;
+/** Reserve ~25% of model token budget for system prompt + response. */
+const TOKEN_RESERVE_RATIO = 0.25;
 const CACHE_TTL_MS = 8_000;
 
 interface CacheEntry<T> { value: T; ts: number; }
@@ -45,9 +47,15 @@ export class WorkspaceContextService {
 
   /**
    * Full async capture: git calls, file discovery, snippet reading.
-   * All I/O is non-blocking.
+   * When a model is provided, uses `countTokens()` + `maxInputTokens` to
+   * fill the context window dynamically — no arbitrary line caps.
    */
-  async capture(prompt: string, maxFiles = MAX_FILES): Promise<WorkspaceContext> {
+  async capture(
+    prompt: string,
+    maxFiles = MAX_FILES,
+    extraPinnedFiles?: string[],
+    model?: vscode.LanguageModelChat,
+  ): Promise<WorkspaceContext> {
     const activeEditor = vscode.window.activeTextEditor;
     const activeFile = this.toRelativePath(activeEditor?.document.uri.fsPath);
     const selectedText = activeEditor && !activeEditor.selection.isEmpty
@@ -62,19 +70,63 @@ export class WorkspaceContextService {
         : Promise.resolve([]),
     ]);
 
+    // Merge pinned files (priority) with auto-selected files, then apply budget
+    const pinnedContextFiles = this.readPinnedFiles(extraPinnedFiles);
+    // Pinned files come first so they survive budget trimming
+    const merged = [
+      ...pinnedContextFiles,
+      ...relevantFiles.filter((f) => !new Set(pinnedContextFiles.map((p) => p.path)).has(f.path)),
+    ];
+    const budgeted = await this.applyTokenBudget(merged, model);
+
     return {
       workspaceRoot: this.rootPath,
       branch: branch || undefined,
       gitStatus: gitStatus ? gitStatus.split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
       activeFile,
       selectedText,
-      relevantFiles,
+      relevantFiles: budgeted,
     };
+  }
+
+  /** List workspace-relative paths for the file picker. */
+  async listWorkspaceFiles(): Promise<string[]> {
+    const uris = await this.findFilesCached();
+    return uris
+      .map((uri) => this.toRelativePath(uri.fsPath))
+      .filter((p): p is string => Boolean(p))
+      .sort();
+  }
+
+  private readPinnedFiles(filePaths?: string[]): WorkspaceFileContext[] {
+    if (!filePaths || filePaths.length === 0 || !this.rootPath) {
+      return [];
+    }
+    return filePaths
+      .map((relativePath) => {
+        const absolute = path.resolve(this.rootPath!, relativePath);
+        if (!absolute.startsWith(path.resolve(this.rootPath!)) || !fs.existsSync(absolute)) {
+          return undefined;
+        }
+        return {
+          path: relativePath,
+          reason: 'Pinned to agent by user.',
+          content: this.readFileContent(absolute),
+        };
+      })
+      .filter((entry): entry is WorkspaceFileContext => Boolean(entry));
   }
 
   private async collectRelevantFiles(prompt: string, activeFsPath?: string, maxFiles = MAX_FILES): Promise<WorkspaceFileContext[]> {
     const keywordTokens = prompt.toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2);
-    const statusRaw = await this.safeGitAsync(['status', '--short']);
+
+    // Run git status, workspace symbol search, and file list in parallel
+    const [statusRaw, symbolHitPaths, uris] = await Promise.all([
+      this.safeGitAsync(['status', '--short']),
+      this.searchWorkspaceSymbols(keywordTokens),
+      this.findFilesCached(),
+    ]);
+
     const changedFiles = new Set(statusRaw.split(/\r?\n/).filter(Boolean).map((line) => line.slice(3).replace(/\\/g, '/')));
     const openTabs = new Set(
       vscode.window.tabGroups.all
@@ -84,7 +136,7 @@ export class WorkspaceContextService {
         .map((value) => this.toRelativePath(value))
         .filter((value): value is string => Boolean(value)),
     );
-    const uris = await this.findFilesCached();
+
     const scored = uris
       .map((uri) => {
         const relativePath = this.toRelativePath(uri.fsPath);
@@ -107,6 +159,12 @@ export class WorkspaceContextService {
           score += 35;
           reason = 'File has local git changes.';
         }
+        // Symbol index hit — VS Code language extensions confirmed this file
+        // contains a function/class/type that matches a keyword from the task
+        if (symbolHitPaths.has(relativePath)) {
+          score += 60;
+          reason = 'Contains symbols matching the task prompt.';
+        }
         for (const token of keywordTokens) {
           if (lowerPath.includes(token)) {
             score += 10;
@@ -123,29 +181,179 @@ export class WorkspaceContextService {
       .sort((left, right) => right.score - left.score)
       .slice(0, maxFiles);
 
-    return scored.map((entry) => ({
-      path: entry.relativePath,
-      reason: entry.reason,
-      content: this.readSnippet(entry.uri.fsPath),
-    }));
+    // Expand: walk import graph of top-ranked files to pull in cross-file dependencies
+    // e.g. if Coordinator.ts is top-ranked, its imports (WorkspaceContextService, TaskScheduler) come along
+    const importExtras = this.collectImportedFiles(scored.map((e) => e.uri.fsPath));
+    const alreadyIncluded = new Set(scored.map((e) => e.relativePath));
+
+    return [
+      ...scored.map((entry) => ({
+        path: entry.relativePath,
+        reason: entry.reason,
+        content: this.readFileContent(entry.uri.fsPath),
+      })),
+      ...importExtras
+        .filter((rel) => !alreadyIncluded.has(rel))
+        .map((rel) => ({
+          path: rel,
+          reason: 'Referenced via import from a relevant file.',
+          content: this.readFileContent(path.resolve(this.rootPath!, rel)),
+        })),
+    ];
+  }
+
+  /**
+   * Query VS Code's workspace symbol index using task keywords.
+   * Language extensions (TypeScript, Pylance, etc.) register symbol providers
+   * that search actual function/class/type definitions — the same mechanism
+   * powering Go-to-Symbol and @workspace in Copilot Chat.
+   */
+  private async searchWorkspaceSymbols(tokens: string[]): Promise<Set<string>> {
+    const hitPaths = new Set<string>();
+    if (!this.rootPath) { return hitPaths; }
+    // Use tokens of 4+ chars — more likely to be real identifiers
+    const candidateTokens = tokens.filter((t) => t.length >= 4).slice(0, 6);
+    await Promise.all(
+      candidateTokens.map(async (token) => {
+        try {
+          const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+            'vscode.executeWorkspaceSymbolProvider',
+            token,
+          );
+          for (const sym of symbols ?? []) {
+            const rel = this.toRelativePath(sym.location.uri.fsPath);
+            if (rel) { hitPaths.add(rel); }
+          }
+        } catch { /* provider not available */ }
+      }),
+    );
+    return hitPaths;
+  }
+
+  /**
+   * Walk import/require statements in the given source files and return the
+   * workspace-relative paths they reference. Relative imports only — this
+   * mirrors how an IDE resolves cross-file dependencies automatically.
+   */
+  private collectImportedFiles(fsPaths: string[]): string[] {
+    if (!this.rootPath) { return []; }
+    const IMPORT_RE = /(?:from|import)\s+['"]([^'"]+)['"]/g;
+    const REQUIRE_RE = /require\s*\(['"]([^'"]+)['"]\)/g;
+    const imported = new Set<string>();
+
+    for (const fsPath of fsPaths) {
+      let content: string;
+      try { content = fs.readFileSync(fsPath, 'utf8'); } catch { continue; }
+      const dir = path.dirname(fsPath);
+
+      for (const re of [IMPORT_RE, REQUIRE_RE]) {
+        re.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = re.exec(content)) !== null) {
+          const spec = match[1];
+          if (!spec.startsWith('.')) { continue; } // skip node_modules
+          // Try resolving with common TypeScript extensions
+          const base = path.resolve(dir, spec.replace(/\.js$/, ''));
+          for (const ext of ['', '.ts', '.tsx', '.js', '/index.ts', '/index.tsx']) {
+            const candidate = base + ext;
+            if (fs.existsSync(candidate)) {
+              // Security: ensure resolved path is within workspace root
+              const resolved = path.resolve(candidate);
+              if (!resolved.startsWith(path.resolve(this.rootPath!))) { break; }
+              const rel = this.toRelativePath(candidate);
+              if (rel) { imported.add(rel); }
+              break;
+            }
+          }
+        }
+      }
+    }
+    return [...imported];
   }
 
   private async findFilesCached(): Promise<vscode.Uri[]> {
     if (this.fileListCache && Date.now() - this.fileListCache.ts < CACHE_TTL_MS) {
       return this.fileListCache.value;
     }
-    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 80);
+    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 200);
     this.fileListCache = { value: uris, ts: Date.now() };
     return uris;
   }
 
-  private readSnippet(filePath: string): string {
+  /** Read entire file content. */
+  private readFileContent(filePath: string): string {
     try {
-      const raw = fs.readFileSync(filePath, 'utf8');
-      return raw.split(/\r?\n/).slice(0, MAX_LINES).join('\n');
+      return fs.readFileSync(filePath, 'utf8');
     } catch {
       return '';
     }
+  }
+
+  /**
+   * Use the model's countTokens() + maxInputTokens to include as many files
+   * as fit in the context window. Falls back to a character-based budget
+   * when no model is available.
+   */
+  private async applyTokenBudget(
+    files: WorkspaceFileContext[],
+    model?: vscode.LanguageModelChat,
+  ): Promise<WorkspaceFileContext[]> {
+    if (model && typeof model.countTokens === 'function' && model.maxInputTokens) {
+      return this.applyTokenBudgetWithModel(files, model);
+    }
+    return this.applyCharBudget(files);
+  }
+
+  private async applyTokenBudgetWithModel(
+    files: WorkspaceFileContext[],
+    model: vscode.LanguageModelChat,
+  ): Promise<WorkspaceFileContext[]> {
+    const budget = Math.floor(model.maxInputTokens * (1 - TOKEN_RESERVE_RATIO));
+    const result: WorkspaceFileContext[] = [];
+    let usedTokens = 0;
+
+    for (const file of files) {
+      const block = `File: ${file.path}\nReason: ${file.reason}\nContent:\n${file.content}\n\n`;
+      try {
+        const tokens = await model.countTokens(block);
+        if (usedTokens + tokens > budget && result.length > 0) {
+          // Try to include a truncated version of this file
+          const halfContent = file.content.slice(0, Math.floor(file.content.length / 2));
+          const halfBlock = `File: ${file.path}\nReason: ${file.reason}\nContent:\n${halfContent}\n... (truncated to fit context window)\n\n`;
+          const halfTokens = await model.countTokens(halfBlock);
+          if (usedTokens + halfTokens <= budget) {
+            result.push({ ...file, content: halfContent + '\n... (truncated to fit context window)' });
+            usedTokens += halfTokens;
+          }
+          break;
+        }
+        result.push(file);
+        usedTokens += tokens;
+      } catch {
+        // countTokens failed — fall back to char estimate
+        const estimatedTokens = Math.ceil(block.length / 4);
+        if (usedTokens + estimatedTokens > budget && result.length > 0) {
+          break;
+        }
+        result.push(file);
+        usedTokens += estimatedTokens;
+      }
+    }
+    return result;
+  }
+
+  private applyCharBudget(files: WorkspaceFileContext[]): WorkspaceFileContext[] {
+    const result: WorkspaceFileContext[] = [];
+    let used = 0;
+    for (const file of files) {
+      const chars = file.content.length + file.path.length + (file.reason?.length ?? 0) + 30;
+      if (used + chars > FALLBACK_BUDGET_CHARS && result.length > 0) {
+        break;
+      }
+      result.push(file);
+      used += chars;
+    }
+    return result;
   }
 
   private getCached(key: string): string | undefined {

@@ -267,6 +267,9 @@ function App() {
   const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
   const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+  const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room'>('status');
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
@@ -294,7 +297,12 @@ function App() {
       }
 
       if (event.data.type === 'taskOutput') {
-        setExpandedTaskId(event.data.taskId);
+        // Don't auto-expand completed tasks — avoids clutter in the panel.
+        // Users can click to expand manually.
+      }
+
+      if (event.data.type === 'workspaceFiles') {
+        setWorkspaceFiles(event.data.files);
       }
 
       if (event.data.type === 'agentChat') {
@@ -663,6 +671,94 @@ function App() {
                       </div>
                     );
                   })()}
+                </div>
+                {/* ── Pinned Context Files ── */}
+                <div className="agent-pinned-files">
+                  <p className="eyebrow">Pinned Context Files</p>
+                  {(selectedAgent.pinnedFiles ?? []).length > 0 ? (
+                    <div className="pinned-file-list">
+                      {(selectedAgent.pinnedFiles ?? []).map((filePath) => (
+                        <div key={filePath} className="pinned-file-item">
+                          <span className="pinned-file-item__path" title={filePath}>{filePath}</span>
+                          <button
+                            type="button"
+                            className="pinned-file-item__remove"
+                            title="Unpin"
+                            onClick={() => {
+                              const updated = (selectedAgent.pinnedFiles ?? []).filter((f) => f !== filePath);
+                              vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
+                            }}
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="inspector-copy">No files pinned. Pin workspace files to give this agent extra context.</p>
+                  )}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="composer-button composer-button--ghost"
+                      title="Pin the file currently open in the editor"
+                      onClick={() => {
+                        vscode.postMessage({ type: 'pinActiveFile', agentId: selectedAgent.id });
+                      }}
+                    >📎 Pin Active File</button>
+                    <button
+                      type="button"
+                      className="composer-button composer-button--ghost"
+                      onClick={() => {
+                        setShowFilePicker(true);
+                        setFileSearchQuery('');
+                        vscode.postMessage({ type: 'requestWorkspaceFiles' });
+                      }}
+                    >📌 Pin Files</button>
+                  </div>
+                  {showFilePicker && (
+                    <div className="file-picker-overlay" onClick={() => setShowFilePicker(false)}>
+                      <div className="file-picker" onClick={(e) => e.stopPropagation()}>
+                        <p className="eyebrow">Select files to pin to {selectedAgent.name}</p>
+                        <input
+                          className="file-picker__search"
+                          type="text"
+                          placeholder="Search files..."
+                          value={fileSearchQuery}
+                          onChange={(e) => setFileSearchQuery(e.target.value)}
+                          autoFocus
+                        />
+                        <div className="file-picker__list">
+                          {workspaceFiles
+                            .filter((f) => !fileSearchQuery || f.toLowerCase().includes(fileSearchQuery.toLowerCase()))
+                            .slice(0, 30)
+                            .map((filePath) => {
+                              const isPinned = (selectedAgent.pinnedFiles ?? []).includes(filePath);
+                              return (
+                                <button
+                                  key={filePath}
+                                  type="button"
+                                  className={`file-picker__item${isPinned ? ' file-picker__item--pinned' : ''}`}
+                                  onClick={() => {
+                                    const current = selectedAgent.pinnedFiles ?? [];
+                                    const updated = isPinned
+                                      ? current.filter((f) => f !== filePath)
+                                      : [...current, filePath];
+                                    vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
+                                  }}
+                                >
+                                  <span>{isPinned ? '📌 ' : ''}{filePath}</span>
+                                </button>
+                              );
+                            })}
+                          {workspaceFiles.length === 0 && <p className="inspector-copy">Loading workspace files...</p>}
+                        </div>
+                        <button
+                          type="button"
+                          className="composer-button"
+                          onClick={() => setShowFilePicker(false)}
+                        >Done</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Assign task to this agent */}
                 <div className="assign-task">

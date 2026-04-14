@@ -66,6 +66,21 @@ export interface AssignTaskMessage {
   prompt: string;
 }
 
+export interface PinFilesMessage {
+  type: 'pinFiles';
+  agentId: string;
+  files: string[];
+}
+
+export interface PinActiveFileMessage {
+  type: 'pinActiveFile';
+  agentId: string;
+}
+
+export interface RequestWorkspaceFilesMessage {
+  type: 'requestWorkspaceFiles';
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
@@ -77,7 +92,10 @@ export type WebviewMessage =
   | DeleteRoomMessage
   | SpawnAgentMessage
   | RemoveAgentMessage
-  | AssignTaskMessage;
+  | AssignTaskMessage
+  | PinFilesMessage
+  | PinActiveFileMessage
+  | RequestWorkspaceFilesMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';
@@ -107,4 +125,9 @@ export interface AgentChatMessage {
   message: AgentMessage;
 }
 
-export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage;
+export interface WorkspaceFilesMessage {
+  type: 'workspaceFiles';
+  files: string[];
+}
+
+export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage | WorkspaceFilesMessage;

@@ -56,6 +56,23 @@ export class Coordinator {
     };
   }
 
+  /** Resolve a LanguageModelChat for the given provider (used for token counting). */
+  private async resolveModelForAgent(provider: Provider): Promise<vscode.LanguageModelChat | undefined> {
+    try {
+      if (provider === 'claude') {
+        const models = await vscode.lm.selectChatModels({ vendor: 'anthropic' });
+        if (models.length > 0) { return models[0]; }
+        const all = await vscode.lm.selectChatModels();
+        return all.find((m) =>
+          m.family.toLowerCase().includes('claude') || m.vendor.toLowerCase().includes('anthropic'));
+      }
+      const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+      return models[0];
+    } catch {
+      return undefined;
+    }
+  }
+
   async createTask(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, provider?: Provider): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
@@ -203,7 +220,9 @@ export class Coordinator {
     if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
       void (async () => {
         if (settings.autoPopulateWorkspaceContext) {
-          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles);
+          // Resolve a model for token-aware context filling
+          const contextModel = await this.resolveModelForAgent(agent.provider);
+          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles, contextModel);
           this.updateTask(task.id, { workspaceContext: fullContext });
         }
         if (settings.autoExecute) {
@@ -256,7 +275,8 @@ export class Coordinator {
       return 'Agent persona not found.';
     }
 
-    const workspaceContext = task.workspaceContext ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`);
+    const workspaceContext = task.workspaceContext
+      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles, model);
     const room = this.snapshot.rooms.find((r) => r.id === agent.roomId);
 
     // Collect handoff packets from completed predecessor tasks
@@ -341,20 +361,77 @@ export class Coordinator {
       const newXp = (agent.xp ?? 0) + 25;
       const newLevel = levelFromXp(newXp);
       const leveledUp = newLevel > (agent.level ?? 0);
-      this.updateTask(taskId, {
-        status: 'review',
-        output: result.output,
-        executionPlan: hydratedPlan,
-        approvalState: hydratedPlan && (hydratedPlan.fileEdits.length > 0 || hydratedPlan.terminalCommands.length > 0) ? 'pending' : undefined,
-        progress: this.progressForStatus('review'),
-      });
-      this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — awaiting review.`, xp: newXp, level: newLevel });
-      this.appendActivity(`${agent.name} finished "${task.title}" — moved to review.`, {
-        category: 'task',
-        taskId,
-        agentId: agent.id,
-        provider: task.provider,
-      });
+
+      // When autoExecute is on, skip review and apply files immediately
+      const autoApply = this.getSettings().autoExecute;
+      const hasPlanArtifacts = hydratedPlan && (hydratedPlan.fileEdits.length > 0 || hydratedPlan.terminalCommands.length > 0);
+
+      if (autoApply && hasPlanArtifacts) {
+        // Apply file edits and terminal commands immediately
+        this.updateTask(taskId, {
+          status: 'active',
+          output: result.output,
+          executionPlan: hydratedPlan,
+          progress: this.progressForStatus('active', 'Applying changes'),
+        });
+        const applied = await this.applyTaskPlan(
+          this.snapshot.tasks.find((t) => t.id === taskId) ?? task,
+        );
+
+        if (applied) {
+          this.updateTask(taskId, {
+            status: 'done',
+            output: result.output,
+            executionPlan: hydratedPlan,
+            approvalState: 'applied',
+            progress: this.progressForStatus('done'),
+          });
+          this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}`, xp: newXp, level: newLevel });
+          this.appendActivity(`${agent.name} finished "${task.title}" — changes auto-applied.`, {
+            category: 'task',
+            taskId,
+            agentId: agent.id,
+            provider: task.provider,
+          });
+        } else {
+          // Fall back to review if auto-apply failed
+          this.updateTask(taskId, {
+            status: 'review',
+            output: result.output,
+            executionPlan: hydratedPlan,
+            approvalState: 'pending',
+            progress: this.progressForStatus('review'),
+          });
+          this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — auto-apply failed, awaiting review.`, xp: newXp, level: newLevel });
+          this.appendActivity(`${agent.name} finished "${task.title}" — auto-apply failed, moved to review.`, {
+            category: 'task',
+            taskId,
+            agentId: agent.id,
+            provider: task.provider,
+          });
+        }
+      } else {
+        this.updateTask(taskId, {
+          status: autoApply ? 'done' : 'review',
+          output: result.output,
+          executionPlan: hydratedPlan,
+          approvalState: hasPlanArtifacts ? (autoApply ? 'applied' : 'pending') : undefined,
+          progress: this.progressForStatus(autoApply ? 'done' : 'review'),
+        });
+        this.updateAgent(agent.id, {
+          status: autoApply ? 'idle' : 'waiting',
+          summary: autoApply ? `Completed: ${task.title}` : `Completed: ${task.title} — awaiting review.`,
+          xp: newXp,
+          level: newLevel,
+        });
+        this.appendActivity(`${agent.name} finished "${task.title}"${autoApply ? '.' : ' — moved to review.'}`, {
+          category: 'task',
+          taskId,
+          agentId: agent.id,
+          provider: task.provider,
+        });
+      }
+
       if (leveledUp) {
         this.appendActivity(`🌟 ${agent.name} leveled up to Lv.${newLevel}!`, {
           category: 'agent',
@@ -590,6 +667,31 @@ export class Coordinator {
     this.store.save(this.snapshot);
   }
 
+  pinFiles(agentId: string, files: string[]): void {
+    const agent = this.snapshot.agents.find((a) => a.id === agentId);
+    if (!agent) return;
+
+    // Validate paths exist and are within the workspace
+    const validFiles = files.filter((filePath) => {
+      if (!this.rootPath) return false;
+      const absolute = path.resolve(this.rootPath, filePath);
+      return absolute.startsWith(path.resolve(this.rootPath)) && fs.existsSync(absolute);
+    });
+
+    this.updateAgent(agentId, { pinnedFiles: validFiles });
+    this.appendActivity(`${agent.name}: pinned ${validFiles.length} workspace file(s).`, {
+      category: 'agent',
+      agentId,
+      provider: agent.provider,
+    });
+    this.store.save(this.snapshot);
+  }
+
+  /** Return workspace-relative file paths for the picker. */
+  async getWorkspaceFiles(): Promise<string[]> {
+    return this.workspaceContext.listWorkspaceFiles();
+  }
+
   resetWorkspace(): void {
     const snapshot = this.store.reset();
     this.snapshot = {
@@ -751,7 +853,6 @@ export class Coordinator {
       return false;
     }
 
-    const edit = new vscode.WorkspaceEdit();
     for (const proposedEdit of plan.fileEdits) {
       const targetPath = path.resolve(this.rootPath, proposedEdit.filePath);
       if (!targetPath.startsWith(path.resolve(this.rootPath))) {
@@ -763,14 +864,12 @@ export class Coordinator {
         continue;
       }
 
-      const targetUri = vscode.Uri.file(targetPath);
-      const encoded = Buffer.from(proposedEdit.content, 'utf8');
-      if (proposedEdit.action === 'create') {
-        edit.createFile(targetUri, { ignoreIfExists: false, overwrite: true });
+      // Use Node fs directly to avoid opening files in editor tabs
+      const targetDir = path.dirname(targetPath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
       }
-      edit.replace(targetUri, new vscode.Range(0, 0, Number.MAX_SAFE_INTEGER, 0), proposedEdit.content);
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(targetPath)));
-      await vscode.workspace.fs.writeFile(targetUri, encoded);
+      fs.writeFileSync(targetPath, proposedEdit.content, 'utf8');
     }
 
     this.appendActivity(`Applied ${plan.fileEdits.length} file change(s) for "${task.title}".`, {
