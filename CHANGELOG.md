@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Fix **activity bar placement**: ensure `viewsContainers` key is `activitybar` (not `panel`), and add `workbench.action.moveView` call in `showFactory` to reset VS Code's cached panel position back to the sidebar.
+- Fix **task routing reliability**: wrap `createTask`, `assignTask`, and `taskAction` message handlers in try/catch so the webview always receives a snapshot update. Previously, a failed Copilot/Claude LM call left the "Route Task" button stuck on "Routing..." forever and tasks never reached agents.
+- Show **error notifications** when routing or assignment fails instead of silently swallowing the error.
+
 ## 0.1.9
 
 - Move the Pixel Squad view container from the **bottom panel to the Activity Bar** so the factory board is always one click away as a first-class sidebar.
