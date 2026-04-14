@@ -16,7 +16,7 @@ const vscode = typeof acquireVsCodeApi === 'function'
 
 const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
 const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'agent-chat', 'provider', 'system'];
-type WorkspaceView = 'factory' | 'rooms' | 'tasks' | 'activity';
+type WorkspaceView = 'factory' | 'rooms' | 'tasks' | 'providers' | 'activity';
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -584,7 +584,7 @@ function App() {
             className={`workspace-nav__tab${activeView === 'factory' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('factory')}
           >
-            <span>Factory</span>
+            <span>Agent Factory</span>
             <strong>{snapshot.agents.length}</strong>
           </button>
           <button
@@ -605,10 +605,18 @@ function App() {
           </button>
           <button
             type="button"
+            className={`workspace-nav__tab${activeView === 'providers' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('providers')}
+          >
+            <span>Providers</span>
+            <strong>{snapshot.providers.length}</strong>
+          </button>
+          <button
+            type="button"
             className={`workspace-nav__tab${activeView === 'activity' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('activity')}
           >
-            <span>Feed</span>
+            <span>Activity Feed</span>
             <strong>{filteredActivity.length}</strong>
           </button>
         </div>
@@ -1118,6 +1126,44 @@ function App() {
                   </div>
                 </section>
               ))}
+            </div>
+          </section>
+          </aside>
+        </section>
+      ) : null}
+
+      {activeView === 'providers' ? (
+        <section className="workspace-stack">
+          <aside className="column column--side column--stacked">
+          <section className="panel">
+            <div className="task-wall__header">
+              <div>
+                <p className="eyebrow">Providers</p>
+                <p className="task-wall__copy">Language model providers powering Pixel Squad agents.</p>
+              </div>
+            </div>
+            <div className="provider-list">
+              {snapshot.providers.map((provider) => (
+                <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
+                  <span className="provider-chip__icon">
+                    {provider.provider === 'copilot' ? '⚡' : '🧠'}
+                  </span>
+                  <div className="provider-chip__content">
+                    <strong>{provider.provider}</strong>
+                    <p>{provider.detail}</p>
+                  </div>
+                  <span className="provider-chip__state">{provider.state}</span>
+                </article>
+              ))}
+            </div>
+            <div className="provider-summary">
+              <p className="eyebrow">Agent Distribution</p>
+              <dl className="facts">
+                <div><dt>Copilot agents</dt><dd>{stats.copilot}</dd></div>
+                <div><dt>Claude agents</dt><dd>{stats.claude}</dd></div>
+                <div><dt>Total agents</dt><dd>{snapshot.agents.length}</dd></div>
+                <div><dt>Active tasks</dt><dd>{stats.active}</dd></div>
+              </dl>
             </div>
           </section>
           </aside>

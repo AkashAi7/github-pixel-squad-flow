@@ -220,6 +220,18 @@ summary:focus-visible {
 .provider-chip strong { display: block; margin: 6px 0 8px; text-transform: uppercase; }
 .provider-chip p { color: var(--ps-muted); line-height: 1.4; }
 
+/* ── Provider List (Providers tab) ───────────────── */
+.provider-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.provider-summary {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ps-border);
+}
+
 /* ── Factory Board ───────────────────────────────── */
 .factory-board { margin-bottom: 0; border-radius: 18px; }
 .factory-board__header {
