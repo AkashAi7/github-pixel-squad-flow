@@ -1,3 +1,17 @@
 <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-  <path fill-rule="evenodd" clip-rule="evenodd" d="M11 1h2v3h-2V1zM6 4h12a2 2 0 012 2v9a2 2 0 01-2 2h-1v4h-4v-4h-2v4H7v-4H6a2 2 0 01-2-2V6a2 2 0 012-2zm2 4h3v3H8V8zm5 0h3v3h-3V8zm-3 5h4v2h-4v-2z" fill="#C5C5C5"/>
+  <!--
+    Three happy pixel-robot agents:
+    Left  (small)  : head (0,12)-(5,18), antenna rod (1,9)-(2,12)
+    Center (large) : head (8,6)-(16,15), antenna rod (11,3)-(13,6)
+    Right (small)  : head (18,12)-(23,18), antenna rod (20,9)-(21,12)
+    Eyes and U-smiles are evenodd cutouts from the filled heads.
+    Two sparkle squares float at the top for a cheerful feel.
+  -->
+  <path fill-rule="evenodd" clip-rule="evenodd"
+    d="M0 12h5v6h-5z M1 9h1v3h-1z M1 14h1v1h-1z M3 14h1v1h-1z M1 16h2v1h-2z
+       M8 6h8v9h-8z M11 3h2v3h-2z M10 8h2v2h-2z M13 8h2v2h-2z
+       M10 11h1v3h-1z M13 11h1v3h-1z M11 13h2v1h-2z
+       M18 12h5v6h-5z M20 9h1v3h-1z M19 14h1v1h-1z M21 14h1v1h-1z M20 16h2v1h-2z
+       M6 2h2v2h-2z M16 2h2v2h-2z"
+    fill="#C5C5C5"/>
 </svg>

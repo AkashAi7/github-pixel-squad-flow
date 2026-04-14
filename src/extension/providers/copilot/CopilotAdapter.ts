@@ -197,7 +197,7 @@ export class CopilotAdapter implements ProviderAdapter {
       `Selected text: ${workspaceContext.selectedText || 'none'}.`,
       `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}.`,
       `Relevant files:\n${this.describeRelevantFiles(workspaceContext)}`,
-      'Use 1 to 3 assignments max. Prefer concrete software implementation tasks.',
+      'Use exactly 1 assignment for simple, single-component tasks. Only use 2-3 assignments when the work genuinely spans multiple independent components that cannot be done by one agent. When in doubt, use 1. Prefer direct action, not splitting.',
       'If one assignment must happen after another, populate dependsOnPersonaIds with the personaId it depends on.',
       'Choose requiredSkillIds only from the listed persona skills.',
       'Set progressLabel to a short stage summary such as Ready to start, Waiting on prior task, or Review ready.',

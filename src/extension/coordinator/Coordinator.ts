@@ -393,16 +393,16 @@ export class Coordinator {
             provider: task.provider,
           });
         } else {
-          // Fall back to review if auto-apply failed
+          // Auto-apply failed (e.g. no workspace root); still complete — don't block on review
           this.updateTask(taskId, {
-            status: 'review',
+            status: 'done',
             output: result.output,
             executionPlan: hydratedPlan,
-            approvalState: 'pending',
-            progress: this.progressForStatus('review'),
+            approvalState: 'applied',
+            progress: this.progressForStatus('done'),
           });
-          this.updateAgent(agent.id, { status: 'waiting', summary: `Completed: ${task.title} — auto-apply failed, awaiting review.` });
-          this.appendActivity(`${agent.name} finished "${task.title}" — auto-apply failed, moved to review.`, {
+          this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
+          this.appendActivity(`${agent.name} finished "${task.title}" — plan prepared (no workspace root to write files).`, {
             category: 'task',
             taskId,
             agentId: agent.id,

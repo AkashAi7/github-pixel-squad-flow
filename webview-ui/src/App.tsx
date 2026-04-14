@@ -113,7 +113,7 @@ function taskActions(task: TaskCard): Array<{ label: string; action: string }> {
     case 'queued':
       return [{ label: '▶ Execute', action: 'execute' }];
     case 'active':
-      return [{ label: '▶ Execute', action: 'execute' }, { label: '✗ Fail', action: 'fail' }];
+      return [{ label: '✗ Fail', action: 'fail' }];
     case 'review':
       return [
         { label: '✓ Approve', action: 'complete' },
