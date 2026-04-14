@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.12
+
+- **Secondary sidebar (manifest fix)**: `viewsContainers` key changed from `activitybar` to `secondarySideBar` in the extension manifest so VS Code places Pixel Squad in the right-hand secondary sidebar from first install — no programmatic workaround needed. Removed the unreliable one-shot `moveViewContainerToAuxiliaryBar` runtime call.
+- **Happy multi-agent icon**: new `icon-activitybar.svg` showing three pixel-robot agents (left/center/right) with U-shaped smiles, antennae, and sparkle squares.
+- **Tasks auto-complete without stuck review**: when `autoExecute=true`, a failed file-apply step (e.g. no workspace root) no longer drops the task into `review` state — it completes to `done` so agents never get stuck waiting for approval.
+- **Reduced agent task-splitting**: planner prompt now defaults to exactly 1 assignment for simple tasks; 2–3 only when work genuinely spans multiple independent components. Eliminates unnecessary multi-agent churn on trivial requests.
+- **Removed confusing Execute button**: active tasks no longer show a redundant `▶ Execute` button — they are already executing.
+
 ## 0.1.11
 
 - Fix **routing crash** (`Cannot read properties of undefined (reading 'uri')`): add optional chaining in `WorkspaceContextService.searchWorkspaceSymbols` so a symbol provider returning an incomplete `SymbolInformation` object no longer throws.
