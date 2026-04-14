@@ -23,7 +23,7 @@
   "main": "./dist/extension/extension.js",
   "contributes": {
     "viewsContainers": {
-      "panel": [
+      "activitybar": [
         {
           "id": "pixelSquad",
           "title": "Pixel Squad",
