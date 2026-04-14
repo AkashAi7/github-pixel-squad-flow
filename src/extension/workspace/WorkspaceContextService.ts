@@ -221,7 +221,8 @@ export class WorkspaceContextService {
             token,
           );
           for (const sym of symbols ?? []) {
-            const rel = this.toRelativePath(sym.location.uri.fsPath);
+            const fsPath = sym?.location?.uri?.fsPath;
+            const rel = fsPath ? this.toRelativePath(fsPath) : undefined;
             if (rel) { hitPaths.add(rel); }
           }
         } catch { /* provider not available */ }

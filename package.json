@@ -83,8 +83,8 @@
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
-          "default": false,
-          "description": "Automatically execute tasks with GitHub Copilot after routing them through the squad."
+          "default": true,
+          "description": "Automatically execute tasks with GitHub Copilot after routing them through the squad.  Enable for Copilot-agent-style behaviour (execute and apply changes immediately). Disable to review before applying."
         },
         "pixelSquad.modelFamily": {
           "type": "string",

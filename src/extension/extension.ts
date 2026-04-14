@@ -4,6 +4,23 @@ import { PixelSquadViewProvider, VIEW_ID } from './PixelSquadViewProvider.js';
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new PixelSquadViewProvider(context.extensionUri);
+
+  // On first load, move the Pixel Squad panel to the secondary sidebar (right side).
+  // VS Code remembers the location so this only needs to happen once.
+  const movedToAux = context.globalState.get<boolean>('movedToAuxBar', false);
+  if (!movedToAux) {
+    void (async () => {
+      try {
+        await vscode.commands.executeCommand(
+          'workbench.action.moveViewContainerToAuxiliaryBar',
+          { viewContainerId: 'pixelSquad' },
+        );
+        await context.globalState.update('movedToAuxBar', true);
+      } catch {
+        // Command may not be available in all VS Code versions; ignore silently.
+      }
+    })();
+  }
   const chatParticipant = vscode.chat.createChatParticipant('pixelSquad.orchestrator', async (request, chatContext, stream, token) => {
     void chatContext;
     const summary = await provider.createTaskFromPrompt(request.prompt, request.model, token);
@@ -33,15 +50,6 @@ export function activate(context: vscode.ExtensionContext): void {
     chatParticipant,
     vscode.window.registerWebviewViewProvider(VIEW_ID, provider),
     vscode.commands.registerCommand('pixelSquad.showFactory', async () => {
-      // Reset view location to sidebar in case VS Code cached an old panel position
-      try {
-        await vscode.commands.executeCommand('workbench.action.moveView', {
-          viewId: VIEW_ID,
-          destination: 'pixelSquad',
-        });
-      } catch {
-        // moveView may not be available in older VS Code versions
-      }
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
     }),
     vscode.commands.registerCommand('pixelSquad.createTask', async () => {
