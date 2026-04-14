@@ -55,9 +55,15 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.type === 'createTask') {
-        const summary = await this.coordinator.createTask(message.prompt);
-        this.syncSnapshot();
-        void vscode.window.showInformationMessage(summary);
+        try {
+          const summary = await this.coordinator.createTask(message.prompt);
+          this.syncSnapshot();
+          void vscode.window.showInformationMessage(summary);
+        } catch (error) {
+          this.syncSnapshot();
+          const detail = error instanceof Error ? error.message : 'Unknown error';
+          void vscode.window.showErrorMessage(`Pixel Squad routing failed: ${detail}`);
+        }
       }
 
       if (message.type === 'resetWorkspace') {
@@ -71,7 +77,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.type === 'taskAction') {
-        await this.coordinator.taskAction(message.taskId, message.action);
+        try {
+          await this.coordinator.taskAction(message.taskId, message.action);
+        } catch {
+          // taskAction failure — still sync state
+        }
         this.syncSnapshot();
       }
 
@@ -96,11 +106,17 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.type === 'assignTask') {
-        const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
-        // Ack immediately so webview clears the spinner before full sync
-        this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
-        this.syncSnapshot();
-        void vscode.window.showInformationMessage(summary);
+        try {
+          const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
+          this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
+          this.syncSnapshot();
+          void vscode.window.showInformationMessage(summary);
+        } catch (error) {
+          this.postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
+          this.syncSnapshot();
+          const detail = error instanceof Error ? error.message : 'Unknown error';
+          void vscode.window.showErrorMessage(`Task assignment failed: ${detail}`);
+        }
       }
 
       if (message.type === 'pinFiles') {

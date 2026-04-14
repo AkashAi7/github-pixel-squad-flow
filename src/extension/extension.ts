@@ -33,6 +33,15 @@ export function activate(context: vscode.ExtensionContext): void {
     chatParticipant,
     vscode.window.registerWebviewViewProvider(VIEW_ID, provider),
     vscode.commands.registerCommand('pixelSquad.showFactory', async () => {
+      // Reset view location to sidebar in case VS Code cached an old panel position
+      try {
+        await vscode.commands.executeCommand('workbench.action.moveView', {
+          viewId: VIEW_ID,
+          destination: 'pixelSquad',
+        });
+      } catch {
+        // moveView may not be available in older VS Code versions
+      }
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
     }),
     vscode.commands.registerCommand('pixelSquad.createTask', async () => {
