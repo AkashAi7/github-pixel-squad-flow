@@ -4,7 +4,7 @@ import { WORKSPACE_TOOLS } from './definitions.js';
 import type { ProposedFileEdit, ProposedTerminalCommand, TaskExecutionPlan, CommandExecutionResult } from '../../shared/model/index.js';
 
 /** Maximum rounds of tool-calling before we force-stop. */
-const MAX_TOOL_ROUNDS = 15;
+const MAX_TOOL_ROUNDS = 25;
 
 /* ── MCP / external tool discovery ──────────────────────── */
 
@@ -77,6 +77,14 @@ export async function runToolCallLoop(
   const ownToolNames = new Set(WORKSPACE_TOOLS.map((t) => t.name));
 
   const messages: vscode.LanguageModelChatMessage[] = [
+    vscode.LanguageModelChatMessage.User(
+      'SYSTEM: You are an agentic coding assistant. Follow this workflow:\n'
+      + '1. Read files before modifying them.\n'
+      + '2. Use editFile for targeted changes to existing files (prefer over writeFile).\n'
+      + '3. After making edits or running commands, use getDiagnostics to check for errors.\n'
+      + '4. If diagnostics reveal errors, fix them before moving on.\n'
+      + '5. When finished, provide a concise summary of what you accomplished.',
+    ),
     vscode.LanguageModelChatMessage.User(prompt),
   ];
   const allToolCallRecords: ToolCallRecord[] = [];
@@ -176,6 +184,15 @@ export function buildPlanFromToolCalls(
         });
         break;
 
+      case 'editFile':
+        fileEdits.push({
+          filePath: String(call.input.path ?? ''),
+          action: 'replace',
+          summary: call.output,
+          content: String(call.input.newString ?? ''),
+        });
+        break;
+
       case 'runCommand': {
         const idx = terminalCommands.length;
         const cmd = String(call.input.command ?? '');
@@ -194,6 +211,7 @@ export function buildPlanFromToolCalls(
       case 'readFile':
       case 'listFiles':
       case 'searchText':
+      case 'getDiagnostics':
         notes.push(`[${call.name}] ${JSON.stringify(call.input).slice(0, 120)}`);
         break;
 

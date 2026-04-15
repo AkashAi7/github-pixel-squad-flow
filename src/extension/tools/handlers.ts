@@ -15,7 +15,7 @@ export interface ToolCallRecord {
   isError: boolean;
 }
 
-const COMMAND_TIMEOUT_MS = 15_000;
+const COMMAND_TIMEOUT_MS = 60_000;
 const MAX_READ_BYTES = 200_000;
 const MAX_SEARCH_RESULTS = 30;
 
@@ -41,9 +41,11 @@ export async function handleToolCall(
   try {
     switch (name) {
       case 'readFile': return await readFile(input, rootPath);
+      case 'editFile': return await editFile(input, rootPath);
       case 'writeFile': return await writeFile(input, rootPath);
       case 'listFiles': return await listFiles(input, rootPath);
       case 'searchText': return await searchText(input, rootPath);
+      case 'getDiagnostics': return await getDiagnostics(input, rootPath);
       case 'runCommand': return await runCommand(input, rootPath);
       case 'sendAgentMessage': return sendAgentMessage(input);
       default: return { content: `Unknown tool: ${name}`, isError: true };
@@ -65,11 +67,61 @@ async function readFile(input: Record<string, unknown>, rootPath: string): Promi
   const stat = await fs.promises.stat(abs).catch(() => null);
   if (!stat || !stat.isFile()) { return { content: `File not found: ${filePath}`, isError: true }; }
 
-  const content = await fs.promises.readFile(abs, 'utf-8');
+  const rawContent = await fs.promises.readFile(abs, 'utf-8');
+  const lines = rawContent.split('\n');
+  const totalLines = lines.length;
+
+  const startLine = typeof input.startLine === 'number' ? Math.max(1, Math.floor(input.startLine)) : 1;
+  const endLine = typeof input.endLine === 'number' ? Math.min(totalLines, Math.floor(input.endLine)) : totalLines;
+
+  if (startLine > totalLines) {
+    return { content: `File has ${totalLines} lines; startLine ${startLine} is out of range.`, isError: true };
+  }
+
+  const slice = lines.slice(startLine - 1, endLine);
+  const numbered = slice.map((line, i) => `${startLine + i}: ${line}`).join('\n');
+
+  const header = `File: ${filePath} (${totalLines} lines total, showing ${startLine}-${Math.min(endLine, totalLines)})\n`;
+
+  const content = header + numbered;
   if (content.length > MAX_READ_BYTES) {
     return { content: content.slice(0, MAX_READ_BYTES) + '\n... (truncated)' };
   }
   return { content };
+}
+
+async function editFile(input: Record<string, unknown>, rootPath: string): Promise<ToolResult> {
+  const filePath = String(input.path ?? '');
+  const oldString = String(input.oldString ?? '');
+  const newString = String(input.newString ?? '');
+  if (!filePath) { return { content: 'Missing required parameter: path', isError: true }; }
+  if (!oldString) { return { content: 'Missing required parameter: oldString', isError: true }; }
+  const abs = safePath(rootPath, filePath);
+  if (!abs) { return { content: 'Path escapes workspace root.', isError: true }; }
+
+  const stat = await fs.promises.stat(abs).catch(() => null);
+  if (!stat || !stat.isFile()) { return { content: `File not found: ${filePath}`, isError: true }; }
+
+  const content = await fs.promises.readFile(abs, 'utf-8');
+
+  // Count occurrences to ensure exactly one match
+  let count = 0;
+  let idx = 0;
+  while ((idx = content.indexOf(oldString, idx)) !== -1) {
+    count++;
+    idx += oldString.length;
+  }
+
+  if (count === 0) {
+    return { content: `oldString not found in ${filePath}. Verify the exact text (including whitespace and indentation).`, isError: true };
+  }
+  if (count > 1) {
+    return { content: `oldString matched ${count} locations in ${filePath}. Include more surrounding context to match exactly once.`, isError: true };
+  }
+
+  const updated = content.replace(oldString, newString);
+  await fs.promises.writeFile(abs, updated, 'utf-8');
+  return { content: `Edited ${filePath}: replaced ${oldString.length} chars with ${newString.length} chars.` };
 }
 
 async function writeFile(input: Record<string, unknown>, rootPath: string): Promise<ToolResult> {
@@ -138,6 +190,41 @@ async function searchText(input: Record<string, unknown>, rootPath: string): Pro
   }
 
   return { content: results.join('\n') || 'No matches found.' };
+}
+
+async function getDiagnostics(input: Record<string, unknown>, rootPath: string): Promise<ToolResult> {
+  const filePath = input.path ? String(input.path) : undefined;
+
+  let diagnostics: [vscode.Uri, vscode.Diagnostic[]][];
+  if (filePath) {
+    const abs = safePath(rootPath, filePath);
+    if (!abs) { return { content: 'Path escapes workspace root.', isError: true }; }
+    const uri = vscode.Uri.file(abs);
+    const fileDiags = vscode.languages.getDiagnostics(uri);
+    diagnostics = fileDiags.length > 0 ? [[uri, fileDiags]] : [];
+  } else {
+    diagnostics = vscode.languages.getDiagnostics()
+      .filter(([uri, diags]) => diags.length > 0 && uri.fsPath.startsWith(rootPath));
+  }
+
+  if (diagnostics.length === 0) {
+    return { content: filePath ? `No diagnostics for ${filePath}.` : 'No diagnostics found in workspace.' };
+  }
+
+  const lines: string[] = [];
+  const severityLabel = ['Error', 'Warning', 'Info', 'Hint'];
+  for (const [uri, diags] of diagnostics) {
+    const rel = path.relative(rootPath, uri.fsPath).replace(/\\/g, '/');
+    for (const d of diags) {
+      if (d.severity > vscode.DiagnosticSeverity.Warning) { continue; } // skip info/hints
+      const sev = severityLabel[d.severity] ?? 'Unknown';
+      const line = d.range.start.line + 1;
+      const src = d.source ? ` [${d.source}]` : '';
+      lines.push(`${rel}:${line}: ${sev}${src}: ${d.message}`);
+    }
+  }
+
+  return { content: lines.join('\n') || 'No errors or warnings.' };
 }
 
 async function runCommand(input: Record<string, unknown>, rootPath: string): Promise<ToolResult> {

@@ -137,7 +137,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         plan,
         outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
         done: true,
-        toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'runCommand'),
+        toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'editFile' || c.name === 'runCommand'),
       };
     } catch {
       onChunk?.('\n⚠️ Tool-calling unavailable, falling back to plan mode...\n');
@@ -167,8 +167,9 @@ export class ClaudeAdapter implements ProviderAdapter {
       `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
       `Your role: ${persona.title}.`,
       '',
-      'You have access to workspace tools: readFile, writeFile, listFiles, searchText, runCommand, sendAgentMessage.',
-      'Use these tools to explore the codebase, understand the existing code, make necessary changes, and verify your work.',
+      'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage.',
+      'Use editFile for targeted changes to existing files (preferred over writeFile for modifications).',
+      'After making edits, use getDiagnostics to check for compile/lint errors and fix any issues before finishing.',
       'When you are finished, provide a concise summary of what you accomplished.',
     ];
 

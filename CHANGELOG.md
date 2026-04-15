@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.23] — 2025-06-18
+### Added
+- **editFile tool**: Targeted `oldString → newString` replacement for existing files — agents no longer need to rewrite entire files. Matches must be unique (exactly one occurrence).
+- **getDiagnostics tool**: Agents can now check compile/lint errors after making changes, using `vscode.languages.getDiagnostics()`. Returns errors and warnings with file, line, severity, and message.
+- **Line-range readFile**: `readFile` now accepts optional `startLine`/`endLine` parameters for reading specific sections of large files with numbered output.
+- **Self-correction system message**: Tool-calling loop now injects a system-level instruction guiding agents to read before editing, prefer editFile, check diagnostics after changes, and fix errors before finishing.
+### Changed
+- **Command timeout**: Increased from 15s to 60s to support longer-running operations (npm install, builds, test suites).
+- **Tool round limit**: Increased from 15 to 25 rounds, allowing agents more iterations for complex tasks with error recovery.
+- **Adapter prompts**: Both CopilotAdapter and ClaudeAdapter now mention all 8 tools (readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage) and instruct agents to use editFile for existing files and getDiagnostics for verification.
+- **toolsExecuted flag**: Now also set when `editFile` is used (previously only writeFile and runCommand).
+- **Plan builder**: `buildPlanFromToolCalls` now tracks `editFile` calls as file edits with action `'replace'` and records `getDiagnostics` calls in notes.
+
 ## [0.1.22] — 2025-06-18
 ### Added
 - **Real tool-calling agents**: Agents now use the VS Code Language Model tool-calling API instead of the JSON-parse pattern. During task execution, agents can call `readFile`, `writeFile`, `listFiles`, `searchText`, `runCommand`, and `sendAgentMessage` tools to interact with the workspace in real time.
