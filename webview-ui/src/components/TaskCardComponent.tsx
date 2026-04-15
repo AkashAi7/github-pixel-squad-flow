@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import type {
   CommandExecutionResult,
   PersonaTemplate,
@@ -217,6 +219,14 @@ export function TaskCardComponent({
   const progress = task.progress ?? taskProgressForStatus(task.status);
   const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
   const isExpanded = expandedTaskId === task.id;
+  const cardRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  }, [isExpanded]);
 
   const handleToggle = () => {
     setExpandedTaskId(isExpanded ? null : task.id);
@@ -230,6 +240,7 @@ export function TaskCardComponent({
 
   return (
     <article
+      ref={cardRef}
       className={`task-card task-card--${task.status}${isExpanded ? ' task-card--expanded' : ''}`}
       onClick={handleToggle}
       onKeyDown={handleKeyDown}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AgentStatus, PersonaTemplate, Room, SquadAgent, TaskCard } from '../../../src/shared/model/index.js';
 import { AGENT_MOOD } from '../../../src/shared/model/index.js';
+import { AgentSprite } from './AgentSprite.js';
 
 interface FactoryBoardProps {
   rooms: Room[];
@@ -221,7 +222,7 @@ function RoomStage({
   }, [room.id, roomAgents, agentSignature]);
 
   return (
-    <div className="factory-room__stage" role="list" aria-label={`${room.name} stage`}>
+    <div className="factory-room__stage" data-room-theme={room.theme} role="list" aria-label={`${room.name} stage`}>
       {roomAgents.map((agent, index) => {
         const persona = personaMap.get(agent.personaId);
         const mood = AGENT_MOOD[agent.status];
@@ -261,12 +262,8 @@ function RoomStage({
                   </span>
                 </div>
               )}
-              <span className={`pixel-agent__sprite${motion.facing === 'left' ? ' pixel-agent__sprite--facing-left' : ''}`}>
-                <div className={`pixel-char pixel-char--v${agent.spriteVariant} pixel-char--${agent.status}`}>
-                  <div className="pixel-char__head" />
-                  <div className="pixel-char__body" />
-                  <div className="pixel-char__legs" />
-                </div>
+              <span className="pixel-agent__sprite">
+                <AgentSprite variant={agent.spriteVariant} status={agent.status} size="stage" />
               </span>
               <span className="pixel-agent__caption">
                 <span className="pixel-agent__label">{agent.name}</span>

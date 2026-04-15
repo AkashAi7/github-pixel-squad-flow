@@ -67,6 +67,14 @@ function normalizeSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
   };
 }
 
+function pickFocusTask(tasks: TaskCard[], agentId: string): TaskCard | null {
+  const agentTasks = tasks.filter((task) => task.assigneeId === agentId);
+  return agentTasks.find((task) => task.status === 'active')
+    ?? agentTasks.find((task) => task.status === 'queued' || task.status === 'review')
+    ?? agentTasks[0]
+    ?? null;
+}
+
 function isCardActivation(event: React.KeyboardEvent<HTMLElement>): boolean {
   return event.key === 'Enter' || event.key === ' ';
 }
@@ -480,14 +488,32 @@ function App() {
     ? snapshot.tasks.filter((task) => task.assigneeId === selectedAgent.id)
     : [];
 
-  const selectedAgentFocusTask = selectedAgentTasks.find((task) => task.status === 'active')
-    ?? selectedAgentTasks.find((task) => task.status === 'queued' || task.status === 'review')
-    ?? selectedAgentTasks[0]
-    ?? null;
+  const selectedAgentFocusTask = selectedAgent ? pickFocusTask(snapshot.tasks, selectedAgent.id) : null;
 
   const handleSelectAgent = (agentId: string) => {
     setSelectedAgentId(agentId);
     setActiveView('factory');
+    setInspectorTab('overview');
+    vscode.postMessage({ type: 'showAgent', agentId });
+  };
+
+  const handleRevealAgentTask = (agentId: string) => {
+    setSelectedAgentId(agentId);
+    setTaskStatusFilter('all');
+    setTaskProviderFilter('all');
+    setTaskPersonaFilter('all');
+
+    const focusTask = pickFocusTask(snapshot.tasks, agentId);
+    if (focusTask) {
+      setExpandedTaskId(focusTask.id);
+      setInspectorTab('work');
+      setActiveView('tasks');
+    } else {
+      setExpandedTaskId(null);
+      setInspectorTab('overview');
+      setActiveView('factory');
+    }
+
     vscode.postMessage({ type: 'showAgent', agentId });
   };
 
@@ -751,7 +777,7 @@ function App() {
             personas={snapshot.personas}
             tasks={snapshot.tasks}
             selectedAgentId={selectedAgentId}
-            onSelectAgent={handleSelectAgent}
+            onSelectAgent={handleRevealAgentTask}
             onSpawnAgent={(roomId) => setSpawnRoomId(roomId)}
             onDeleteRoom={(roomId) => vscode.postMessage({ type: 'deleteRoom', roomId })}
             onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
@@ -792,7 +818,7 @@ function App() {
                 agents={snapshot.agents.filter((a) => a.roomId === room.id)}
                 personas={snapshot.personas}
                 selectedAgentId={selectedAgentId}
-                onSelectAgent={handleSelectAgent}
+                onSelectAgent={handleRevealAgentTask}
               />
             ))}
           </div>

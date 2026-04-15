@@ -1,4 +1,5 @@
 import type { Room, SquadAgent, PersonaTemplate } from '../../../src/shared/model/index.js';
+import { AgentSprite } from './AgentSprite.js';
 
 interface RoomCardProps {
   room: Room;
@@ -43,7 +44,9 @@ export function RoomCard({ room, agents, personas, selectedAgentId, onSelectAgen
               aria-label={`${agent.name}, ${persona?.title ?? agent.personaId}, status: ${agent.status}`}
               aria-pressed={isSelected}
             >
-              <span className="agent-avatar" aria-hidden="true">{agent.name.slice(0, 2).toUpperCase()}</span>
+              <span className="agent-avatar" aria-hidden="true">
+                <AgentSprite variant={agent.spriteVariant} status={agent.status} size="card" />
+              </span>
               <span className="agent-name">{agent.name}</span>
               <span className="agent-role">{persona?.title ?? agent.personaId}</span>
               <span className={`agent-status agent-status--${agent.status}`}>{agent.status}</span>

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.26] — 2026-04-15
+### Added
+- **MetroCity agent sprites**: Factory-floor agents and room roster cards now use repo-local MetroCity character art derived from the pack's CC0 public preview, replacing the older CSS-only placeholder characters.
+### Changed
+- **Agent click navigation**: Clicking an agent now reveals that agent's current focus task in the Task Wall, clears filters that would hide it, expands the task card, and scrolls it into view.
+- **Factory stage presentation**: Room stages now use a more explicit top-down office-floor treatment so the board reads closer to the intended scene layout.
+### Notes
+- **E2E harness status**: Release build is verified, but the VS Code test host on 1.116.0 is currently failing to launch in this environment with `Code is currently being updated`, so release validation is build-backed rather than e2e-backed.
+
 ## [0.1.24] — 2026-04-15
 ### Fixed
 - **Agent jitter**: Reduced motion step sizes by ~60% and increased animation durations across all status profiles (idle, executing, planning, etc.) — agents now drift smoothly instead of twitching.
