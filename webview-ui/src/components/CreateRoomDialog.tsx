@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { RoomTheme } from '../../../src/shared/model/index.js';
 
 const THEMES: Array<{ value: RoomTheme; label: string; icon: string }> = [
@@ -20,11 +20,21 @@ export function CreateRoomDialog({ onSubmit, onCancel }: CreateRoomDialogProps) 
   const [theme, setTheme] = useState<RoomTheme>('general');
   const [purpose, setPurpose] = useState('');
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   return (
-    <div className="dialog-backdrop" onClick={onCancel}>
+    <div className="dialog-backdrop" onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="create-room-title">
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
         <p className="eyebrow">Create Room</p>
-        <h2>New Factory Room</h2>
+        <h2 id="create-room-title">New Factory Room</h2>
 
         <label className="dialog-label">Room Name</label>
         <input

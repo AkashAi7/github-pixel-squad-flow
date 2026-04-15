@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CustomPersonaDraft, PersonaTemplate, Provider } from '../../../src/shared/model/index.js';
 
 interface SpawnAgentDialogProps {
@@ -32,11 +32,21 @@ export function SpawnAgentDialog({ roomName, roomId, personas, onSubmit, onCance
       }
     : undefined;
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   return (
-    <div className="dialog-backdrop" onClick={onCancel}>
+    <div className="dialog-backdrop" onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="spawn-agent-title">
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
         <p className="eyebrow">Spawn Agent</p>
-        <h2>New Agent in {roomName}</h2>
+        <h2 id="spawn-agent-title">New Agent in {roomName}</h2>
 
         <label className="dialog-label">Agent Name</label>
         <input

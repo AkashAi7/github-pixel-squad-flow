@@ -249,6 +249,8 @@ function RoomStage({
               style={{ ['--accent' as string]: persona?.color ?? '#7d8cff' }}
               onClick={() => onSelectAgent(agent.id)}
               title={`${agent.name} · ${persona?.title ?? agent.personaId} · ${agent.provider} · ${agent.status}`}
+              aria-label={`${agent.name}, ${persona?.title ?? agent.personaId}, status: ${agent.status}, provider: ${agent.provider}${isSelected ? ', selected' : ''}`}
+              aria-pressed={isSelected}
             >
               <span className="pixel-agent__mood-badge" title={mood.label} aria-hidden="true">{mood.emoji}</span>
               <span className={`pixel-agent__provider pixel-agent__provider--${agent.provider}`} aria-hidden="true">{providerGlyph}</span>
@@ -275,6 +277,7 @@ function RoomStage({
               type="button"
               className="pixel-agent__remove"
               title={`Remove ${agent.name}`}
+              aria-label={`Remove agent ${agent.name}`}
               onClick={() => onRemoveAgent(agent.id)}
             >
               ×
@@ -301,17 +304,17 @@ export function FactoryBoard({
   const personaMap = useMemo(() => new Map(personas.map((persona) => [persona.id, persona])), [personas]);
 
   return (
-    <section className="factory-board panel">
+    <section className="factory-board panel" aria-labelledby="factory-board-title">
       <div className="factory-board__header">
         <div>
           <p className="eyebrow">Pixel Floor</p>
-          <h2>Agent Factory</h2>
+          <h2 id="factory-board-title">Agent Factory</h2>
         </div>
         <p className="factory-board__copy">
           Create rooms, spawn agents, and visualize your multi-agent squad working in parallel.
         </p>
       </div>
-      <div className="factory-board__grid">
+      <div className="factory-board__grid" role="list" aria-label="Factory rooms">
         {rooms.map((room) => {
           const roomAgents = agents.filter((a) => a.roomId === room.id);
           const roomActiveTasks = tasks.filter((task) => {
@@ -329,6 +332,8 @@ export function FactoryBoard({
                 ['--room-color' as string]: room.color,
                 background: THEME_FLOORS[room.theme] ?? THEME_FLOORS.general,
               }}
+              role="listitem"
+              aria-label={`${room.name} room with ${roomAgents.length} agents, ${roomHasLiveWork ? 'active' : 'idle'}`}
             >
               <header className="factory-room__header">
                 <div className="factory-room__title">

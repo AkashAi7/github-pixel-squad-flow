@@ -46,7 +46,12 @@ summary:focus-visible {
   background: var(--ps-panel);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
 }
-.loading-card { max-width: 520px; padding: 28px; }
+.loading-card { max-width: 520px; padding: 28px; text-align: center; }
+.loading-card__spinner {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
 
 /* ── Hero Panel ──────────────────────────────────── */
 .hero-panel {
@@ -2187,3 +2192,268 @@ summary:focus-visible {
   border-radius: 50%;
   font-size: 0.68rem; color: #ffe066; font-weight: 700;
 }
+
+/* ═══════════════════════════════════════════════════
+   Skeleton Loaders and Loading States
+   ═══════════════════════════════════════════════════ */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(245, 239, 225, 0.04) 25%,
+    rgba(245, 239, 225, 0.08) 50%,
+    rgba(245, 239, 225, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.skeleton-text {
+  height: 0.85em;
+  margin: 0.25em 0;
+}
+
+.skeleton-text--title {
+  height: 1.2em;
+  width: 60%;
+}
+
+.skeleton-text--short {
+  width: 40%;
+}
+
+.skeleton-text--medium {
+  width: 70%;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.skeleton-chip {
+  height: 26px;
+  width: 80px;
+  border-radius: 13px;
+}
+
+.skeleton-card {
+  padding: 16px;
+  border: 1px solid var(--ps-border);
+  border-radius: 12px;
+  background: var(--ps-panel);
+}
+
+/* Room card skeleton */
+.skeleton-room {
+  padding: 18px;
+  border: 1px solid var(--ps-border);
+  border-radius: 16px;
+  background: var(--ps-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-room__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-room__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.skeleton-room__title {
+  flex: 1;
+}
+
+.skeleton-room__agents {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Task card skeleton */
+.skeleton-task {
+  padding: 14px;
+  border: 1px solid var(--ps-border);
+  border-radius: 10px;
+  background: var(--ps-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-task__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.skeleton-task__status {
+  width: 60px;
+  height: 20px;
+  border-radius: 10px;
+}
+
+/* Inspector skeleton */
+.skeleton-inspector {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Button loading state */
+.composer-button--loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.composer-button--loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: button-spin 0.6s linear infinite;
+}
+
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Inline spinner for text */
+.inline-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(245, 239, 225, 0.2);
+  border-top-color: rgba(245, 239, 225, 0.8);
+  border-radius: 50%;
+  animation: button-spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+/* Loading overlay for panels */
+.panel--loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.panel--loading::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 27, 40, 0.6);
+  border-radius: inherit;
+  z-index: 10;
+}
+
+.panel--loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 2px solid rgba(125, 140, 255, 0.3);
+  border-top-color: rgba(125, 140, 255, 0.9);
+  border-radius: 50%;
+  animation: button-spin 0.7s linear infinite;
+  z-index: 11;
+}
+
+/* Factory board loading placeholder */
+.factory-loading {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+}
+
+.factory-loading__column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ═══════════════════════════════════════════════════
+   Reduced Motion Support (Accessibility)
+   ═══════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep essential state indicators visible without animation */
+  .agent-status--executing,
+  .skeleton,
+  .inline-spinner,
+  .composer-button--loading::after,
+  .panel--loading::after {
+    animation: none !important;
+  }
+
+  /* Use opacity instead of animation for loading states */
+  .skeleton {
+    background: rgba(245, 239, 225, 0.08);
+  }
+
+  .agent-status--executing {
+    opacity: 0.8;
+  }
+
+  /* Replace spinners with static indicator */
+  .inline-spinner,
+  .composer-button--loading::after,
+  .panel--loading::after {
+    border-color: rgba(245, 239, 225, 0.4);
+    border-top-color: rgba(245, 239, 225, 0.9);
+  }
+
+  /* Disable hover transforms */
+  .room-card:hover,
+  .agent-chip:hover,
+  .task-card:hover,
+  .persona-chip:hover,
+  .theme-chip:hover {
+    transform: none;
+  }
+
+  /* Toast enters without slide animation */
+  .toast {
+    animation: none;
+    opacity: 1;
+  }
+}
+

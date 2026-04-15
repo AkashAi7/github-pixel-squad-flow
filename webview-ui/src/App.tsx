@@ -7,16 +7,19 @@ import { FactoryBoard } from './components/FactoryBoard.js';
 import { RoomCard } from './components/RoomCard.js';
 import { CreateRoomDialog } from './components/CreateRoomDialog.js';
 import { SpawnAgentDialog } from './components/SpawnAgentDialog.js';
+import { TaskCardComponent } from './components/TaskCardComponent.js';
+import { ActivityFeedComponent, ACTIVITY_FILTERS } from './components/ActivityFeedComponent.js';
+import { ProvidersViewComponent } from './components/ProvidersViewComponent.js';
+import { InspectorPanelComponent } from './components/InspectorPanelComponent.js';
+import { TaskWallComponent, TASK_STATUS_ORDER } from './components/TaskWallComponent.js';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
 const vscode = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (_message: unknown) => undefined };
-
-const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
-const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'agent-chat', 'provider', 'system'];
 type WorkspaceView = 'factory' | 'rooms' | 'tasks' | 'providers' | 'activity';
+const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'rooms', 'tasks', 'providers', 'activity'];
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -64,31 +67,8 @@ function normalizeSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
   };
 }
 
-function formatActivityTime(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(timestamp);
-}
-
 function isCardActivation(event: React.KeyboardEvent<HTMLElement>): boolean {
   return event.key === 'Enter' || event.key === ' ';
-}
-
-function activityCategoryMeta(category: ActivityCategory): { icon: string; label: string } {
-  switch (category) {
-    case 'task':
-      return { icon: '✓', label: 'Task' };
-    case 'agent':
-      return { icon: '◉', label: 'Agent' };
-    case 'agent-chat':
-      return { icon: '…', label: 'Chat' };
-    case 'provider':
-      return { icon: '⚙', label: 'Provider' };
-    case 'system':
-    default:
-      return { icon: '•', label: 'System' };
-  }
 }
 
 function agentActions(agent: SquadAgent): Array<{ label: string; action: string }> {
@@ -308,6 +288,19 @@ function App() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
   };
 
+  const handleWorkspaceNavKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const currentIndex = WORKSPACE_VIEWS.indexOf(activeView);
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      const nextIndex = (currentIndex + 1) % WORKSPACE_VIEWS.length;
+      setActiveView(WORKSPACE_VIEWS[nextIndex]);
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const prevIndex = (currentIndex - 1 + WORKSPACE_VIEWS.length) % WORKSPACE_VIEWS.length;
+      setActiveView(WORKSPACE_VIEWS[prevIndex]);
+    }
+  };
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ExtensionMessage>) => {
       if (event.data.type === 'bootstrapState') {
@@ -462,10 +455,13 @@ function App() {
   if (!snapshot) {
     return (
       <main className="shell shell--loading">
-        <div className="loading-card">
+        <div className="loading-card" role="status" aria-busy="true" aria-label="Loading Pixel Squad">
           <p className="eyebrow">Pixel Squad</p>
           <h1>Warming the factory floor</h1>
           <p>The extension host is preparing rooms, personas, and provider health.</p>
+          <div className="loading-card__spinner" aria-hidden="true">
+            <span className="inline-spinner" style={{ width: 20, height: 20 }} />
+          </div>
         </div>
       </main>
     );
@@ -632,7 +628,7 @@ function App() {
             <div className="composer-actions">
               <button
                 type="button"
-                className="composer-button"
+                className={`composer-button${isSubmitting ? ' composer-button--loading' : ''}`}
                 disabled={isSubmitting || prompt.trim().length === 0}
                 onClick={() => {
                   setIsSubmitting(true);
@@ -643,12 +639,13 @@ function App() {
                   }
                   setPrompt('');
                 }}
+                aria-busy={isSubmitting}
               >
-                {isSubmitting ? 'Routing...' : selectedAgentId ? `⚡ Assign to ${snapshot.agents.find(a => a.id === selectedAgentId)?.name ?? 'Agent'}` : 'Route Task'}
+                {isSubmitting ? <><span className="inline-spinner" aria-hidden="true" />Routing...</> : selectedAgentId ? `⚡ Assign to ${snapshot.agents.find(a => a.id === selectedAgentId)?.name ?? 'Agent'}` : 'Route Task'}
               </button>
               <button
                 type="button"
-                className="composer-button composer-button--fleet"
+                className={`composer-button composer-button--fleet${isSubmitting ? ' composer-button--loading' : ''}`}
                 disabled={isSubmitting || prompt.trim().length === 0}
                 title="Fleet mode: execute across all idle agents in parallel"
                 onClick={() => {
@@ -656,8 +653,9 @@ function App() {
                   vscode.postMessage({ type: 'fleetExecute', prompt: prompt.trim() });
                   setPrompt('');
                 }}
+                aria-busy={isSubmitting}
               >
-                {isSubmitting ? 'Launching...' : '🚀 Fleet'}
+                {isSubmitting ? <><span className="inline-spinner" aria-hidden="true" />Launching...</> : '🚀 Fleet'}
               </button>
               <button
                 type="button"
@@ -686,9 +684,12 @@ function App() {
           <p className="eyebrow">Workspace Views</p>
           <span className="workspace-nav__hint">Factory control, roster, queue, and feed.</span>
         </div>
-        <div className="workspace-nav__tabs">
+        <div className="workspace-nav__tabs" role="tablist" onKeyDown={handleWorkspaceNavKeyDown}>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeView === 'factory'}
+            tabIndex={activeView === 'factory' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'factory' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('factory')}
           >
@@ -697,6 +698,9 @@ function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeView === 'rooms'}
+            tabIndex={activeView === 'rooms' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'rooms' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('rooms')}
           >
@@ -705,6 +709,9 @@ function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeView === 'tasks'}
+            tabIndex={activeView === 'tasks' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'tasks' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('tasks')}
           >
@@ -713,6 +720,9 @@ function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeView === 'providers'}
+            tabIndex={activeView === 'providers' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'providers' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('providers')}
           >
@@ -721,6 +731,9 @@ function App() {
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeView === 'activity'}
+            tabIndex={activeView === 'activity' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'activity' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('activity')}
           >
@@ -744,331 +757,28 @@ function App() {
             onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
           />
 
-          <aside className="column column--side column--stacked">
-          {/* Inspector */}
-          <section className="panel inspector-panel">
-            <p className="eyebrow">Selected Agent</p>
-            {selectedAgent ? (
-              <>
-                <div className="inspector-header-row">
-                  <h2>
-                    {selectedAgent.name}
-                    <span className="agent-mood-inline" title={AGENT_MOOD[selectedAgent.status].label}>
-                      {AGENT_MOOD[selectedAgent.status].emoji}
-                    </span>
-                  </h2>
-                  <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
-                    {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
-                  </div>
-                  <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
-                    {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
-                  </span>
-                </div>
-
-                {/* ── Inline Assign (always visible) ── */}
-                <div className="inspector-quick-assign">
-                  <textarea
-                    className="inspector-quick-assign__input"
-                    value={agentTaskPrompt}
-                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
-                    placeholder={`Assign a task to ${selectedAgent.name}…`}
-                    rows={2}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && agentTaskPrompt.trim().length > 0) {
-                        setIsAssigning(true);
-                        vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                        setAgentTaskPrompt('');
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="inspector-quick-assign__btn"
-                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-                    onClick={() => {
-                      setIsAssigning(true);
-                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                      setAgentTaskPrompt('');
-                    }}
-                  >
-                    {isAssigning ? '…' : `⚡ Assign`}
-                  </button>
-                </div>
-
-                {/* ── Inspector Tab Bar ── */}
-                <div className="inspector-tabs">
-                  <button type="button" className={`inspector-tabs__tab${inspectorTab === 'overview' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('overview')}>
-                    Overview
-                  </button>
-                  <button type="button" className={`inspector-tabs__tab${inspectorTab === 'work' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('work')}>
-                    Work <strong>{selectedAgentTasks.length}</strong>
-                  </button>
-                </div>
-
-                {/* ── Tab: Overview ── */}
-                {inspectorTab === 'overview' && (
-                  <div className="inspector-tab-content">
-                    {personas.get(selectedAgent.personaId)?.isCustom ? <div className="task-chip">Custom Agent</div> : null}
-                    {personas.get(selectedAgent.personaId)?.skills?.length ? (
-                      <div className="skill-row">
-                        {personas.get(selectedAgent.personaId)?.skills?.map((skill) => (
-                          <span key={skill.id} className="skill-pill">
-                            {skill.label}
-                            <strong>L{skill.level}</strong>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                    <p className="inspector-copy">{selectedAgent.summary}</p>
-                    <dl className="facts">
-                      <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
-                      <div><dt>Status</dt><dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd></div>
-                      <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
-                      <div><dt>Mood</dt><dd>{AGENT_MOOD[selectedAgent.status].emoji} {AGENT_MOOD[selectedAgent.status].label}</dd></div>
-                    </dl>
-                    <section className="inspector-spotlight">
-                      <p className="eyebrow">Current Focus</p>
-                      {selectedAgentFocusTask ? (
-                        <div className="inspector-spotlight__card">
-                          <div className="inspector-spotlight__meta">
-                            <span className={`status-badge status-badge--${selectedAgentFocusTask.status}`}>{selectedAgentFocusTask.status}</span>
-                            <span className={`provider-badge provider-badge--${selectedAgentFocusTask.provider}`}>
-                              {selectedAgentFocusTask.provider === 'copilot' ? '⚡' : '🧠'} {selectedAgentFocusTask.provider}
-                            </span>
-                          </div>
-                          <strong>{selectedAgentFocusTask.title}</strong>
-                          <p>{selectedAgentFocusTask.detail}</p>
-                          {selectedAgentFocusTask.status === 'active' && streamingOutputs[selectedAgentFocusTask.id] && (
-                            <div className="task-output task-output--stream">
-                              <p className="eyebrow">Live output</p>
-                              <pre className="task-stream-pre">{streamingOutputs[selectedAgentFocusTask.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="inspector-copy">No active assignment. Switch to the <strong>⚡ Assign</strong> tab to give this agent work.</p>
-                      )}
-                    </section>
-                    <div className="agent-controls">
-                      {agentActions(selectedAgent).map(({ label, action }) => (
-                        <button
-                          key={action}
-                          type="button"
-                          className={`control-btn control-btn--${action}`}
-                          onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
-                        >{label}</button>
-                      ))}
-                    </div>
-                    <details className="inspector-section">
-                      <summary>
-                        <span>Pinned Context Files</span>
-                        <strong>{(selectedAgent.pinnedFiles ?? []).length}</strong>
-                      </summary>
-                      <div className="agent-pinned-files">
-                      {(selectedAgent.pinnedFiles ?? []).length > 0 ? (
-                        <div className="pinned-file-list">
-                          {(selectedAgent.pinnedFiles ?? []).map((filePath) => (
-                            <div key={filePath} className="pinned-file-item">
-                              <span className="pinned-file-item__path" title={filePath}>{filePath}</span>
-                              <button
-                                type="button"
-                                className="pinned-file-item__remove"
-                                title="Unpin"
-                                onClick={() => {
-                                  const updated = (selectedAgent.pinnedFiles ?? []).filter((f) => f !== filePath);
-                                  vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
-                                }}
-                              >✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="inspector-copy">No files pinned.</p>
-                      )}
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          type="button"
-                          className="composer-button composer-button--ghost"
-                          title="Pin the file currently open in the editor"
-                          onClick={() => {
-                            vscode.postMessage({ type: 'pinActiveFile', agentId: selectedAgent.id });
-                          }}
-                        >📎 Pin Active File</button>
-                        <button
-                          type="button"
-                          className="composer-button composer-button--ghost"
-                          onClick={() => {
-                            setShowFilePicker(true);
-                            setFileSearchQuery('');
-                            vscode.postMessage({ type: 'requestWorkspaceFiles' });
-                          }}
-                        >📌 Pin Files</button>
-                      </div>
-                      {showFilePicker && (
-                        <div className="file-picker-overlay" onClick={() => setShowFilePicker(false)}>
-                          <div className="file-picker" onClick={(e) => e.stopPropagation()}>
-                            <p className="eyebrow">Select files to pin to {selectedAgent.name}</p>
-                            <input
-                              className="file-picker__search"
-                              type="text"
-                              placeholder="Search files..."
-                              value={fileSearchQuery}
-                              onChange={(e) => setFileSearchQuery(e.target.value)}
-                              autoFocus
-                            />
-                            <div className="file-picker__list">
-                              {workspaceFiles
-                                .filter((f) => !fileSearchQuery || f.toLowerCase().includes(fileSearchQuery.toLowerCase()))
-                                .slice(0, 30)
-                                .map((filePath) => {
-                                  const isPinned = (selectedAgent.pinnedFiles ?? []).includes(filePath);
-                                  return (
-                                    <button
-                                      key={filePath}
-                                      type="button"
-                                      className={`file-picker__item${isPinned ? ' file-picker__item--pinned' : ''}`}
-                                      onClick={() => {
-                                        const current = selectedAgent.pinnedFiles ?? [];
-                                        const updated = isPinned
-                                          ? current.filter((f) => f !== filePath)
-                                          : [...current, filePath];
-                                        vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
-                                      }}
-                                    >
-                                      <span>{isPinned ? '📌 ' : ''}{filePath}</span>
-                                    </button>
-                                  );
-                                })}
-                              {workspaceFiles.length === 0 && <p className="inspector-copy">Loading workspace files...</p>}
-                            </div>
-                            <button
-                              type="button"
-                              className="composer-button"
-                              onClick={() => setShowFilePicker(false)}
-                            >Done</button>
-                          </div>
-                        </div>
-                      )}
-                      </div>
-                    </details>
-                  </div>
-                )}
-
-                {/* ── Tab: Assign ── */}
-                {inspectorTab === 'assign' && (
-                  <div className="inspector-tab-content">
-                    <div className="assign-task assign-task--prominent">
-                      <label className="composer-label" htmlFor="agent-task-prompt">⚡ Assign task to {selectedAgent.name}</label>
-                      <textarea
-                        id="agent-task-prompt"
-                        className="assign-task__input"
-                        value={agentTaskPrompt}
-                        onChange={(e) => setAgentTaskPrompt(e.target.value)}
-                        placeholder={`Describe a task for ${selectedAgent.name}...`}
-                        rows={4}
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        className="composer-button assign-task__btn"
-                        disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-                        onClick={() => {
-                          setIsAssigning(true);
-                          vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                          setAgentTaskPrompt('');
-                        }}
-                      >
-                        {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
-                      </button>
-                      <p className="inspector-copy" style={{ marginTop: '8px' }}>
-                        This assigns a task directly to <strong>{selectedAgent.name}</strong>, bypassing the planner.
-                        Use "Route Task" in the hero composer to let the planner decide assignment.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Tab: Work ── */}
-                {inspectorTab === 'work' && (
-                  <div className="inspector-tab-content">
-                    <div className="agent-work">
-                      {selectedAgentTasks.length === 0 ? <p className="inspector-copy">No tasks assigned yet.</p> : null}
-                      {selectedAgentTasks.length > 0 ? (
-                        <div className="agent-work__list">
-                          {selectedAgentTasks.map((task) => (
-                            <article
-                              key={task.id}
-                              className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
-                              onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                              onKeyDown={(event) => {
-                                if (!isCardActivation(event)) return;
-                                event.preventDefault();
-                                setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
-                              }}
-                              role="button"
-                              tabIndex={0}
-                              aria-expanded={expandedTaskId === task.id}
-                            >
-                              <div className="agent-work__meta">
-                                <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
-                                <span className="agent-work__title">{task.title}</span>
-                              </div>
-                              <p className="agent-work__detail">{task.detail}</p>
-                              {task.status === 'active' && streamingOutputs[task.id] && (
-                                <div className="task-output task-output--stream">
-                                  <p className="eyebrow">Live output</p>
-                                  <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
-                                </div>
-                              )}
-                              {task.output && expandedTaskId === task.id && (
-                                <div className="task-output">
-                                  <p className="eyebrow">Output</p>
-                                  <pre>{task.output}</pre>
-                                </div>
-                              )}
-                              {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
-                                <div className="task-plan">
-                                  <p className="eyebrow">Execution Plan</p>
-                                  <p className="task-plan__summary">{task.executionPlan?.summary}</p>
-                                  {task.executionPlan?.fileEdits.length ? (
-                                    <div className="task-diff-list">
-                                      {task.executionPlan.fileEdits.map((edit) => (
-                                        <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
-                                          <div className="task-diff-card__header">
-                                            <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
-                                            <span>{edit.summary}</span>
-                                          </div>
-                                          <div className="task-diff-card__code">
-                                            {buildPreviewLines(edit).map((line, index) => (
-                                              <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
-                                                <span className="task-diff-card__gutter">{line.before ?? ''}</span>
-                                                <span className="task-diff-card__gutter">{line.after ?? ''}</span>
-                                                <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
-                                                <code>{line.content || ' '}</code>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </article>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  {task.executionPlan?.terminalCommands.length ? <p className="task-plan__line">Commands: {task.executionPlan.terminalCommands.map((command) => command.command).join(' ; ')}</p> : null}
-                                  {renderCommandResults(task)}
-                                </div>
-                              ) : null}
-                            </article>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="inspector-copy">Pick an agent from the factory floor to inspect it.</p>
-            )}
-          </section>
-          </aside>
+          <InspectorPanelComponent
+            selectedAgent={selectedAgent}
+            selectedAgentTasks={selectedAgentTasks}
+            selectedAgentFocusTask={selectedAgentFocusTask}
+            personas={personas}
+            rooms={snapshot.rooms}
+            inspectorTab={inspectorTab}
+            setInspectorTab={setInspectorTab}
+            agentTaskPrompt={agentTaskPrompt}
+            setAgentTaskPrompt={setAgentTaskPrompt}
+            isAssigning={isAssigning}
+            setIsAssigning={setIsAssigning}
+            expandedTaskId={expandedTaskId}
+            setExpandedTaskId={setExpandedTaskId}
+            showFilePicker={showFilePicker}
+            setShowFilePicker={setShowFilePicker}
+            fileSearchQuery={fileSearchQuery}
+            setFileSearchQuery={setFileSearchQuery}
+            workspaceFiles={workspaceFiles}
+            streamingOutputs={streamingOutputs}
+            vscode={vscode}
+          />
         </section>
       ) : null}
 
@@ -1090,334 +800,41 @@ function App() {
       ) : null}
 
       {activeView === 'tasks' ? (
-        <section className="workspace-stack">
-          <aside className="column column--side column--stacked">
-          <section className="panel">
-            <div className="task-wall__header">
-              <div>
-                <p className="eyebrow">Task Wall</p>
-                <p className="task-wall__copy">Group and filter the queue without losing assignee, dependency, or progress context.</p>
-              </div>
-              <div className="task-wall__modes">
-                <button
-                  type="button"
-                  className={`toggle-chip${taskGroupBy === 'status' ? ' toggle-chip--active' : ''}`}
-                  onClick={() => setTaskGroupBy('status')}
-                >
-                  By status
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-chip${taskGroupBy === 'assignee' ? ' toggle-chip--active' : ''}`}
-                  onClick={() => setTaskGroupBy('assignee')}
-                >
-                  By agent
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-chip${taskGroupBy === 'room' ? ' toggle-chip--active' : ''}`}
-                  onClick={() => setTaskGroupBy('room')}
-                >
-                  By room
-                </button>
-              </div>
-            </div>
-            <div className="task-filters">
-              <label className="task-filter">
-                <span>Status</span>
-                <select value={taskStatusFilter} onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatus | 'all')}>
-                  <option value="all">All</option>
-                  {TASK_STATUS_ORDER.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="task-filter">
-                <span>Provider</span>
-                <select value={taskProviderFilter} onChange={(event) => setTaskProviderFilter(event.target.value as Provider | 'all')}>
-                  <option value="all">All</option>
-                  <option value="copilot">Copilot</option>
-                  <option value="claude">Claude</option>
-                </select>
-              </label>
-              <label className="task-filter">
-                <span>Persona</span>
-                <select value={taskPersonaFilter} onChange={(event) => setTaskPersonaFilter(event.target.value)}>
-                  <option value="all">All</option>
-                  {snapshot.personas.map((persona) => (
-                    <option key={persona.id} value={persona.id}>{persona.title}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="task-group-list">
-              {taskGroups.length === 0 ? <p className="task-wall__empty">No tasks match the current filters.</p> : null}
-              {taskGroups.map((group) => (
-                <section key={group.key} className="task-group">
-                  <div className="task-group__header">
-                    <h3>{group.label}</h3>
-                    <span>{group.tasks.length}</span>
-                  </div>
-                  <div className="task-list">
-                    {group.tasks.map((task) => {
-                      const assignee = agentsById.get(task.assigneeId);
-                      const persona = assignee ? personas.get(assignee.personaId) : null;
-                      const roomName = assignee ? snapshot.rooms.find((room) => room.id === assignee.roomId)?.name ?? 'No Room' : 'No Room';
-                      const dependencyCount = task.dependsOn?.length ?? 0;
-                      const progress = task.progress ?? taskProgressForStatus(task.status);
-                      const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
-
-                      return (
-                        <article
-                          key={task.id}
-                          className={`task-card task-card--${task.status}${expandedTaskId === task.id ? ' task-card--expanded' : ''}`}
-                          onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                          onKeyDown={(event) => {
-                            if (!isCardActivation(event)) return;
-                            event.preventDefault();
-                            setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
-                          }}
-                          role="button"
-                          tabIndex={0}
-                          aria-expanded={expandedTaskId === task.id}
-                        >
-                          <div className="task-meta">
-                            <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
-                            <span className={`provider-badge provider-badge--${task.provider}`}>
-                              {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
-                            </span>
-                            <span>{task.source}</span>
-                            {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
-                            {task.approvalState ? <span className="task-chip">{task.approvalState}</span> : null}
-                          </div>
-                          <div className="task-card__topline">
-                            <div className="task-card__headline">
-                              <h3>{task.title}</h3>
-                              <span className="task-card__room">{roomName}</span>
-                            </div>
-                            <span className="task-card__progress-chip">{progress.label}</span>
-                          </div>
-                          <p className="task-card__detail">{task.detail}</p>
-                          <div className="task-card__footer">
-                            <div className="task-card__identity">
-                              <strong>{assignee?.name ?? 'Unassigned'}</strong>
-                              <span>{persona?.title ?? 'Unknown persona'}</span>
-                            </div>
-                            <div className="task-progress" title={progress.label}>
-                              <div className="task-progress__bar">
-                                <div className="task-progress__fill" style={{ width: progressWidth }} />
-                              </div>
-                              <span>{progress.label}</span>
-                            </div>
-                          </div>
-                          {task.status === 'active' && streamingOutputs[task.id] && (
-                            <div className="task-output task-output--stream">
-                              <p className="eyebrow">Live output</p>
-                              <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
-                            </div>
-                          )}
-                          {task.output && expandedTaskId === task.id && (
-                            <div className="task-output">
-                              <p className="eyebrow">Execution Output</p>
-                              <pre>{task.output}</pre>
-                            </div>
-                          )}
-                          {expandedTaskId === task.id && task.workspaceContext ? (
-                            <div className="task-plan">
-                              <p className="eyebrow">Workspace Context</p>
-                              <p className="task-plan__line">Branch: {task.workspaceContext.branch || 'unknown'}</p>
-                              <p className="task-plan__line">Active file: {task.workspaceContext.activeFile || 'none'}</p>
-                              {task.workspaceContext.gitStatus?.length ? <p className="task-plan__line">Git: {task.workspaceContext.gitStatus.join(' | ')}</p> : null}
-                              {task.workspaceContext.relevantFiles.length ? (
-                                <div className="task-plan__list">
-                                  {task.workspaceContext.relevantFiles.map((file) => (
-                                    <article key={file.path} className="task-plan__item">
-                                      <strong>{file.path}</strong>
-                                      <span>{file.reason}</span>
-                                    </article>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          {expandedTaskId === task.id && task.handoffPackets && task.handoffPackets.length > 0 ? (
-                            <div className="task-plan">
-                              <p className="eyebrow">Handoff from predecessors</p>
-                              {task.handoffPackets.map((packet) => (
-                                <article key={packet.fromTaskId} className="task-plan__item">
-                                  <strong>From {packet.fromAgentName}</strong>
-                                  <span>{packet.summary}</span>
-                                  {packet.filesChanged.length > 0 ? <p className="task-plan__line">Files: {packet.filesChanged.join(', ')}</p> : null}
-                                  {packet.openIssues.length > 0 ? <p className="task-plan__line">Notes: {packet.openIssues.join('; ')}</p> : null}
-                                </article>
-                              ))}
-                            </div>
-                          ) : null}
-                          {expandedTaskId === task.id && (task.dependsOn?.length ?? 0) > 0 ? (
-                            <div className="dep-chain">
-                              <p className="eyebrow">Chain of Dependencies</p>
-                              <div className="dep-chain__nodes">
-                                {task.dependsOn!.map((depId) => {
-                                  const depTask = snapshot.tasks.find((t) => t.id === depId);
-                                  const depAgent = depTask ? agentsById.get(depTask.assigneeId) : null;
-                                  return depTask ? (
-                                    <div key={depId} className="dep-chain__entry">
-                                      <div className="dep-chain__node">
-                                        <span className={`dep-chain__badge dep-chain__badge--${depTask.status}`}>{depTask.status}</span>
-                                        <span className="dep-chain__title">{depTask.title}</span>
-                                        {depAgent ? <span className="dep-chain__agent">{depAgent.name}</span> : null}
-                                      </div>
-                                      <span className="dep-chain__arrow" aria-hidden="true">→</span>
-                                    </div>
-                                  ) : null;
-                                })}
-                                <div className="dep-chain__node dep-chain__node--self">
-                                  <span className={`dep-chain__badge dep-chain__badge--${task.status}`}>{task.status}</span>
-                                  <span className="dep-chain__title">{task.title}</span>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                          {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
-                            <div className="task-plan">
-                              <p className="eyebrow">Proposed Changes</p>
-                              <p className="task-plan__summary">{task.executionPlan?.summary}</p>
-                              {task.executionPlan?.fileEdits.length ? (
-                                <div className="task-diff-list">
-                                  {task.executionPlan.fileEdits.map((edit) => (
-                                    <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
-                                      <div className="task-diff-card__header">
-                                        <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
-                                        <span>{edit.summary}</span>
-                                      </div>
-                                      <div className="task-diff-card__code">
-                                        {buildPreviewLines(edit).map((line, index) => (
-                                          <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
-                                            <span className="task-diff-card__gutter">{line.before ?? ''}</span>
-                                            <span className="task-diff-card__gutter">{line.after ?? ''}</span>
-                                            <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
-                                            <code>{line.content || ' '}</code>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </article>
-                                  ))}
-                                </div>
-                              ) : null}
-                              {task.executionPlan?.terminalCommands.length ? (
-                                <div className="task-plan__list">
-                                  {task.executionPlan.terminalCommands.map((command, index) => (
-                                    <article key={`${task.id}-command-${index}`} className="task-plan__item">
-                                      <strong>{command.command}</strong>
-                                      <span>{command.summary}</span>
-                                    </article>
-                                  ))}
-                                </div>
-                              ) : null}
-                              {renderCommandResults(task)}
-                              {task.executionPlan?.tests.length ? <p className="task-plan__line">Tests: {task.executionPlan.tests.join(' | ')}</p> : null}
-                              {task.executionPlan?.notes.length ? <p className="task-plan__line">Notes: {task.executionPlan.notes.join(' | ')}</p> : null}
-                            </div>
-                          ) : null}
-                          <div className="task-controls" onClick={(e) => e.stopPropagation()}>
-                            {taskActions(task).map(({ label, action }) => (
-                              <button
-                                key={action}
-                                type="button"
-                                className={`control-btn control-btn--${action}`}
-                                onClick={() => vscode.postMessage({ type: 'taskAction', taskId: task.id, action })}
-                              >{label}</button>
-                            ))}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </section>
-          </aside>
-        </section>
+        <TaskWallComponent
+          taskGroupBy={taskGroupBy}
+          setTaskGroupBy={setTaskGroupBy}
+          taskStatusFilter={taskStatusFilter}
+          setTaskStatusFilter={setTaskStatusFilter}
+          taskProviderFilter={taskProviderFilter}
+          setTaskProviderFilter={setTaskProviderFilter}
+          taskPersonaFilter={taskPersonaFilter}
+          setTaskPersonaFilter={setTaskPersonaFilter}
+          taskGroups={taskGroups}
+          agentsById={agentsById}
+          personas={snapshot.personas}
+          rooms={snapshot.rooms}
+          expandedTaskId={expandedTaskId}
+          setExpandedTaskId={setExpandedTaskId}
+          streamingOutputs={streamingOutputs}
+          allTasks={snapshot.tasks}
+          vscode={vscode}
+        />
       ) : null}
 
       {activeView === 'providers' ? (
-        <section className="workspace-stack">
-          <aside className="column column--side column--stacked">
-          <section className="panel">
-            <div className="task-wall__header">
-              <div>
-                <p className="eyebrow">Providers</p>
-                <p className="task-wall__copy">Language model providers powering Pixel Squad agents.</p>
-              </div>
-            </div>
-            <div className="provider-list">
-              {snapshot.providers.map((provider) => (
-                <article key={provider.provider} className={`provider-chip provider-chip--${provider.state}`}>
-                  <span className="provider-chip__icon">
-                    {provider.provider === 'copilot' ? '⚡' : '🧠'}
-                  </span>
-                  <div className="provider-chip__content">
-                    <strong>{provider.provider}</strong>
-                    <p>{provider.detail}</p>
-                  </div>
-                  <span className="provider-chip__state">{provider.state}</span>
-                </article>
-              ))}
-            </div>
-            <div className="provider-summary">
-              <p className="eyebrow">Agent Distribution</p>
-              <dl className="facts">
-                <div><dt>Copilot agents</dt><dd>{stats.copilot}</dd></div>
-                <div><dt>Claude agents</dt><dd>{stats.claude}</dd></div>
-                <div><dt>Total agents</dt><dd>{snapshot.agents.length}</dd></div>
-                <div><dt>Active tasks</dt><dd>{stats.active}</dd></div>
-              </dl>
-            </div>
-          </section>
-          </aside>
-        </section>
+        <ProvidersViewComponent
+          providers={snapshot.providers}
+          stats={stats}
+          totalAgents={snapshot.agents.length}
+        />
       ) : null}
 
       {activeView === 'activity' ? (
-        <section className="workspace-stack">
-          <aside className="column column--side column--stacked">
-          <section className="panel">
-            <div className="task-wall__header">
-              <div>
-                <p className="eyebrow">Activity Feed</p>
-                <p className="task-wall__copy">Structured events are now grouped by category so provider chatter and task flow are easier to scan.</p>
-              </div>
-              <label className="task-filter task-filter--compact">
-                <span>Filter</span>
-                <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as ActivityCategory | 'all')}>
-                  {ACTIVITY_FILTERS.map((filter) => (
-                    <option key={filter} value={filter}>{filter}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <ul className="activity-feed">
-              {filteredActivity.length === 0 ? <li className="activity-feed__empty">No activity matches the current filter.</li> : null}
-              {filteredActivity.map((item) => {
-                const meta = activityCategoryMeta(item.category);
-                return (
-                  <li key={item.id} className={`activity-feed__item activity-feed__item--${item.category}`}>
-                    <div className="activity-feed__meta">
-                      <div className="activity-feed__meta-main">
-                        <span className={`activity-badge activity-badge--${item.category}`}>{meta.icon} {meta.label}</span>
-                        <span className="activity-feed__verb">{item.category.replace('-', ' ')}</span>
-                      </div>
-                      <time>{formatActivityTime(item.timestamp)}</time>
-                    </div>
-                    <p>{item.message}</p>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-          </aside>
-        </section>
+        <ActivityFeedComponent
+          filteredActivity={filteredActivity}
+          activityFilter={activityFilter}
+          setActivityFilter={setActivityFilter}
+        />
       ) : null}
     </main>
   );
