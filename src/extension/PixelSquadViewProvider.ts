@@ -37,10 +37,15 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       this.postMessage(message);
     });
 
+    const unsubStream = this.coordinator.streamBus.subscribe((message) => {
+      this.postMessage(message);
+    });
+
     webviewView.onDidDispose(() => {
       unsubscribe();
       unsubOutput();
       unsubChat();
+      unsubStream();
     });
 
     webviewView.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
@@ -71,11 +76,13 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     const unsubActivity = this.coordinator.activityBus.subscribe(post);
     const unsubOutput = this.coordinator.taskOutputBus.subscribe(post);
     const unsubChat = this.coordinator.agentChatBus.subscribe(post);
+    const unsubStream = this.coordinator.streamBus.subscribe(post);
 
     panel.onDidDispose(() => {
       unsubActivity();
       unsubOutput();
       unsubChat();
+      unsubStream();
     });
 
     panel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {

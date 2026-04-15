@@ -1315,6 +1315,39 @@ summary:focus-visible {
   box-shadow: inset 3px 0 0 #70c1b3;
   animation: done-flash 1.6s ease-out forwards;
 }
+
+/* Streaming output — live output area while agent is running */
+.task-output--stream {
+  margin-top: 10px;
+  background: rgba(112, 193, 179, 0.06);
+  border-left: 2px solid #70c1b3;
+  border-radius: 4px;
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.task-stream-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.72rem;
+  color: var(--vscode-foreground, #ccc);
+  opacity: 0.85;
+}
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.task-stream-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  background: #70c1b3;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  margin-left: 1px;
+  animation: blink-cursor 0.9s step-end infinite;
+}
 .task-meta {
   display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
   color: #70c1b3; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.08em;

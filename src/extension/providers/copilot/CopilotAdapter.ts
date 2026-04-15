@@ -6,6 +6,7 @@ import { createDeterministicAssignments, describePersonasForPrompt, enrichAssign
 
 export class CopilotAdapter implements ProviderAdapter {
   readonly id = 'copilot' as const;
+  private cachedModel: vscode.LanguageModelChat | undefined;
   private lastHealth: ProviderHealth = {
     provider: 'copilot',
     state: 'ready',
@@ -82,8 +83,10 @@ export class CopilotAdapter implements ProviderAdapter {
   }
 
   private async pickModel(): Promise<vscode.LanguageModelChat | undefined> {
+    if (this.cachedModel) { return this.cachedModel; }
     const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
-    return models[0];
+    this.cachedModel = models[0];
+    return this.cachedModel;
   }
 
   async executeTask(
@@ -96,6 +99,7 @@ export class CopilotAdapter implements ProviderAdapter {
     room?: Room,
     handoffPackets?: HandoffPacket[],
     inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
   ): Promise<ExecutionResult> {
     const resolvedModel = model ?? (await this.pickModel());
     if (!resolvedModel) {
@@ -172,6 +176,7 @@ export class CopilotAdapter implements ProviderAdapter {
       let text = '';
       for await (const fragment of response.text) {
         text += fragment;
+        onChunk?.(fragment);
       }
 
       this.lastHealth = {

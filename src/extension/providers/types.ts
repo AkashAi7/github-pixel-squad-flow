@@ -53,5 +53,6 @@ export interface ProviderAdapter {
     room?: Room,
     handoffPackets?: HandoffPacket[],
     inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
   ): Promise<ExecutionResult>;
 }

@@ -10,6 +10,7 @@ import { createDeterministicAssignments, describePersonasForPrompt, enrichAssign
  */
 export class ClaudeAdapter implements ProviderAdapter {
   readonly id = 'claude' as const;
+  private cachedModel: vscode.LanguageModelChat | undefined;
   private lastHealth: ProviderHealth = {
     provider: 'claude',
     state: 'ready',
@@ -89,6 +90,7 @@ export class ClaudeAdapter implements ProviderAdapter {
     room?: Room,
     handoffPackets?: HandoffPacket[],
     inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
   ): Promise<ExecutionResult> {
     const resolvedModel = model ?? (await this.pickModel());
     if (!resolvedModel) {
@@ -165,6 +167,7 @@ export class ClaudeAdapter implements ProviderAdapter {
       let text = '';
       for await (const fragment of response.text) {
         text += fragment;
+        onChunk?.(fragment);
       }
 
       this.lastHealth = {
@@ -191,19 +194,22 @@ export class ClaudeAdapter implements ProviderAdapter {
   }
 
   private async pickModel(): Promise<vscode.LanguageModelChat | undefined> {
+    if (this.cachedModel) { return this.cachedModel; }
     // Try anthropic vendor first, then look for any model with 'claude' in the family
     const anthropicModels = await vscode.lm.selectChatModels({ vendor: 'anthropic' });
     if (anthropicModels.length > 0) {
-      return anthropicModels[0];
+      this.cachedModel = anthropicModels[0];
+      return this.cachedModel;
     }
 
     const allModels = await vscode.lm.selectChatModels();
-    return allModels.find(
+    this.cachedModel = allModels.find(
       (m) =>
         m.family.toLowerCase().includes('claude') ||
         m.vendor.toLowerCase().includes('anthropic') ||
         m.vendor.toLowerCase().includes('claude'),
     );
+    return this.cachedModel;
   }
 
   private buildPrompt(prompt: string, personas: PersonaTemplate[], workspaceContext: WorkspaceContext): string {

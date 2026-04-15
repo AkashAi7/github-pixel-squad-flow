@@ -135,4 +135,10 @@ export interface WorkspaceFilesMessage {
   files: string[];
 }
 
-export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage | WorkspaceFilesMessage;
+export interface TaskStreamChunkMessage {
+  type: 'taskChunk';
+  taskId: string;
+  chunk: string;
+}
+
+export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage | WorkspaceFilesMessage | TaskStreamChunkMessage;

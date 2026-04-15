@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 
 import type { ActivityCategory, ActivityEntry, AgentMessage, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
 import { ROOM_THEME_META, createActivityEntry } from '../../shared/model/index.js';
-import type { ActivityMessage, AgentChatMessage, TaskOutputMessage } from '../../shared/protocol/messages.js';
+import type { ActivityMessage, AgentChatMessage, TaskOutputMessage, TaskStreamChunkMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
 import { TaskScheduler } from './TaskScheduler.js';
 import { AgentMailbox } from './AgentMailbox.js';
@@ -34,6 +34,7 @@ export class Coordinator {
   readonly activityBus = new EventBus<ActivityMessage>();
   readonly taskOutputBus = new EventBus<TaskOutputMessage>();
   readonly agentChatBus = new EventBus<AgentChatMessage>();
+  readonly streamBus = new EventBus<TaskStreamChunkMessage>();
 
   constructor(rootPath?: string) {
     this.rootPath = rootPath;
@@ -83,12 +84,16 @@ export class Coordinator {
     }
 
     const settings = this.getSettings();
-    const workspaceContext = settings.autoPopulateWorkspaceContext
-      ? await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
-      : { relevantFiles: [] };
+    // Use lightweight context for the planning call (only branch + activeFile are used in the prompt).
+    // Start the full context fetch in parallel so it's ready by the time executeTask runs.
+    const lightContext = this.workspaceContext.captureLightweight();
+    const fullContextPromise = settings.autoPopulateWorkspaceContext
+      ? this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
+      : Promise.resolve(lightContext as import('../../shared/model/index.js').WorkspaceContext);
     const selectedProvider = provider ?? (this.getSettings().modelFamily as Provider) ?? 'copilot';
     const adapter = this.providers[selectedProvider] ?? this.copilot;
-    const plan = await adapter.createPlan(normalizedPrompt, this.snapshot.personas, workspaceContext, model, token);
+    const plan = await adapter.createPlan(normalizedPrompt, this.snapshot.personas, lightContext, model, token);
+    const workspaceContext = await fullContextPromise;
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
     const createdAt = Date.now();
@@ -325,6 +330,7 @@ export class Coordinator {
       const result = await adapter.executeTask(
         executionTask, agent, persona, workspaceContext, model, token, room, handoffPackets,
         inboxMessages.length > 0 ? inboxMessages : undefined,
+        (chunk) => this.streamBus.publish({ type: 'taskChunk', taskId, chunk }),
       );
       lastResult = result;
 

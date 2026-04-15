@@ -299,6 +299,7 @@ function App() {
   const [activityFilter, setActivityFilter] = useState<ActivityCategory | 'all'>('all');
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
   const [showFirstRun, setShowFirstRun] = useState(true);
+  const [streamingOutputs, setStreamingOutputs] = useState<Record<string, string>>({});
 
   const addToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -343,8 +344,20 @@ function App() {
         // Users can click to expand manually.
       }
 
+      if (event.data.type === 'taskChunk') {
+        const { taskId, chunk } = event.data;
+        setStreamingOutputs((prev) => ({ ...prev, [taskId]: (prev[taskId] ?? '') + chunk }));
+      }
+
       if (event.data.type === 'bootstrapState') {
-        // Handled above; additionally surface task completions as in-webview toasts.
+        // Clear streaming buffers for tasks that have now settled (done/failed/review).
+        setStreamingOutputs((prev) => {
+          const next = { ...prev };
+          for (const task of (event.data.snapshot?.tasks ?? [])) {
+            if (task.status !== 'active') { delete next[task.id]; }
+          }
+          return next;
+        });
       }
 
       if (event.data.type === 'workspaceFiles') {
@@ -745,6 +758,12 @@ function App() {
                       </div>
                       <strong>{selectedAgentFocusTask.title}</strong>
                       <p>{selectedAgentFocusTask.detail}</p>
+                      {selectedAgentFocusTask.status === 'active' && streamingOutputs[selectedAgentFocusTask.id] && (
+                        <div className="task-output task-output--stream">
+                          <p className="eyebrow">Live output</p>
+                          <pre className="task-stream-pre">{streamingOutputs[selectedAgentFocusTask.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="inspector-copy">No active assignment. Use the task box below to give this agent work.</p>
@@ -788,6 +807,12 @@ function App() {
                               <span className="agent-work__title">{task.title}</span>
                             </div>
                             <p className="agent-work__detail">{task.detail}</p>
+                            {task.status === 'active' && streamingOutputs[task.id] && (
+                              <div className="task-output task-output--stream">
+                                <p className="eyebrow">Live output</p>
+                                <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
+                              </div>
+                            )}
                             {task.output && expandedTaskId === task.id && (
                               <div className="task-output">
                                 <p className="eyebrow">Output</p>
@@ -1093,6 +1118,12 @@ function App() {
                               <span>{progress.label}</span>
                             </div>
                           </div>
+                          {task.status === 'active' && streamingOutputs[task.id] && (
+                            <div className="task-output task-output--stream">
+                              <p className="eyebrow">Live output</p>
+                              <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
+                            </div>
+                          )}
                           {task.output && expandedTaskId === task.id && (
                             <div className="task-output">
                               <p className="eyebrow">Execution Output</p>
