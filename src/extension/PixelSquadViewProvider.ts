@@ -280,6 +280,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
 
   dispose(): void {
     if (this.staleReaperTimer) { clearInterval(this.staleReaperTimer); }
+    this.coordinator.dispose();
   }
 
   private syncSnapshot(): void {

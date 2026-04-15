@@ -17,12 +17,14 @@ import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
 const MAX_MAILBOX_TURNS = 3;
-/** Per-turn execution timeout in milliseconds (45 seconds). */
-const EXECUTION_TIMEOUT_MS = 45_000;
-/** Planning-call timeout in milliseconds (15 seconds). */
-const PLAN_TIMEOUT_MS = 15_000;
+/** Per-turn execution timeout in milliseconds (60 seconds). */
+const EXECUTION_TIMEOUT_MS = 60_000;
+/** Planning-call timeout in milliseconds (30 seconds). */
+const PLAN_TIMEOUT_MS = 30_000;
 /** Tasks active/queued longer than this (ms) are considered stale and auto-failed. */
-const STALE_TASK_THRESHOLD_MS = 2 * 60_000;
+const STALE_TASK_THRESHOLD_MS = 5 * 60_000;
+/** Debounce interval for coalescing disk writes (ms). */
+const SAVE_DEBOUNCE_MS = 500;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -41,6 +43,7 @@ export class Coordinator {
   readonly taskOutputBus = new EventBus<TaskOutputMessage>();
   readonly agentChatBus = new EventBus<AgentChatMessage>();
   readonly streamBus = new EventBus<TaskStreamChunkMessage>();
+  private saveTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(rootPath?: string) {
     this.rootPath = rootPath;
@@ -62,32 +65,22 @@ export class Coordinator {
       autoExecute: config.get<boolean>('autoExecute', true),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
-      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
+      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 6),
     };
   }
 
-  private readonly resolvedModelCache = new Map<Provider, vscode.LanguageModelChat>();
-
-  /** Resolve a LanguageModelChat for the given provider (cached after first lookup). */
+  /** Resolve a LanguageModelChat for the given provider (used for token counting). */
   private async resolveModelForAgent(provider: Provider): Promise<vscode.LanguageModelChat | undefined> {
-    const cached = this.resolvedModelCache.get(provider);
-    if (cached) { return cached; }
     try {
-      let resolved: vscode.LanguageModelChat | undefined;
       if (provider === 'claude') {
         const models = await vscode.lm.selectChatModels({ vendor: 'anthropic' });
-        if (models.length > 0) { resolved = models[0]; }
-        else {
-          const all = await vscode.lm.selectChatModels();
-          resolved = all.find((m) =>
-            m.family.toLowerCase().includes('claude') || m.vendor.toLowerCase().includes('anthropic'));
-        }
-      } else {
-        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
-        resolved = models[0];
+        if (models.length > 0) { return models[0]; }
+        const all = await vscode.lm.selectChatModels();
+        return all.find((m) =>
+          m.family.toLowerCase().includes('claude') || m.vendor.toLowerCase().includes('anthropic'));
       }
-      if (resolved) { this.resolvedModelCache.set(provider, resolved); }
-      return resolved;
+      const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+      return models[0];
     } catch {
       return undefined;
     }
@@ -100,12 +93,9 @@ export class Coordinator {
     }
 
     const settings = this.getSettings();
-    // Use lightweight context for the planning call and task creation.
-    // Full context is resolved lazily inside executeTask only when needed.
+    // Use lightweight context for the planning call (only branch + activeFile are used in the prompt).
+    // Start the full context fetch in parallel so it's ready by the time executeTask runs.
     const lightContext = this.workspaceContext.captureLightweight();
-    // Kick off full context capture in the background — executeTask will use
-    // whatever is available on the task when it runs. This avoids blocking
-    // task creation on a slow context gather.
     const fullContextPromise = settings.autoPopulateWorkspaceContext
       ? this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
       : Promise.resolve(lightContext as import('../../shared/model/index.js').WorkspaceContext);
@@ -116,9 +106,7 @@ export class Coordinator {
       setTimeout(() => reject(new Error(`Planning timed out after ${PLAN_TIMEOUT_MS / 1000}s`)), PLAN_TIMEOUT_MS),
     );
     const plan = await Promise.race([planPromise, planTimeout]);
-    // Don't block on full context — use light context for task creation.
-    // Attach a promise so executeTask can await it *if* context hasn't arrived yet.
-    const workspaceContext = lightContext as import('../../shared/model/index.js').WorkspaceContext;
+    const workspaceContext = await fullContextPromise;
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
     const createdAt = Date.now();
@@ -174,27 +162,15 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
     this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
 
-    // Auto-execute all active (no-dep) tasks in parallel when enabled.
-    // Also backfill full context onto tasks once it resolves.
-    if (newTasks.length > 0) {
-      // Backfill full context in background (non-blocking)
-      void fullContextPromise.then((fullCtx) => {
-        for (const t of newTasks) {
-          if (!this.snapshot.tasks.find((st) => st.id === t.id)?.workspaceContext?.relevantFiles?.length) {
-            this.updateTask(t.id, { workspaceContext: fullCtx });
-          }
-        }
-      }).catch(() => { /* lightweight context fallback is fine */ });
-
-      if (this.getSettings().autoExecute) {
-        const activeTasks = newTasks.filter((t) => t.status === 'active');
-        for (const t of activeTasks) {
-          void this.executeTask(t.id);
-        }
+    // Auto-execute all active (no-dep) tasks in parallel when enabled
+    if (this.getSettings().autoExecute && newTasks.length > 0) {
+      const activeTasks = newTasks.filter((t) => t.status === 'active');
+      for (const t of activeTasks) {
+        void this.executeTask(t.id);
       }
     }
 
@@ -246,7 +222,7 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     this.appendActivity(`Task assigned to ${agent.name}: ${task.title}`, {
       category: 'task',
       taskId: task.id,
@@ -261,13 +237,14 @@ export class Coordinator {
       provider: agent.provider,
     });
 
-    // Enrich context and auto-execute in the background (non-blocking).
-    // No model is passed — char-based budget is used to avoid slow countTokens() calls.
+    // Enrich context and auto-execute in the background (non-blocking)
     const settings = this.getSettings();
     if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
       void (async () => {
         if (settings.autoPopulateWorkspaceContext) {
-          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles);
+          // Resolve a model for token-aware context filling
+          const contextModel = await this.resolveModelForAgent(agent.provider);
+          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles, contextModel);
           this.updateTask(task.id, { workspaceContext: fullContext });
         }
         if (settings.autoExecute) {
@@ -321,7 +298,7 @@ export class Coordinator {
     }
 
     const workspaceContext = task.workspaceContext
-      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles);
+      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles, model);
     const room = this.snapshot.rooms.find((r) => r.id === agent.roomId);
 
     // Collect handoff packets from completed predecessor tasks
@@ -348,6 +325,12 @@ export class Coordinator {
     // ── Multi-turn mailbox execution loop ──
     let lastResult: import('../providers/types.js').ExecutionResult = { output: '', success: false };
     for (let turn = 0; turn < MAX_MAILBOX_TURNS; turn++) {
+      // Keep task alive — the reaper uses updatedAt to detect stale work
+      if (turn > 0) {
+        this.updateTask(taskId, {
+          progress: this.progressForStatus('active', `Executing turn ${turn + 1}`),
+        });
+      }
       const inboxMessages = this.mailbox.drain(agent.id);
       if (turn > 0 && inboxMessages.length === 0) {
         // No new messages arrived — no reason to keep looping
@@ -501,7 +484,7 @@ export class Coordinator {
         // Update idle/waiting peers' summaries so the inspector panel reflects
         // the completion immediately — without waiting for a future task execution.
         this.notifyRoomPeersOfCompletion(agent.id, room.agentIds, task.title);
-        this.store.save(this.snapshot);
+        this.scheduleSave();
       }
     } else {
       this.updateTask(taskId, { status: 'failed', output: result.output, progress: this.progressForStatus('failed') });
@@ -516,7 +499,7 @@ export class Coordinator {
 
     this.scheduler.finish(taskId);
     this.taskOutputBus.publish({ type: 'taskOutput', taskId, output: result.output });
-    this.store.save(this.snapshot);
+    this.flushSave();
 
     // Status bar flash — instant feedback for every completion
     if (result.success) {
@@ -575,7 +558,7 @@ export class Coordinator {
       ...this.snapshot,
       tasks: [...tasks, ...this.snapshot.tasks].slice(0, 40),
     };
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     this.appendActivity(`Fleet launched: ${tasks.length} agent(s) executing in parallel.`, { category: 'task' });
 
     // Fire all executions in parallel (non-blocking)
@@ -596,6 +579,10 @@ export class Coordinator {
     // Reap tasks stuck in active OR queued states
     const staleCandidates = this.snapshot.tasks.filter((t) => t.status === 'active' || t.status === 'queued');
     for (const task of staleCandidates) {
+      // Never reap tasks the scheduler knows are actively executing
+      if (this.scheduler.isRunning(task.id)) {
+        continue;
+      }
       const elapsed = now - (task.updatedAt ?? task.createdAt ?? now);
       if (elapsed > STALE_TASK_THRESHOLD_MS) {
         this.updateTask(task.id, {
@@ -627,7 +614,7 @@ export class Coordinator {
       }
     }
     if (reaped > 0) {
-      this.store.save(this.snapshot);
+      this.flushSave();
       this.promoteReadyTasks();
     }
     return reaped;
@@ -654,7 +641,7 @@ export class Coordinator {
 
     this.updateAgent(agentId, { status: newStatus });
     this.appendActivity(`${agent.name}: ${action} → ${newStatus}.`);
-    this.store.save(this.snapshot);
+    this.scheduleSave();
   }
 
   async taskAction(taskId: string, action: 'execute' | 'complete' | 'fail' | 'retry' | 'run'): Promise<void> {
@@ -721,7 +708,7 @@ export class Coordinator {
       taskId,
       provider: task.provider,
     });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
 
     // When a task completes, check if downstream tasks are now unblocked
     if (action === 'complete') {
@@ -731,7 +718,7 @@ export class Coordinator {
       const completionRoom = assignee && this.snapshot.rooms.find((r) => r.id === assignee.roomId);
       if (assignee && completionRoom) {
         this.notifyRoomPeersOfCompletion(assignee.id, completionRoom.agentIds, task.title);
-        this.store.save(this.snapshot);
+        this.scheduleSave();
       }
     }
   }
@@ -753,7 +740,7 @@ export class Coordinator {
       rooms: [...this.snapshot.rooms, room],
     };
     this.appendActivity(`Room "${room.name}" created.`, { category: 'system', roomId: room.id });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     return room;
   }
 
@@ -769,7 +756,7 @@ export class Coordinator {
       agents: this.snapshot.agents.filter((a) => !orphanedAgentIds.has(a.id)),
     };
     this.appendActivity(`Room "${room.name}" deleted (${orphanedAgentIds.size} agents removed).`, { category: 'system', roomId });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
   }
 
   /* ── Agent spawning ───────────────────────────────── */
@@ -808,7 +795,7 @@ export class Coordinator {
       roomId,
       provider,
     });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     return agent;
   }
 
@@ -827,7 +814,7 @@ export class Coordinator {
       ),
     };
     this.appendActivity(`Agent "${agent.name}" removed.`, { category: 'agent', agentId, roomId: agent.roomId, provider: agent.provider });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
   }
 
   pinFiles(agentId: string, files: string[]): void {
@@ -847,7 +834,7 @@ export class Coordinator {
       agentId,
       provider: agent.provider,
     });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
   }
 
   /** Return workspace-relative file paths for the picker. */
@@ -863,7 +850,7 @@ export class Coordinator {
       settings: this.getSettings(),
     };
     this.mailbox.clear();
-    this.store.save(this.snapshot);
+    this.flushSave();
   }
 
   notifyWebviewConnected(): void {
@@ -905,6 +892,29 @@ export class Coordinator {
     return [this.copilot.getHealth(), this.claude.getHealth()];
   }
 
+  /** Coalesce saves — write to disk at most once per SAVE_DEBOUNCE_MS. */
+  private scheduleSave(): void {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = undefined;
+      this.store.saveAsync(this.snapshot);
+    }, SAVE_DEBOUNCE_MS);
+  }
+
+  /** Force an immediate synchronous save and cancel any pending debounce. */
+  private flushSave(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = undefined;
+    }
+    this.store.save(this.snapshot);
+  }
+
+  /** Flush any pending debounced save before the extension is torn down. */
+  dispose(): void {
+    this.flushSave();
+  }
+
   private appendActivity(
     message: string,
     metadata: Partial<Omit<ActivityEntry, 'id' | 'message' | 'timestamp' | 'category'>> & { category?: ActivityCategory } = {},
@@ -912,10 +922,9 @@ export class Coordinator {
     const activity = createActivityEntry(message, metadata.category ?? 'system', metadata);
     this.snapshot = {
       ...this.snapshot,
-      providers: this.getProviderHealths(),
       activityFeed: [activity, ...this.snapshot.activityFeed].slice(0, 20),
     };
-    this.store.save(this.snapshot);
+    this.scheduleSave();
     this.activityBus.publish({ type: 'activity', message, activity });
   }
 
@@ -1208,7 +1217,7 @@ export class Coordinator {
           provider: task.provider,
         });
         this.updateTask(task.id, { executionPlan: { ...plan, commandResults: results } });
-        this.store.save(this.snapshot);
+        this.scheduleSave();
         continue;
       }
 
@@ -1226,7 +1235,7 @@ export class Coordinator {
           commandResults: results,
         },
       });
-      this.store.save(this.snapshot);
+      this.scheduleSave();
 
       try {
         const output = await this.execWorkspaceCommand(command.command);
@@ -1275,7 +1284,7 @@ export class Coordinator {
             commandResults: results,
           },
         });
-        this.store.save(this.snapshot);
+        this.scheduleSave();
         return;
       }
 
@@ -1292,7 +1301,7 @@ export class Coordinator {
       taskId: task.id,
       provider: task.provider,
     });
-    this.store.save(this.snapshot);
+    this.scheduleSave();
   }
 
   private execWorkspaceCommand(command: string): Promise<{ stdout: string; stderr: string }> {

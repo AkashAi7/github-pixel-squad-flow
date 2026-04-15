@@ -41,6 +41,19 @@ export class ProjectStateStore {
     fs.writeFileSync(filePath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
   }
 
+  /** Non-blocking variant — fire-and-forget async write. */
+  saveAsync(snapshot: WorkspaceSnapshot): void {
+    if (!this.rootPath) {
+      return;
+    }
+
+    const filePath = this.getFilePath();
+    const data = `${JSON.stringify(snapshot, null, 2)}\n`;
+    void fs.promises.mkdir(path.dirname(filePath), { recursive: true }).then(() =>
+      fs.promises.writeFile(filePath, data, 'utf8'),
+    );
+  }
+
   reset(): WorkspaceSnapshot {
     const snapshot = createDefaultSnapshot();
     this.save(snapshot);
