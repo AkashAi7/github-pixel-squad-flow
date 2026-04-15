@@ -610,7 +610,7 @@ summary:focus-visible {
   top: var(--agent-y);
   z-index: var(--agent-z, 1);
   transform: translate(-50%, -50%);
-  transition: left var(--wander-duration, 2400ms) linear, top var(--wander-duration, 2400ms) linear;
+  transition: left var(--wander-duration, 3600ms) ease-in-out, top var(--wander-duration, 3600ms) ease-in-out;
 }
 .pixel-agent-shell--selected { z-index: 999; }
 .pixel-agent {
@@ -1182,6 +1182,69 @@ summary:focus-visible {
 .facts { display: grid; gap: 10px; margin-top: 16px; }
 .facts div { display: grid; gap: 4px; }
 .facts dt { color: #ffe066; font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ── Inspector Tabs ── */
+.inspector-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector-tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+  border-bottom: 2px solid var(--ps-border);
+  padding-bottom: 0;
+}
+
+.inspector-tabs__tab {
+  flex: 1;
+  padding: 7px 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ps-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -2px;
+}
+
+.inspector-tabs__tab:hover {
+  color: var(--ps-text);
+}
+
+.inspector-tabs__tab--active {
+  color: var(--ps-text);
+  border-bottom-color: #ffe066;
+}
+
+.inspector-tabs__tab--assign.inspector-tabs__tab--active {
+  border-bottom-color: #7dff8a;
+}
+
+.inspector-tab-content {
+  margin-top: 14px;
+  animation: tabFadeIn 0.15s ease-out;
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.assign-task--prominent {
+  display: grid;
+  gap: 10px;
+}
+
+.assign-task--prominent .assign-task__input {
+  min-height: 100px;
+}
 
 .inspector-spotlight {
   display: grid;

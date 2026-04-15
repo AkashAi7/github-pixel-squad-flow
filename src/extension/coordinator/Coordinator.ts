@@ -17,10 +17,12 @@ import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
 const MAX_MAILBOX_TURNS = 3;
-/** Per-turn execution timeout in milliseconds (90 seconds). */
-const EXECUTION_TIMEOUT_MS = 90_000;
-/** Tasks active longer than this (ms) are considered stale and auto-failed. */
-const STALE_TASK_THRESHOLD_MS = 5 * 60_000;
+/** Per-turn execution timeout in milliseconds (45 seconds). */
+const EXECUTION_TIMEOUT_MS = 45_000;
+/** Planning-call timeout in milliseconds (15 seconds). */
+const PLAN_TIMEOUT_MS = 15_000;
+/** Tasks active/queued longer than this (ms) are considered stale and auto-failed. */
+const STALE_TASK_THRESHOLD_MS = 2 * 60_000;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -60,22 +62,32 @@ export class Coordinator {
       autoExecute: config.get<boolean>('autoExecute', true),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
-      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 6),
+      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
     };
   }
 
-  /** Resolve a LanguageModelChat for the given provider (used for token counting). */
+  private readonly resolvedModelCache = new Map<Provider, vscode.LanguageModelChat>();
+
+  /** Resolve a LanguageModelChat for the given provider (cached after first lookup). */
   private async resolveModelForAgent(provider: Provider): Promise<vscode.LanguageModelChat | undefined> {
+    const cached = this.resolvedModelCache.get(provider);
+    if (cached) { return cached; }
     try {
+      let resolved: vscode.LanguageModelChat | undefined;
       if (provider === 'claude') {
         const models = await vscode.lm.selectChatModels({ vendor: 'anthropic' });
-        if (models.length > 0) { return models[0]; }
-        const all = await vscode.lm.selectChatModels();
-        return all.find((m) =>
-          m.family.toLowerCase().includes('claude') || m.vendor.toLowerCase().includes('anthropic'));
+        if (models.length > 0) { resolved = models[0]; }
+        else {
+          const all = await vscode.lm.selectChatModels();
+          resolved = all.find((m) =>
+            m.family.toLowerCase().includes('claude') || m.vendor.toLowerCase().includes('anthropic'));
+        }
+      } else {
+        const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+        resolved = models[0];
       }
-      const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
-      return models[0];
+      if (resolved) { this.resolvedModelCache.set(provider, resolved); }
+      return resolved;
     } catch {
       return undefined;
     }
@@ -88,16 +100,25 @@ export class Coordinator {
     }
 
     const settings = this.getSettings();
-    // Use lightweight context for the planning call (only branch + activeFile are used in the prompt).
-    // Start the full context fetch in parallel so it's ready by the time executeTask runs.
+    // Use lightweight context for the planning call and task creation.
+    // Full context is resolved lazily inside executeTask only when needed.
     const lightContext = this.workspaceContext.captureLightweight();
+    // Kick off full context capture in the background — executeTask will use
+    // whatever is available on the task when it runs. This avoids blocking
+    // task creation on a slow context gather.
     const fullContextPromise = settings.autoPopulateWorkspaceContext
       ? this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
       : Promise.resolve(lightContext as import('../../shared/model/index.js').WorkspaceContext);
     const selectedProvider = provider ?? (this.getSettings().modelFamily as Provider) ?? 'copilot';
     const adapter = this.providers[selectedProvider] ?? this.copilot;
-    const plan = await adapter.createPlan(normalizedPrompt, this.snapshot.personas, lightContext, model, token);
-    const workspaceContext = await fullContextPromise;
+    const planPromise = adapter.createPlan(normalizedPrompt, this.snapshot.personas, lightContext, model, token);
+    const planTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Planning timed out after ${PLAN_TIMEOUT_MS / 1000}s`)), PLAN_TIMEOUT_MS),
+    );
+    const plan = await Promise.race([planPromise, planTimeout]);
+    // Don't block on full context — use light context for task creation.
+    // Attach a promise so executeTask can await it *if* context hasn't arrived yet.
+    const workspaceContext = lightContext as import('../../shared/model/index.js').WorkspaceContext;
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
     const createdAt = Date.now();
@@ -157,11 +178,23 @@ export class Coordinator {
     this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
     this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
 
-    // Auto-execute all active (no-dep) tasks in parallel when enabled
-    if (this.getSettings().autoExecute && newTasks.length > 0) {
-      const activeTasks = newTasks.filter((t) => t.status === 'active');
-      for (const t of activeTasks) {
-        void this.executeTask(t.id);
+    // Auto-execute all active (no-dep) tasks in parallel when enabled.
+    // Also backfill full context onto tasks once it resolves.
+    if (newTasks.length > 0) {
+      // Backfill full context in background (non-blocking)
+      void fullContextPromise.then((fullCtx) => {
+        for (const t of newTasks) {
+          if (!this.snapshot.tasks.find((st) => st.id === t.id)?.workspaceContext?.relevantFiles?.length) {
+            this.updateTask(t.id, { workspaceContext: fullCtx });
+          }
+        }
+      }).catch(() => { /* lightweight context fallback is fine */ });
+
+      if (this.getSettings().autoExecute) {
+        const activeTasks = newTasks.filter((t) => t.status === 'active');
+        for (const t of activeTasks) {
+          void this.executeTask(t.id);
+        }
       }
     }
 
@@ -228,14 +261,13 @@ export class Coordinator {
       provider: agent.provider,
     });
 
-    // Enrich context and auto-execute in the background (non-blocking)
+    // Enrich context and auto-execute in the background (non-blocking).
+    // No model is passed — char-based budget is used to avoid slow countTokens() calls.
     const settings = this.getSettings();
     if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
       void (async () => {
         if (settings.autoPopulateWorkspaceContext) {
-          // Resolve a model for token-aware context filling
-          const contextModel = await this.resolveModelForAgent(agent.provider);
-          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles, contextModel);
+          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles);
           this.updateTask(task.id, { workspaceContext: fullContext });
         }
         if (settings.autoExecute) {
@@ -289,7 +321,7 @@ export class Coordinator {
     }
 
     const workspaceContext = task.workspaceContext
-      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles, model);
+      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles);
     const room = this.snapshot.rooms.find((r) => r.id === agent.roomId);
 
     // Collect handoff packets from completed predecessor tasks
@@ -561,8 +593,9 @@ export class Coordinator {
   reapStaleTasks(): number {
     const now = Date.now();
     let reaped = 0;
-    const activeTasks = this.snapshot.tasks.filter((t) => t.status === 'active');
-    for (const task of activeTasks) {
+    // Reap tasks stuck in active OR queued states
+    const staleCandidates = this.snapshot.tasks.filter((t) => t.status === 'active' || t.status === 'queued');
+    for (const task of staleCandidates) {
       const elapsed = now - (task.updatedAt ?? task.createdAt ?? now);
       if (elapsed > STALE_TASK_THRESHOLD_MS) {
         this.updateTask(task.id, {
@@ -571,14 +604,26 @@ export class Coordinator {
           progress: this.progressForStatus('failed', 'Timed out'),
         });
         const agent = this.snapshot.agents.find((a) => a.id === task.assigneeId);
-        if (agent) {
-          this.updateAgent(agent.id, { status: 'failed', summary: `Stale: ${task.title}` });
+        if (agent && (agent.status === 'executing' || agent.status === 'planning')) {
+          this.updateAgent(agent.id, { status: 'idle', summary: `Recovered from stale: ${task.title}` });
         }
         this.scheduler.finish(task.id);
-        this.appendActivity(`Reaped stale task "${task.title}" (active for ${Math.round(elapsed / 60_000)}min).`, {
+        this.appendActivity(`Reaped stale task "${task.title}" (stuck for ${Math.round(elapsed / 60_000)}min).`, {
           category: 'task', taskId: task.id, provider: task.provider,
         });
         reaped++;
+      }
+    }
+    // Also recover agents stuck in planning/executing with no matching active task
+    for (const agent of this.snapshot.agents) {
+      if (agent.status === 'planning' || agent.status === 'executing') {
+        const hasActiveTask = this.snapshot.tasks.some((t) =>
+          t.assigneeId === agent.id && (t.status === 'active' || t.status === 'queued'),
+        );
+        if (!hasActiveTask) {
+          this.updateAgent(agent.id, { status: 'idle', summary: 'Recovered — no active work found.' });
+          reaped++;
+        }
       }
     }
     if (reaped > 0) {

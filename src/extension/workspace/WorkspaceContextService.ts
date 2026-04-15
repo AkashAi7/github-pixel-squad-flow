@@ -11,11 +11,9 @@ const execFileAsync = promisify(execFile);
 const FILE_GLOB = '**/*.{ts,tsx,js,jsx,json,md,css,scss,html,mjs,cjs,yml,yaml,py,go,rs,java,c,cpp,h,hpp,cs,rb,php,sh,ps1,toml,ini,env}';
 const EXCLUDE_GLOB = '**/{node_modules,dist,.git,.pixel-squad,out,coverage,__pycache__,.venv,target,bin,obj}/**';
 const MAX_FILES = 4;
-const SYMBOLS_TIMEOUT_MS = 2_000;
-const FALLBACK_BUDGET_CHARS = 120_000;
-/** Reserve ~25% of model token budget for system prompt + response. */
-const TOKEN_RESERVE_RATIO = 0.25;
-const CACHE_TTL_MS = 8_000;
+const SYMBOLS_TIMEOUT_MS = 800;
+const BUDGET_CHARS = 120_000;
+const CACHE_TTL_MS = 30_000;
 
 interface CacheEntry<T> { value: T; ts: number; }
 
@@ -55,7 +53,7 @@ export class WorkspaceContextService {
     prompt: string,
     maxFiles = MAX_FILES,
     extraPinnedFiles?: string[],
-    model?: vscode.LanguageModelChat,
+    _model?: vscode.LanguageModelChat,
   ): Promise<WorkspaceContext> {
     try {
       const activeEditor = vscode.window.activeTextEditor;
@@ -79,7 +77,7 @@ export class WorkspaceContextService {
         ...pinnedContextFiles,
         ...relevantFiles.filter((f) => !new Set(pinnedContextFiles.map((p) => p.path)).has(f.path)),
       ];
-      const budgeted = await this.applyTokenBudget(merged, model);
+      const budgeted = this.applyCharBudget(merged);
 
       return {
         workspaceRoot: this.rootPath,
@@ -220,7 +218,7 @@ export class WorkspaceContextService {
     const hitPaths = new Set<string>();
     if (!this.rootPath) { return hitPaths; }
     // Use tokens of 4+ chars — more likely to be real identifiers; cap at 4 to keep latency low
-    const candidateTokens = tokens.filter((t) => t.length >= 4).slice(0, 4);
+    const candidateTokens = tokens.filter((t) => t.length >= 4).slice(0, 2);
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, SYMBOLS_TIMEOUT_MS));
     await Promise.race([
       Promise.all(
@@ -288,7 +286,7 @@ export class WorkspaceContextService {
     if (this.fileListCache && Date.now() - this.fileListCache.ts < CACHE_TTL_MS) {
       return this.fileListCache.value;
     }
-    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 200);
+    const uris = await vscode.workspace.findFiles(FILE_GLOB, EXCLUDE_GLOB, 80);
     this.fileListCache = { value: uris, ts: Date.now() };
     return uris;
   }
@@ -302,65 +300,12 @@ export class WorkspaceContextService {
     }
   }
 
-  /**
-   * Use the model's countTokens() + maxInputTokens to include as many files
-   * as fit in the context window. Falls back to a character-based budget
-   * when no model is available.
-   */
-  private async applyTokenBudget(
-    files: WorkspaceFileContext[],
-    model?: vscode.LanguageModelChat,
-  ): Promise<WorkspaceFileContext[]> {
-    if (model && typeof model.countTokens === 'function' && model.maxInputTokens) {
-      return this.applyTokenBudgetWithModel(files, model);
-    }
-    return this.applyCharBudget(files);
-  }
-
-  private async applyTokenBudgetWithModel(
-    files: WorkspaceFileContext[],
-    model: vscode.LanguageModelChat,
-  ): Promise<WorkspaceFileContext[]> {
-    const budget = Math.floor(model.maxInputTokens * (1 - TOKEN_RESERVE_RATIO));
-    const result: WorkspaceFileContext[] = [];
-    let usedTokens = 0;
-
-    for (const file of files) {
-      const block = `File: ${file.path}\nReason: ${file.reason}\nContent:\n${file.content}\n\n`;
-      try {
-        const tokens = await model.countTokens(block);
-        if (usedTokens + tokens > budget && result.length > 0) {
-          // Try to include a truncated version of this file
-          const halfContent = file.content.slice(0, Math.floor(file.content.length / 2));
-          const halfBlock = `File: ${file.path}\nReason: ${file.reason}\nContent:\n${halfContent}\n... (truncated to fit context window)\n\n`;
-          const halfTokens = await model.countTokens(halfBlock);
-          if (usedTokens + halfTokens <= budget) {
-            result.push({ ...file, content: halfContent + '\n... (truncated to fit context window)' });
-            usedTokens += halfTokens;
-          }
-          break;
-        }
-        result.push(file);
-        usedTokens += tokens;
-      } catch {
-        // countTokens failed — fall back to char estimate
-        const estimatedTokens = Math.ceil(block.length / 4);
-        if (usedTokens + estimatedTokens > budget && result.length > 0) {
-          break;
-        }
-        result.push(file);
-        usedTokens += estimatedTokens;
-      }
-    }
-    return result;
-  }
-
   private applyCharBudget(files: WorkspaceFileContext[]): WorkspaceFileContext[] {
     const result: WorkspaceFileContext[] = [];
     let used = 0;
     for (const file of files) {
       const chars = file.content.length + file.path.length + (file.reason?.length ?? 0) + 30;
-      if (used + chars > FALLBACK_BUDGET_CHARS && result.length > 0) {
+      if (used + chars > BUDGET_CHARS && result.length > 0) {
         break;
       }
       result.push(file);

@@ -288,6 +288,7 @@ function App() {
   const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
   const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'assign' | 'work'>('overview');
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
@@ -729,261 +730,292 @@ function App() {
             <p className="eyebrow">Selected Agent</p>
             {selectedAgent ? (
               <>
-                <h2>
-                  {selectedAgent.name}
-                  <span className="agent-mood-inline" title={AGENT_MOOD[selectedAgent.status].label}>
-                    {AGENT_MOOD[selectedAgent.status].emoji}
-                  </span>
-                </h2>
-                <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
-                  {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
-                </div>
-                {personas.get(selectedAgent.personaId)?.isCustom ? <div className="task-chip">Custom Agent</div> : null}
-                <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
-                  {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
-                </span>
-                {personas.get(selectedAgent.personaId)?.skills?.length ? (
-                  <div className="skill-row">
-                    {personas.get(selectedAgent.personaId)?.skills?.map((skill) => (
-                      <span key={skill.id} className="skill-pill">
-                        {skill.label}
-                        <strong>L{skill.level}</strong>
-                      </span>
-                    ))}
+                <div className="inspector-header-row">
+                  <h2>
+                    {selectedAgent.name}
+                    <span className="agent-mood-inline" title={AGENT_MOOD[selectedAgent.status].label}>
+                      {AGENT_MOOD[selectedAgent.status].emoji}
+                    </span>
+                  </h2>
+                  <div className="persona-pill" style={{ ['--accent' as string]: personas.get(selectedAgent.personaId)?.color ?? '#7d8cff' }}>
+                    {personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId}
                   </div>
-                ) : null}
-                <p className="inspector-copy">{selectedAgent.summary}</p>
-                <dl className="facts">
-                  <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
-                  <div><dt>Status</dt><dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd></div>
-                  <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
-                  <div><dt>Mood</dt><dd>{AGENT_MOOD[selectedAgent.status].emoji} {AGENT_MOOD[selectedAgent.status].label}</dd></div>
-                </dl>
-                <section className="inspector-spotlight">
-                  <p className="eyebrow">Current Focus</p>
-                  {selectedAgentFocusTask ? (
-                    <div className="inspector-spotlight__card">
-                      <div className="inspector-spotlight__meta">
-                        <span className={`status-badge status-badge--${selectedAgentFocusTask.status}`}>{selectedAgentFocusTask.status}</span>
-                        <span className={`provider-badge provider-badge--${selectedAgentFocusTask.provider}`}>
-                          {selectedAgentFocusTask.provider === 'copilot' ? '⚡' : '🧠'} {selectedAgentFocusTask.provider}
-                        </span>
-                      </div>
-                      <strong>{selectedAgentFocusTask.title}</strong>
-                      <p>{selectedAgentFocusTask.detail}</p>
-                      {selectedAgentFocusTask.status === 'active' && streamingOutputs[selectedAgentFocusTask.id] && (
-                        <div className="task-output task-output--stream">
-                          <p className="eyebrow">Live output</p>
-                          <pre className="task-stream-pre">{streamingOutputs[selectedAgentFocusTask.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="inspector-copy">No active assignment. Use the task box below to give this agent work.</p>
-                  )}
-                </section>
-                {/* ── Assign task — moved up for visibility ── */}
-                <div className="assign-task">
-                  <label className="composer-label" htmlFor="agent-task-prompt">Assign task to {selectedAgent.name}</label>
-                  <textarea
-                    id="agent-task-prompt"
-                    className="assign-task__input"
-                    value={agentTaskPrompt}
-                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
-                    placeholder={`Describe a task for ${selectedAgent.name}...`}
-                    rows={3}
-                  />
-                  <button
-                    type="button"
-                    className="composer-button assign-task__btn"
-                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-                    onClick={() => {
-                      setIsAssigning(true);
-                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                      setAgentTaskPrompt('');
-                    }}
-                  >
-                    {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
+                  <span className={`provider-badge provider-badge--${selectedAgent.provider}`}>
+                    {selectedAgent.provider === 'copilot' ? '⚡ Copilot' : '🧠 Claude'}
+                  </span>
+                </div>
+
+                {/* ── Inspector Tab Bar ── */}
+                <div className="inspector-tabs">
+                  <button type="button" className={`inspector-tabs__tab${inspectorTab === 'overview' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('overview')}>
+                    Overview
+                  </button>
+                  <button type="button" className={`inspector-tabs__tab inspector-tabs__tab--assign${inspectorTab === 'assign' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('assign')}>
+                    ⚡ Assign
+                  </button>
+                  <button type="button" className={`inspector-tabs__tab${inspectorTab === 'work' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('work')}>
+                    Work <strong>{selectedAgentTasks.length}</strong>
                   </button>
                 </div>
-                <div className="agent-controls">
-                  {agentActions(selectedAgent).map(({ label, action }) => (
-                    <button
-                      key={action}
-                      type="button"
-                      className={`control-btn control-btn--${action}`}
-                      onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
-                    >{label}</button>
-                  ))}
-                </div>
-                <details className="inspector-section" open={selectedAgentTasks.length > 0}>
-                  <summary>
-                    <span>Agent Work</span>
-                    <strong>{selectedAgentTasks.length}</strong>
-                  </summary>
-                  <div className="agent-work">
-                    {selectedAgentTasks.length === 0 ? <p className="inspector-copy">No tasks assigned yet.</p> : null}
-                    {selectedAgentTasks.length > 0 ? (
-                      <div className="agent-work__list">
-                        {selectedAgentTasks.map((task) => (
-                          <article
-                            key={task.id}
-                            className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
-                            onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
-                            onKeyDown={(event) => {
-                              if (!isCardActivation(event)) return;
-                              event.preventDefault();
-                              setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
-                            }}
-                            role="button"
-                            tabIndex={0}
-                            aria-expanded={expandedTaskId === task.id}
-                          >
-                            <div className="agent-work__meta">
-                              <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
-                              <span className="agent-work__title">{task.title}</span>
-                            </div>
-                            <p className="agent-work__detail">{task.detail}</p>
-                            {task.status === 'active' && streamingOutputs[task.id] && (
-                              <div className="task-output task-output--stream">
-                                <p className="eyebrow">Live output</p>
-                                <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
-                              </div>
-                            )}
-                            {task.output && expandedTaskId === task.id && (
-                              <div className="task-output">
-                                <p className="eyebrow">Output</p>
-                                <pre>{task.output}</pre>
-                              </div>
-                            )}
-                            {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
-                              <div className="task-plan">
-                                <p className="eyebrow">Execution Plan</p>
-                                <p className="task-plan__summary">{task.executionPlan?.summary}</p>
-                                {task.executionPlan?.fileEdits.length ? (
-                                  <div className="task-diff-list">
-                                    {task.executionPlan.fileEdits.map((edit) => (
-                                      <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
-                                        <div className="task-diff-card__header">
-                                          <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
-                                          <span>{edit.summary}</span>
-                                        </div>
-                                        <div className="task-diff-card__code">
-                                          {buildPreviewLines(edit).map((line, index) => (
-                                            <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
-                                              <span className="task-diff-card__gutter">{line.before ?? ''}</span>
-                                              <span className="task-diff-card__gutter">{line.after ?? ''}</span>
-                                              <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
-                                              <code>{line.content || ' '}</code>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </article>
-                                    ))}
-                                  </div>
-                                ) : null}
-                                {task.executionPlan?.terminalCommands.length ? <p className="task-plan__line">Commands: {task.executionPlan.terminalCommands.map((command) => command.command).join(' ; ')}</p> : null}
-                                {renderCommandResults(task)}
-                              </div>
-                            ) : null}
-                          </article>
+
+                {/* ── Tab: Overview ── */}
+                {inspectorTab === 'overview' && (
+                  <div className="inspector-tab-content">
+                    {personas.get(selectedAgent.personaId)?.isCustom ? <div className="task-chip">Custom Agent</div> : null}
+                    {personas.get(selectedAgent.personaId)?.skills?.length ? (
+                      <div className="skill-row">
+                        {personas.get(selectedAgent.personaId)?.skills?.map((skill) => (
+                          <span key={skill.id} className="skill-pill">
+                            {skill.label}
+                            <strong>L{skill.level}</strong>
+                          </span>
                         ))}
                       </div>
                     ) : null}
-                  </div>
-                </details>
-                <details className="inspector-section">
-                  <summary>
-                    <span>Pinned Context Files</span>
-                    <strong>{(selectedAgent.pinnedFiles ?? []).length}</strong>
-                  </summary>
-                  <div className="agent-pinned-files">
-                  {(selectedAgent.pinnedFiles ?? []).length > 0 ? (
-                    <div className="pinned-file-list">
-                      {(selectedAgent.pinnedFiles ?? []).map((filePath) => (
-                        <div key={filePath} className="pinned-file-item">
-                          <span className="pinned-file-item__path" title={filePath}>{filePath}</span>
-                          <button
-                            type="button"
-                            className="pinned-file-item__remove"
-                            title="Unpin"
-                            onClick={() => {
-                              const updated = (selectedAgent.pinnedFiles ?? []).filter((f) => f !== filePath);
-                              vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
-                            }}
-                          >✕</button>
+                    <p className="inspector-copy">{selectedAgent.summary}</p>
+                    <dl className="facts">
+                      <div><dt>Provider</dt><dd>{selectedAgent.provider}</dd></div>
+                      <div><dt>Status</dt><dd><span className={`status-badge status-badge--${selectedAgent.status}`}>{selectedAgent.status}</span></dd></div>
+                      <div><dt>Room</dt><dd>{snapshot.rooms.find((r) => r.id === selectedAgent.roomId)?.name}</dd></div>
+                      <div><dt>Mood</dt><dd>{AGENT_MOOD[selectedAgent.status].emoji} {AGENT_MOOD[selectedAgent.status].label}</dd></div>
+                    </dl>
+                    <section className="inspector-spotlight">
+                      <p className="eyebrow">Current Focus</p>
+                      {selectedAgentFocusTask ? (
+                        <div className="inspector-spotlight__card">
+                          <div className="inspector-spotlight__meta">
+                            <span className={`status-badge status-badge--${selectedAgentFocusTask.status}`}>{selectedAgentFocusTask.status}</span>
+                            <span className={`provider-badge provider-badge--${selectedAgentFocusTask.provider}`}>
+                              {selectedAgentFocusTask.provider === 'copilot' ? '⚡' : '🧠'} {selectedAgentFocusTask.provider}
+                            </span>
+                          </div>
+                          <strong>{selectedAgentFocusTask.title}</strong>
+                          <p>{selectedAgentFocusTask.detail}</p>
+                          {selectedAgentFocusTask.status === 'active' && streamingOutputs[selectedAgentFocusTask.id] && (
+                            <div className="task-output task-output--stream">
+                              <p className="eyebrow">Live output</p>
+                              <pre className="task-stream-pre">{streamingOutputs[selectedAgentFocusTask.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        <p className="inspector-copy">No active assignment. Switch to the <strong>⚡ Assign</strong> tab to give this agent work.</p>
+                      )}
+                    </section>
+                    <div className="agent-controls">
+                      {agentActions(selectedAgent).map(({ label, action }) => (
+                        <button
+                          key={action}
+                          type="button"
+                          className={`control-btn control-btn--${action}`}
+                          onClick={() => vscode.postMessage({ type: 'agentAction', agentId: selectedAgent.id, action })}
+                        >{label}</button>
                       ))}
                     </div>
-                  ) : (
-                    <p className="inspector-copy">No files pinned. Pin workspace files to give this agent extra context.</p>
-                  )}
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      type="button"
-                      className="composer-button composer-button--ghost"
-                      title="Pin the file currently open in the editor"
-                      onClick={() => {
-                        vscode.postMessage({ type: 'pinActiveFile', agentId: selectedAgent.id });
-                      }}
-                    >📎 Pin Active File</button>
-                    <button
-                      type="button"
-                      className="composer-button composer-button--ghost"
-                      onClick={() => {
-                        setShowFilePicker(true);
-                        setFileSearchQuery('');
-                        vscode.postMessage({ type: 'requestWorkspaceFiles' });
-                      }}
-                    >📌 Pin Files</button>
-                  </div>
-                  {showFilePicker && (
-                    <div className="file-picker-overlay" onClick={() => setShowFilePicker(false)}>
-                      <div className="file-picker" onClick={(e) => e.stopPropagation()}>
-                        <p className="eyebrow">Select files to pin to {selectedAgent.name}</p>
-                        <input
-                          className="file-picker__search"
-                          type="text"
-                          placeholder="Search files..."
-                          value={fileSearchQuery}
-                          onChange={(e) => setFileSearchQuery(e.target.value)}
-                          autoFocus
-                        />
-                        <div className="file-picker__list">
-                          {workspaceFiles
-                            .filter((f) => !fileSearchQuery || f.toLowerCase().includes(fileSearchQuery.toLowerCase()))
-                            .slice(0, 30)
-                            .map((filePath) => {
-                              const isPinned = (selectedAgent.pinnedFiles ?? []).includes(filePath);
-                              return (
-                                <button
-                                  key={filePath}
-                                  type="button"
-                                  className={`file-picker__item${isPinned ? ' file-picker__item--pinned' : ''}`}
-                                  onClick={() => {
-                                    const current = selectedAgent.pinnedFiles ?? [];
-                                    const updated = isPinned
-                                      ? current.filter((f) => f !== filePath)
-                                      : [...current, filePath];
-                                    vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
-                                  }}
-                                >
-                                  <span>{isPinned ? '📌 ' : ''}{filePath}</span>
-                                </button>
-                              );
-                            })}
-                          {workspaceFiles.length === 0 && <p className="inspector-copy">Loading workspace files...</p>}
+                    <details className="inspector-section">
+                      <summary>
+                        <span>Pinned Context Files</span>
+                        <strong>{(selectedAgent.pinnedFiles ?? []).length}</strong>
+                      </summary>
+                      <div className="agent-pinned-files">
+                      {(selectedAgent.pinnedFiles ?? []).length > 0 ? (
+                        <div className="pinned-file-list">
+                          {(selectedAgent.pinnedFiles ?? []).map((filePath) => (
+                            <div key={filePath} className="pinned-file-item">
+                              <span className="pinned-file-item__path" title={filePath}>{filePath}</span>
+                              <button
+                                type="button"
+                                className="pinned-file-item__remove"
+                                title="Unpin"
+                                onClick={() => {
+                                  const updated = (selectedAgent.pinnedFiles ?? []).filter((f) => f !== filePath);
+                                  vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
+                                }}
+                              >✕</button>
+                            </div>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="inspector-copy">No files pinned.</p>
+                      )}
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           type="button"
-                          className="composer-button"
-                          onClick={() => setShowFilePicker(false)}
-                        >Done</button>
+                          className="composer-button composer-button--ghost"
+                          title="Pin the file currently open in the editor"
+                          onClick={() => {
+                            vscode.postMessage({ type: 'pinActiveFile', agentId: selectedAgent.id });
+                          }}
+                        >📎 Pin Active File</button>
+                        <button
+                          type="button"
+                          className="composer-button composer-button--ghost"
+                          onClick={() => {
+                            setShowFilePicker(true);
+                            setFileSearchQuery('');
+                            vscode.postMessage({ type: 'requestWorkspaceFiles' });
+                          }}
+                        >📌 Pin Files</button>
                       </div>
-                    </div>
-                  )}
+                      {showFilePicker && (
+                        <div className="file-picker-overlay" onClick={() => setShowFilePicker(false)}>
+                          <div className="file-picker" onClick={(e) => e.stopPropagation()}>
+                            <p className="eyebrow">Select files to pin to {selectedAgent.name}</p>
+                            <input
+                              className="file-picker__search"
+                              type="text"
+                              placeholder="Search files..."
+                              value={fileSearchQuery}
+                              onChange={(e) => setFileSearchQuery(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="file-picker__list">
+                              {workspaceFiles
+                                .filter((f) => !fileSearchQuery || f.toLowerCase().includes(fileSearchQuery.toLowerCase()))
+                                .slice(0, 30)
+                                .map((filePath) => {
+                                  const isPinned = (selectedAgent.pinnedFiles ?? []).includes(filePath);
+                                  return (
+                                    <button
+                                      key={filePath}
+                                      type="button"
+                                      className={`file-picker__item${isPinned ? ' file-picker__item--pinned' : ''}`}
+                                      onClick={() => {
+                                        const current = selectedAgent.pinnedFiles ?? [];
+                                        const updated = isPinned
+                                          ? current.filter((f) => f !== filePath)
+                                          : [...current, filePath];
+                                        vscode.postMessage({ type: 'pinFiles', agentId: selectedAgent.id, files: updated });
+                                      }}
+                                    >
+                                      <span>{isPinned ? '📌 ' : ''}{filePath}</span>
+                                    </button>
+                                  );
+                                })}
+                              {workspaceFiles.length === 0 && <p className="inspector-copy">Loading workspace files...</p>}
+                            </div>
+                            <button
+                              type="button"
+                              className="composer-button"
+                              onClick={() => setShowFilePicker(false)}
+                            >Done</button>
+                          </div>
+                        </div>
+                      )}
+                      </div>
+                    </details>
                   </div>
-                </details>
+                )}
+
+                {/* ── Tab: Assign ── */}
+                {inspectorTab === 'assign' && (
+                  <div className="inspector-tab-content">
+                    <div className="assign-task assign-task--prominent">
+                      <label className="composer-label" htmlFor="agent-task-prompt">⚡ Assign task to {selectedAgent.name}</label>
+                      <textarea
+                        id="agent-task-prompt"
+                        className="assign-task__input"
+                        value={agentTaskPrompt}
+                        onChange={(e) => setAgentTaskPrompt(e.target.value)}
+                        placeholder={`Describe a task for ${selectedAgent.name}...`}
+                        rows={4}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="composer-button assign-task__btn"
+                        disabled={isAssigning || agentTaskPrompt.trim().length === 0}
+                        onClick={() => {
+                          setIsAssigning(true);
+                          vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
+                          setAgentTaskPrompt('');
+                        }}
+                      >
+                        {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
+                      </button>
+                      <p className="inspector-copy" style={{ marginTop: '8px' }}>
+                        This assigns a task directly to <strong>{selectedAgent.name}</strong>, bypassing the planner.
+                        Use "Route Task" in the hero composer to let the planner decide assignment.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Tab: Work ── */}
+                {inspectorTab === 'work' && (
+                  <div className="inspector-tab-content">
+                    <div className="agent-work">
+                      {selectedAgentTasks.length === 0 ? <p className="inspector-copy">No tasks assigned yet.</p> : null}
+                      {selectedAgentTasks.length > 0 ? (
+                        <div className="agent-work__list">
+                          {selectedAgentTasks.map((task) => (
+                            <article
+                              key={task.id}
+                              className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
+                              onClick={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
+                              onKeyDown={(event) => {
+                                if (!isCardActivation(event)) return;
+                                event.preventDefault();
+                                setExpandedTaskId(expandedTaskId === task.id ? null : task.id);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={expandedTaskId === task.id}
+                            >
+                              <div className="agent-work__meta">
+                                <span className={`status-badge status-badge--${task.status}`}>{task.status}</span>
+                                <span className="agent-work__title">{task.title}</span>
+                              </div>
+                              <p className="agent-work__detail">{task.detail}</p>
+                              {task.status === 'active' && streamingOutputs[task.id] && (
+                                <div className="task-output task-output--stream">
+                                  <p className="eyebrow">Live output</p>
+                                  <pre className="task-stream-pre">{streamingOutputs[task.id]}<span className="task-stream-cursor" aria-hidden="true" /></pre>
+                                </div>
+                              )}
+                              {task.output && expandedTaskId === task.id && (
+                                <div className="task-output">
+                                  <p className="eyebrow">Output</p>
+                                  <pre>{task.output}</pre>
+                                </div>
+                              )}
+                              {expandedTaskId === task.id && planHasArtifacts(task.executionPlan) ? (
+                                <div className="task-plan">
+                                  <p className="eyebrow">Execution Plan</p>
+                                  <p className="task-plan__summary">{task.executionPlan?.summary}</p>
+                                  {task.executionPlan?.fileEdits.length ? (
+                                    <div className="task-diff-list">
+                                      {task.executionPlan.fileEdits.map((edit) => (
+                                        <article key={`${task.id}-${edit.filePath}`} className="task-diff-card">
+                                          <div className="task-diff-card__header">
+                                            <strong>{edit.action.toUpperCase()} {edit.filePath}</strong>
+                                            <span>{edit.summary}</span>
+                                          </div>
+                                          <div className="task-diff-card__code">
+                                            {buildPreviewLines(edit).map((line, index) => (
+                                              <div key={`${task.id}-${edit.filePath}-${index}`} className={`task-diff-card__row task-diff-card__row--${line.kind}`}>
+                                                <span className="task-diff-card__gutter">{line.before ?? ''}</span>
+                                                <span className="task-diff-card__gutter">{line.after ?? ''}</span>
+                                                <span className="task-diff-card__marker">{lineMarker(line.kind)}</span>
+                                                <code>{line.content || ' '}</code>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </article>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {task.executionPlan?.terminalCommands.length ? <p className="task-plan__line">Commands: {task.executionPlan.terminalCommands.map((command) => command.command).join(' ; ')}</p> : null}
+                                  {renderCommandResults(task)}
+                                </div>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <p className="inspector-copy">Pick an agent from the factory floor to inspect it.</p>

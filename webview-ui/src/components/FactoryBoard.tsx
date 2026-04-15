@@ -40,14 +40,14 @@ const STAGE_BOUNDS = {
 };
 
 const STATUS_MOTION_PROFILE: Record<AgentStatus, { step: [number, number]; duration: [number, number] }> = {
-  idle: { step: [4, 9], duration: [2200, 4200] },
-  planning: { step: [6, 12], duration: [1800, 3400] },
-  executing: { step: [10, 18], duration: [1400, 2800] },
-  waiting: { step: [3, 7], duration: [2400, 4200] },
-  blocked: { step: [2, 5], duration: [2600, 4600] },
-  paused: { step: [1, 3], duration: [3000, 5000] },
-  completed: { step: [5, 10], duration: [2000, 3400] },
-  failed: { step: [2, 5], duration: [2600, 4600] },
+  idle: { step: [2, 5], duration: [3200, 5000] },
+  planning: { step: [1, 3], duration: [3000, 4800] },
+  executing: { step: [3, 6], duration: [2800, 4200] },
+  waiting: { step: [1, 3], duration: [3800, 5400] },
+  blocked: { step: [0.5, 2], duration: [4000, 6000] },
+  paused: { step: [0.3, 1], duration: [5000, 7000] },
+  completed: { step: [2, 5], duration: [3200, 4800] },
+  failed: { step: [0.5, 2], duration: [4000, 6000] },
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -115,7 +115,7 @@ function pickNextMotion(
   let bestCandidate = fallback;
   let bestScore = -Infinity;
 
-  for (let attempt = 0; attempt < 18; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     const angle = hashUnit(hashString(`${roomId}:${agent.id}:${tick}:${attempt}:angle`)) * Math.PI * 2;
     const step = interpolate(profile.step, hashUnit(hashString(`${roomId}:${agent.id}:${tick}:${attempt}:step`)));
     const candidate = {
@@ -215,7 +215,7 @@ function RoomStage({
     const interval = window.setInterval(() => {
       tickRef.current += 1;
       setMotions((current) => layoutAgentMotions(room.id, roomAgents, tickRef.current, current));
-    }, 2400);
+    }, 3600);
 
     return () => window.clearInterval(interval);
   }, [room.id, roomAgents, agentSignature]);

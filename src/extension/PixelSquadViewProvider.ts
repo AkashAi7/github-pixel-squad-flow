@@ -14,11 +14,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   constructor(private readonly extensionUri: vscode.Uri) {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.coordinator = new Coordinator(workspaceRoot);
-    // Periodically check for stale tasks every 60s
+    // Periodically check for stale tasks every 30s
     this.staleReaperTimer = setInterval(() => {
       const reaped = this.coordinator.reapStaleTasks();
       if (reaped > 0) { this.syncSnapshot(); }
-    }, 60_000);
+    }, 30_000);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
