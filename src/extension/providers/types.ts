@@ -31,6 +31,8 @@ export interface ExecutionResult {
   outgoingMessages?: OutgoingAgentMessage[];
   /** When true the agent considers this turn its final answer. Defaults to true for backwards compat. */
   done?: boolean;
+  /** When true, file edits and commands were already executed by tool calls — Coordinator should skip re-applying them. */
+  toolsExecuted?: boolean;
 }
 
 export interface ProviderAdapter {

@@ -404,8 +404,26 @@ export class Coordinator {
       // When autoExecute is on, skip review and apply files immediately
       const autoApply = this.getSettings().autoExecute;
       const hasPlanArtifacts = hydratedPlan && (hydratedPlan.fileEdits.length > 0 || hydratedPlan.terminalCommands.length > 0);
+      // When tool-calling already executed write operations, skip re-applying
+      const alreadyApplied = result.toolsExecuted === true;
 
-      if (autoApply && hasPlanArtifacts) {
+      if (alreadyApplied && hasPlanArtifacts) {
+        // Tools already wrote files and/or ran commands — mark as done
+        this.updateTask(taskId, {
+          status: 'done',
+          output: result.output,
+          executionPlan: hydratedPlan,
+          approvalState: 'applied',
+          progress: this.progressForStatus('done'),
+        });
+        this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
+        this.appendActivity(`${agent.name} finished "${task.title}" — changes applied via tool calls.`, {
+          category: 'task',
+          taskId,
+          agentId: agent.id,
+          provider: task.provider,
+        });
+      } else if (autoApply && hasPlanArtifacts) {
         // Apply file edits and terminal commands immediately
         this.updateTask(taskId, {
           status: 'active',

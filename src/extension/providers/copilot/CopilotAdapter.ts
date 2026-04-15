@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import type { AgentMessage, HandoffPacket, PersonaTemplate, ProviderHealth, ProposedFileEdit, ProposedTerminalCommand, Room, SquadAgent, TaskCard, TaskExecutionPlan, WorkspaceContext } from '../../../shared/model/index.js';
 import type { ExecutionResult, OutgoingAgentMessage, PlanningResult, ProviderAdapter } from '../types.js';
 import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments, tryFastRoute } from '../planningHints.js';
+import { runToolCallLoop, buildPlanFromToolCalls } from '../../tools/toolCallLoop.js';
 
 export class CopilotAdapter implements ProviderAdapter {
   readonly id = 'copilot' as const;
@@ -111,6 +112,136 @@ export class CopilotAdapter implements ProviderAdapter {
       };
     }
 
+    const rootPath = workspaceContext.workspaceRoot;
+    if (!rootPath) {
+      // No workspace root — fall back to JSON plan mode
+      return this.executeTaskJsonFallback(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
+    }
+
+    try {
+      const prompt = this.buildExecutionPrompt(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages);
+      const { text, toolCalls } = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk);
+
+      this.lastHealth = {
+        provider: 'copilot',
+        state: 'ready',
+        detail: `Executed via ${resolvedModel.vendor}/${resolvedModel.family} with ${toolCalls.length} tool call(s).`,
+      };
+
+      // Extract agent messages from sendAgentMessage tool calls
+      const outgoingMessages: OutgoingAgentMessage[] = toolCalls
+        .filter((c) => c.name === 'sendAgentMessage')
+        .map((c) => ({
+          toAgentId: String(c.input.toAgentId ?? ''),
+          content: String(c.input.content ?? ''),
+        }))
+        .filter((m) => m.toAgentId && m.content);
+
+      const plan = buildPlanFromToolCalls(
+        text.slice(0, 400) || 'Task execution completed.',
+        toolCalls,
+      );
+
+      return {
+        output: text || plan.summary,
+        success: true,
+        plan,
+        outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
+        done: true,
+        toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'runCommand'),
+      };
+    } catch {
+      // Tool-calling failed (model doesn't support tools, etc.) — fall back to JSON plan mode
+      onChunk?.('\n⚠️ Tool-calling unavailable, falling back to plan mode...\n');
+      try {
+        return await this.executeTaskJsonFallback(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
+      } catch (fallbackError) {
+        const detail = fallbackError instanceof Error ? fallbackError.message : 'Unknown error';
+        return {
+          output: `Execution failed: ${detail}. Agent ${agent.name} could not complete "${task.title}".`,
+          success: false,
+        };
+      }
+    }
+  }
+
+  /** Build the natural-language prompt for tool-calling execution. */
+  private buildExecutionPrompt(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+  ): string {
+    const lines = [
+      `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
+      `Your role: ${persona.title}.`,
+      '',
+      'You have access to workspace tools: readFile, writeFile, listFiles, searchText, runCommand, sendAgentMessage.',
+      'Use these tools to explore the codebase, understand the existing code, make necessary changes, and verify your work.',
+      'When you are finished, provide a concise summary of what you accomplished.',
+    ];
+
+    if (room) {
+      lines.push(`\nRoom: ${room.name} (${room.theme}) — ${room.purpose}`);
+    }
+
+    if (handoffPackets && handoffPackets.length > 0) {
+      lines.push('\n--- Handoff from predecessor tasks ---');
+      for (const packet of handoffPackets) {
+        lines.push(`[From ${packet.fromAgentName} (task ${packet.fromTaskId})]`);
+        lines.push(`Summary: ${packet.summary}`);
+        if (packet.filesChanged.length > 0) { lines.push(`Files changed: ${packet.filesChanged.join(', ')}`); }
+        if (packet.commandsRun.length > 0) { lines.push(`Commands run: ${packet.commandsRun.join('; ')}`); }
+        if (packet.openIssues.length > 0) { lines.push(`Open issues: ${packet.openIssues.join('; ')}`); }
+        if (packet.output) { lines.push(`Output: ${packet.output.slice(0, 500)}`); }
+      }
+      lines.push('--- End handoff ---');
+    }
+
+    if (inboxMessages && inboxMessages.length > 0) {
+      lines.push('\n--- Messages from other agents ---');
+      for (const msg of inboxMessages) {
+        lines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${msg.content}`);
+      }
+      lines.push('--- End messages ---');
+    }
+
+    lines.push(
+      `\nTask: ${task.title}`,
+      `Details: ${task.detail}`,
+      `\nWorkspace branch: ${workspaceContext.branch || 'unknown'}`,
+      `Active file: ${workspaceContext.activeFile || 'none'}`,
+      `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}`,
+    );
+
+    // Include file hints (names + reasons only — agent uses readFile for content)
+    if (workspaceContext.relevantFiles.length > 0) {
+      lines.push('\nRelevant files (use readFile to inspect):');
+      for (const f of workspaceContext.relevantFiles) {
+        lines.push(`  ${f.path} — ${f.reason}`);
+      }
+    }
+
+    lines.push('', 'Be direct and practical. Read files before modifying them.');
+    return lines.join('\n');
+  }
+
+  /** Legacy JSON-parse execution path used as fallback when tool-calling is unavailable. */
+  private async executeTaskJsonFallback(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
+    resolvedModel: vscode.LanguageModelChat,
+    token?: vscode.CancellationToken,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
+  ): Promise<ExecutionResult> {
     try {
       const promptLines = [
         `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,

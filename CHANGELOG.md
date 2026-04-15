@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.22] — 2025-06-18
+### Added
+- **Real tool-calling agents**: Agents now use the VS Code Language Model tool-calling API instead of the JSON-parse pattern. During task execution, agents can call `readFile`, `writeFile`, `listFiles`, `searchText`, `runCommand`, and `sendAgentMessage` tools to interact with the workspace in real time.
+- **Agentic execution loop**: New `runToolCallLoop` drives a multi-round conversation where the LLM reads code, makes changes, runs commands, and verifies results — up to 15 tool-calling rounds per task turn.
+- **MCP tool discovery**: Automatically discovers tools registered by MCP servers or other VS Code extensions via `vscode.lm.tools` and makes them available to agents during execution.
+- **Automatic JSON-parse fallback**: If a model does not support tool-calling, the adapter transparently falls back to the legacy JSON plan mode — no user intervention needed.
+- **Tool call streaming**: Each tool invocation streams a progress indicator (`🔧 toolName(...)`) and result preview to the webview, so users see agent actions in real time.
+- **Security guardrails**: Path traversal protection on all file tools, dangerous command blocking (`rm -rf /`, `format`, `shutdown`, etc.), and bounded output sizes.
+### Changed
+- **Coordinator**: Recognizes `toolsExecuted` flag on execution results — skips re-applying file edits and terminal commands that tools already executed during the LLM loop.
+- **Adapter prompts**: Tool-calling mode uses natural-language prompts (no JSON schema instructions). File contents are provided as hints; agents use `readFile` to inspect files themselves.
+
+## [0.1.21] — 2025-06-17
+### Changed
+- **Debounced persistence**: `store.save()` calls coalesced via a 500 ms debounce timer — disk writes dropped from ~20 to 2-3 per task.
+- **Async writes**: New `saveAsync()` method on `ProjectStateStore` uses `fs.promises.writeFile` to avoid blocking the extension host.
+- **Stale task reaper fix**: Reaper now checks `scheduler.isRunning()` before failing a task; threshold raised to 5 minutes; `updatedAt` refreshed between multi-turn iterations.
+- **Dispose chain**: `Coordinator.dispose()` flushes pending saves and clears the debounce timer.
+
 ## [0.1.19] — 2026-04-14
 ### Added
 - **Fleet mode**: New `🚀 Fleet` button in the hero composer and `Pixel Squad: Fleet Execute` command — sends the same prompt to ALL idle agents simultaneously for maximum parallelism.
