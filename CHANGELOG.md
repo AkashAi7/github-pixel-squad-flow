@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.19] — 2026-04-14
+### Added
+- **Fleet mode**: New `🚀 Fleet` button in the hero composer and `Pixel Squad: Fleet Execute` command — sends the same prompt to ALL idle agents simultaneously for maximum parallelism.
+- **Futuristic pixel animations**: Neon glow rings under each agent with status-specific colors (gold=executing, blue=planning, teal=idle, red=failed, green=completed), sparkle particles during execution, celebration emoji on completion, holographic flicker when paused, glitch-shake for blocked/failed.
+- **Execution timeout**: Each LLM turn is wrapped in a 90-second `Promise.race` — if the model hangs, the turn is aborted and the task continues or fails gracefully.
+- **Stale task reaper**: Background 60-second sweep auto-fails any task stuck in `active` state for more than 5 minutes, freeing scheduler slots and promoting downstream work.
+### Changed
+- **UI layout restructure**: "⚡ Assign Task" input moved from the bottom of the inspector (below Pinned Files, invisible to most users) to directly below the Inspector Spotlight — prime visible real estate.
+- **FactoryBoard**: `data-status` attribute added to pixel-agent-shell elements, enabling CSS status-specific glow effects.
+- **Extension lifecycle**: `dispose()` wired into `context.subscriptions` to clean up the stale-reaper timer on deactivation.
+
 ## [0.1.17] — 2026-04-14
 ### Fixed
 - **Parallel execution root cause**: `enrichAssignments` was injecting a sequential `dependsOnPersonaIds` fallback (`index > 0 ? [prev] : []`) even when the LLM returned no dependencies. Tasks now run in parallel by default unless the planner explicitly declares ordering.

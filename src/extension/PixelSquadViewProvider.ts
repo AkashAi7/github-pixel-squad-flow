@@ -9,10 +9,16 @@ export const VIEW_ID = 'pixelSquad.factoryView';
 export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private readonly coordinator: Coordinator;
+  private staleReaperTimer?: ReturnType<typeof setInterval>;
 
   constructor(private readonly extensionUri: vscode.Uri) {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     this.coordinator = new Coordinator(workspaceRoot);
+    // Periodically check for stale tasks every 60s
+    this.staleReaperTimer = setInterval(() => {
+      const reaped = this.coordinator.reapStaleTasks();
+      if (reaped > 0) { this.syncSnapshot(); }
+    }, 60_000);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -202,6 +208,18 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       syncSnapshot();
     }
+
+    if (message.type === 'fleetExecute') {
+      try {
+        const summary = await this.coordinator.fleetExecute(message.prompt);
+        syncSnapshot();
+        void vscode.window.showInformationMessage(summary);
+      } catch (error) {
+        syncSnapshot();
+        const detail = error instanceof Error ? error.message : 'Unknown error';
+        void vscode.window.showErrorMessage(`Fleet execution failed: ${detail}`);
+      }
+    }
   }
 
   private postMessage(message: ExtensionMessage): void {
@@ -251,6 +269,17 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     const summary = await this.coordinator.assignTask(agentId, prompt);
     this.syncSnapshot();
     return summary;
+  }
+
+  /** Fleet mode: execute a prompt across all idle agents in parallel */
+  async fleetExecute(prompt: string): Promise<string> {
+    const summary = await this.coordinator.fleetExecute(prompt);
+    this.syncSnapshot();
+    return summary;
+  }
+
+  dispose(): void {
+    if (this.staleReaperTimer) { clearInterval(this.staleReaperTimer); }
   }
 
   private syncSnapshot(): void {

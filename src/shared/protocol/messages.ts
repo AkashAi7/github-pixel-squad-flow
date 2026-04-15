@@ -85,6 +85,11 @@ export interface ToggleAutoExecuteMessage {
   type: 'toggleAutoExecute';
 }
 
+export interface FleetExecuteMessage {
+  type: 'fleetExecute';
+  prompt: string;
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
@@ -100,7 +105,8 @@ export type WebviewMessage =
   | PinFilesMessage
   | PinActiveFileMessage
   | RequestWorkspaceFilesMessage
-  | ToggleAutoExecuteMessage;
+  | ToggleAutoExecuteMessage
+  | FleetExecuteMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

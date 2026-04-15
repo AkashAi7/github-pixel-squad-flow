@@ -109,6 +109,20 @@ export function activate(context: vscode.ExtensionContext): void {
       void vscode.window.showInformationMessage(summary);
     }),
 
+    /* ── CLI: Fleet Execute ─────────────────────── */
+    vscode.commands.registerCommand('pixelSquad.fleetExecute', async () => {
+      const prompt = await vscode.window.showInputBox({
+        prompt: 'Describe the task to send to ALL idle agents simultaneously',
+        placeHolder: 'e.g. Refactor the authentication module',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) return;
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.fleetExecute(prompt);
+      void vscode.window.showInformationMessage(summary);
+    }),
+
     /* ── CLI: List Agents ─────────────────────────── */
     vscode.commands.registerCommand('pixelSquad.listAgents', async () => {
       const agents = provider.getAgents();
@@ -139,8 +153,13 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
       void vscode.window.showInformationMessage(summary);
-    })
+    }),
+
+    /* ── Cleanup ──────────────────────────────────── */
+    { dispose: () => provider.dispose() }
   );
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  // Provider cleanup is handled via context.subscriptions
+}

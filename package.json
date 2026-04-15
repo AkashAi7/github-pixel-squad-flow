@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.17",
+  "version": "0.1.19",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -81,6 +81,10 @@
       {
         "command": "pixelSquad.listAgents",
         "title": "Pixel Squad: List Agents"
+      },
+      {
+        "command": "pixelSquad.fleetExecute",
+        "title": "Pixel Squad: Fleet Execute (All Agents)"
       }
     ],
     "configuration": {

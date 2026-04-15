@@ -17,6 +17,10 @@ import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
 const MAX_MAILBOX_TURNS = 3;
+/** Per-turn execution timeout in milliseconds (90 seconds). */
+const EXECUTION_TIMEOUT_MS = 90_000;
+/** Tasks active longer than this (ms) are considered stale and auto-failed. */
+const STALE_TASK_THRESHOLD_MS = 5 * 60_000;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -327,11 +331,25 @@ export class Coordinator {
       }
 
       const executionTask = this.snapshot.tasks.find((candidate) => candidate.id === taskId) ?? { ...task, workspaceContext };
-      const result = await adapter.executeTask(
+      const executionPromise = adapter.executeTask(
         executionTask, agent, persona, workspaceContext, model, token, room, handoffPackets,
         inboxMessages.length > 0 ? inboxMessages : undefined,
         (chunk) => this.streamBus.publish({ type: 'taskChunk', taskId, chunk }),
       );
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Execution timeout after ${EXECUTION_TIMEOUT_MS / 1000}s`)), EXECUTION_TIMEOUT_MS),
+      );
+      let result: import('../providers/types.js').ExecutionResult;
+      try {
+        result = await Promise.race([executionPromise, timeoutPromise]);
+      } catch (timeoutErr) {
+        const msg = timeoutErr instanceof Error ? timeoutErr.message : 'Execution timed out';
+        lastResult = { output: msg, success: false };
+        this.appendActivity(`${agent.name} timed out on turn ${turn + 1} of "${task.title}".`, {
+          category: 'task', taskId, agentId: agent.id, provider: task.provider,
+        });
+        break;
+      }
       lastResult = result;
 
       // Route outgoing agent messages through the mailbox
@@ -480,6 +498,94 @@ export class Coordinator {
     this.promoteReadyTasks();
 
     return result.output;
+  }
+
+  /**
+   * Fleet mode: splits a prompt across ALL available idle agents in parallel.
+   * Each agent gets the same prompt and executes simultaneously.
+   */
+  async fleetExecute(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const normalizedPrompt = prompt.trim();
+    if (!normalizedPrompt) { return 'Fleet ignored an empty prompt.'; }
+
+    const idleAgents = this.snapshot.agents.filter((a) => a.status === 'idle');
+    if (idleAgents.length === 0) { return 'No idle agents available for fleet execution.'; }
+
+    const batchId = this.makeId('fleet');
+    const createdAt = Date.now();
+    const tasks: TaskCard[] = [];
+    const lightContext = this.workspaceContext.captureLightweight();
+
+    for (const agent of idleAgents) {
+      const persona = this.snapshot.personas.find((p) => p.id === agent.personaId);
+      if (!persona) { continue; }
+      const task: TaskCard = {
+        id: this.makeId('task'),
+        title: normalizedPrompt.length > 60 ? normalizedPrompt.slice(0, 57) + '...' : normalizedPrompt,
+        status: 'active',
+        assigneeId: agent.id,
+        provider: agent.provider,
+        source: 'factory',
+        detail: `[Fleet] ${normalizedPrompt}`,
+        dependsOn: [],
+        requiredSkillIds: [],
+        workspaceContext: lightContext,
+        progress: this.progressForStatus('active', 'Fleet executing'),
+        batchId,
+        createdAt,
+        updatedAt: createdAt,
+      };
+      tasks.push(task);
+      this.updateAgent(agent.id, { status: 'executing', summary: `Fleet: ${normalizedPrompt.slice(0, 60)}` });
+    }
+
+    this.snapshot = {
+      ...this.snapshot,
+      tasks: [...tasks, ...this.snapshot.tasks].slice(0, 40),
+    };
+    this.store.save(this.snapshot);
+    this.appendActivity(`Fleet launched: ${tasks.length} agent(s) executing in parallel.`, { category: 'task' });
+
+    // Fire all executions in parallel (non-blocking)
+    for (const task of tasks) {
+      void this.executeTask(task.id, model, token);
+    }
+
+    return `Fleet mode: ${tasks.length} agents executing "${normalizedPrompt.slice(0, 60)}" in parallel.`;
+  }
+
+  /**
+   * Detect and fail tasks that have been active for too long with no progress.
+   * Called periodically or on snapshot refresh.
+   */
+  reapStaleTasks(): number {
+    const now = Date.now();
+    let reaped = 0;
+    const activeTasks = this.snapshot.tasks.filter((t) => t.status === 'active');
+    for (const task of activeTasks) {
+      const elapsed = now - (task.updatedAt ?? task.createdAt ?? now);
+      if (elapsed > STALE_TASK_THRESHOLD_MS) {
+        this.updateTask(task.id, {
+          status: 'failed',
+          output: `Task timed out after ${Math.round(elapsed / 60_000)} minutes with no progress.`,
+          progress: this.progressForStatus('failed', 'Timed out'),
+        });
+        const agent = this.snapshot.agents.find((a) => a.id === task.assigneeId);
+        if (agent) {
+          this.updateAgent(agent.id, { status: 'failed', summary: `Stale: ${task.title}` });
+        }
+        this.scheduler.finish(task.id);
+        this.appendActivity(`Reaped stale task "${task.title}" (active for ${Math.round(elapsed / 60_000)}min).`, {
+          category: 'task', taskId: task.id, provider: task.provider,
+        });
+        reaped++;
+      }
+    }
+    if (reaped > 0) {
+      this.store.save(this.snapshot);
+      this.promoteReadyTasks();
+    }
+    return reaped;
   }
 
   agentAction(agentId: string, action: 'pause' | 'resume' | 'complete' | 'retry'): void {

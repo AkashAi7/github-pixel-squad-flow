@@ -627,6 +627,19 @@ function App() {
               </button>
               <button
                 type="button"
+                className="composer-button composer-button--fleet"
+                disabled={isSubmitting || prompt.trim().length === 0}
+                title="Fleet mode: execute across all idle agents in parallel"
+                onClick={() => {
+                  setIsSubmitting(true);
+                  vscode.postMessage({ type: 'fleetExecute', prompt: prompt.trim() });
+                  setPrompt('');
+                }}
+              >
+                {isSubmitting ? 'Launching...' : '🚀 Fleet'}
+              </button>
+              <button
+                type="button"
                 className="composer-button composer-button--accent"
                 onClick={() => setShowCreateRoom(true)}
               >
@@ -769,6 +782,30 @@ function App() {
                     <p className="inspector-copy">No active assignment. Use the task box below to give this agent work.</p>
                   )}
                 </section>
+                {/* ── Assign task — moved up for visibility ── */}
+                <div className="assign-task">
+                  <label className="composer-label" htmlFor="agent-task-prompt">Assign task to {selectedAgent.name}</label>
+                  <textarea
+                    id="agent-task-prompt"
+                    className="assign-task__input"
+                    value={agentTaskPrompt}
+                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
+                    placeholder={`Describe a task for ${selectedAgent.name}...`}
+                    rows={3}
+                  />
+                  <button
+                    type="button"
+                    className="composer-button assign-task__btn"
+                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
+                    onClick={() => {
+                      setIsAssigning(true);
+                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
+                      setAgentTaskPrompt('');
+                    }}
+                  >
+                    {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
+                  </button>
+                </div>
                 <div className="agent-controls">
                   {agentActions(selectedAgent).map(({ label, action }) => (
                     <button
@@ -947,30 +984,6 @@ function App() {
                   )}
                   </div>
                 </details>
-                {/* Assign task to this agent */}
-                <div className="assign-task">
-                  <label className="composer-label" htmlFor="agent-task-prompt">Assign task to {selectedAgent.name}</label>
-                  <textarea
-                    id="agent-task-prompt"
-                    className="assign-task__input"
-                    value={agentTaskPrompt}
-                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
-                    placeholder={`Describe a task for ${selectedAgent.name}...`}
-                    rows={3}
-                  />
-                  <button
-                    type="button"
-                    className="composer-button assign-task__btn"
-                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-                    onClick={() => {
-                      setIsAssigning(true);
-                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                      setAgentTaskPrompt('');
-                    }}
-                  >
-                    {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
-                  </button>
-                </div>
               </>
             ) : (
               <p className="inspector-copy">Pick an agent from the factory floor to inspect it.</p>

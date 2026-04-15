@@ -128,6 +128,7 @@ summary:focus-visible {
 .composer-button:disabled { opacity: 0.6; cursor: wait; }
 .composer-button--ghost { background: transparent; color: var(--ps-text); }
 .composer-button--accent { background: #70c1b3; color: #10161f; }
+.composer-button--fleet { background: linear-gradient(135deg, #ff6b6b, #ffa502); color: #10161f; }
 .stat-toggle {
   padding: 6px 10px;
   border: 1px solid var(--ps-input-border);
@@ -601,6 +602,7 @@ summary:focus-visible {
 
 /* ═══════════════════════════════════════════════════
    Pixel Character Sprites (MetroCity-inspired CSS art)
+   Futuristic neon-glow + animated status indicators
    ═══════════════════════════════════════════════════ */
 .pixel-agent-shell {
   position: absolute;
@@ -656,6 +658,105 @@ summary:focus-visible {
   transform: translateX(-50%);
   background: radial-gradient(circle, rgba(0, 0, 0, 0.36), transparent 72%);
   pointer-events: none;
+}
+
+/* ── Neon glow ring under character (status-based) ──── */
+.pixel-agent-shell::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 2px;
+  width: 40px; height: 10px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, var(--glow-color, rgba(125, 140, 255, 0.3)), transparent 70%);
+  filter: blur(4px);
+  animation: glow-pulse 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+}
+/* Status-specific glow colors */
+.pixel-agent-shell[data-status="executing"]::after,
+.pixel-agent-shell[data-status="active"]::after {
+  --glow-color: rgba(255, 224, 102, 0.45);
+  animation: glow-pulse 1.2s ease-in-out infinite;
+}
+.pixel-agent-shell[data-status="planning"]::after {
+  --glow-color: rgba(125, 140, 255, 0.45);
+}
+.pixel-agent-shell[data-status="idle"]::after {
+  --glow-color: rgba(112, 193, 179, 0.2);
+  animation: glow-pulse 3.5s ease-in-out infinite;
+}
+.pixel-agent-shell[data-status="failed"]::after,
+.pixel-agent-shell[data-status="blocked"]::after {
+  --glow-color: rgba(242, 95, 92, 0.45);
+  animation: glow-pulse 0.8s ease-in-out infinite;
+}
+.pixel-agent-shell[data-status="completed"]::after {
+  --glow-color: rgba(80, 250, 123, 0.5);
+}
+
+/* ── Status bubble floating above character ─────────── */
+.pixel-agent__status-bubble {
+  position: absolute;
+  top: -6px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 0.72rem;
+  line-height: 1;
+  animation: bubble-float 2s ease-in-out infinite;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
+}
+@keyframes bubble-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+/* ── Sparkle particles for executing state ──────────── */
+.pixel-agent-shell[data-status="executing"] .pixel-agent__sprite::before,
+.pixel-agent-shell[data-status="executing"] .pixel-agent__sprite::after {
+  content: '✦';
+  position: absolute;
+  font-size: 0.5rem;
+  color: #ffe066;
+  pointer-events: none;
+  opacity: 0;
+}
+.pixel-agent-shell[data-status="executing"] .pixel-agent__sprite::before {
+  top: -2px; right: -6px;
+  animation: sparkle-a 1.4s ease-in-out infinite;
+}
+.pixel-agent-shell[data-status="executing"] .pixel-agent__sprite::after {
+  bottom: 2px; left: -6px;
+  animation: sparkle-b 1.4s ease-in-out 0.7s infinite;
+}
+@keyframes sparkle-a {
+  0%, 100% { opacity: 0; transform: scale(0.5) translateY(0); }
+  50% { opacity: 1; transform: scale(1.2) translateY(-6px); }
+}
+@keyframes sparkle-b {
+  0%, 100% { opacity: 0; transform: scale(0.5) translateY(0); }
+  50% { opacity: 1; transform: scale(1) translateY(-4px); }
+}
+
+/* ── Completed celebration particles ────────────────── */
+.pixel-agent-shell[data-status="completed"] .pixel-agent__sprite::before {
+  content: '🎉';
+  position: absolute;
+  top: -8px; left: 50%;
+  font-size: 0.8rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: celebrate 2s ease-out forwards;
+}
+@keyframes celebrate {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(0.5); }
+  40% { opacity: 1; transform: translateX(-50%) translateY(-14px) scale(1.2); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px) scale(0.8); }
 }
 
 /* Pixel character — 3-part body */
@@ -716,91 +817,122 @@ summary:focus-visible {
 .pixel-char--v3 .pixel-char__head::after { background: #f5efe1; height: 5px; }
 .pixel-char--v3 .pixel-char__body { border-radius: 2px 2px 0 0; }
 
-/* ── Agent status animations ───────────────────── */
+/* ── Agent status animations (futuristic) ──────── */
 
-/* Executing — walk cycle with leg swap + bounce */
+/* Executing — energetic walk cycle with neon trail */
 .pixel-char--executing {
-  animation: char-walk 0.5s steps(2) infinite;
+  animation: char-walk 0.45s steps(2) infinite;
+  filter: drop-shadow(0 0 3px rgba(255, 224, 102, 0.5));
 }
 .pixel-char--executing .pixel-char__legs {
-  animation: legs-walk 0.35s steps(2) infinite;
+  animation: legs-walk 0.3s steps(2) infinite;
+}
+.pixel-char--executing .pixel-char__body {
+  animation: body-glow-exec 1.5s ease-in-out infinite;
 }
 @keyframes char-walk {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(-4px); }
 }
 @keyframes legs-walk {
   0% { box-shadow: 10px 0 0 #37474f; width: 6px; left: 8px; }
   50% { box-shadow: 6px 0 0 #37474f; width: 8px; left: 10px; }
 }
+@keyframes body-glow-exec {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 224, 102, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(255, 224, 102, 0.6); }
+}
 
-/* Planning — thinking wobble */
+/* Planning — thinking wobble with pulsing eyes */
 .pixel-char--planning {
-  animation: char-think 1.2s ease-in-out infinite;
+  animation: char-think 1s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(125, 140, 255, 0.4));
 }
 .pixel-char--planning .pixel-char__head::before {
-  animation: eyes-blink 2.5s ease-in-out infinite;
+  animation: eyes-blink 2s ease-in-out infinite;
+}
+.pixel-char--planning .pixel-char__body {
+  animation: body-glow-plan 1.8s ease-in-out infinite;
 }
 @keyframes char-think {
   0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-3deg) translateY(-1px); }
-  75% { transform: rotate(3deg) translateY(-1px); }
+  20% { transform: rotate(-4deg) translateY(-2px); }
+  80% { transform: rotate(4deg) translateY(-2px); }
 }
 @keyframes eyes-blink {
-  0%, 42%, 46%, 100% { opacity: 1; }
-  44% { opacity: 0; }
+  0%, 38%, 42%, 100% { opacity: 1; }
+  40% { opacity: 0; }
+}
+@keyframes body-glow-plan {
+  0%, 100% { box-shadow: 0 0 3px rgba(125, 140, 255, 0.2); }
+  50% { box-shadow: 0 0 8px rgba(125, 140, 255, 0.5); }
 }
 
-/* Waiting — gentle idle breathing */
+/* Waiting — gentle floating idle */
 .pixel-char--waiting {
-  animation: char-breathe 2.5s ease-in-out infinite;
+  animation: char-float 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 2px rgba(112, 193, 179, 0.3));
 }
-@keyframes char-breathe {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(1.03) translateY(-1px); }
+@keyframes char-float {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  25% { transform: translateY(-3px) scaleY(1.01); }
+  50% { transform: translateY(-1px) scaleY(1.02); }
+  75% { transform: translateY(-2px) scaleY(1); }
 }
 
-/* Paused — slow pulse fade */
+/* Paused — slow holographic flicker */
 .pixel-char--paused {
-  animation: char-paused 2s ease-in-out infinite;
+  animation: char-hologram 2.5s ease-in-out infinite;
 }
-@keyframes char-paused {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+@keyframes char-hologram {
+  0%, 100% { opacity: 1; filter: hue-rotate(0deg); }
+  25% { opacity: 0.6; filter: hue-rotate(10deg); }
+  50% { opacity: 0.35; filter: hue-rotate(-10deg); }
+  75% { opacity: 0.7; filter: hue-rotate(5deg); }
 }
 
-/* Blocked / Failed — error shake */
+/* Blocked / Failed — glitch shake with red scan lines */
 .pixel-char--blocked,
 .pixel-char--failed {
-  animation: char-shake 0.4s ease-in-out infinite;
+  animation: char-glitch 0.3s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(242, 95, 92, 0.5));
 }
-@keyframes char-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  75% { transform: translateX(2px); }
+@keyframes char-glitch {
+  0%, 100% { transform: translateX(0) skewX(0deg); }
+  20% { transform: translateX(-3px) skewX(-2deg); }
+  40% { transform: translateX(2px) skewX(1deg); }
+  60% { transform: translateX(-1px) skewX(-1deg); }
+  80% { transform: translateX(3px) skewX(2deg); }
 }
 
-/* Completed — satisfied settle */
+/* Completed — victory jump with glow */
 .pixel-char--completed {
-  animation: char-settle 1.5s ease-out forwards;
+  animation: char-victory 1.2s ease-out forwards;
+  filter: drop-shadow(0 0 6px rgba(80, 250, 123, 0.6));
 }
-@keyframes char-settle {
-  0% { transform: translateY(-4px); }
-  60% { transform: translateY(1px); }
-  100% { transform: translateY(0); }
+@keyframes char-victory {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-10px) scale(1.1); }
+  40% { transform: translateY(-6px) scale(1.05); }
+  60% { transform: translateY(-2px) scale(1.02); }
+  80% { transform: translateY(1px) scale(1); }
+  100% { transform: translateY(0) scale(1); }
 }
 
-/* Idle — subtle sway */
+/* Idle — serene breathing with subtle sway */
 .pixel-char--idle {
-  animation: char-idle 3s ease-in-out infinite;
+  animation: char-idle-sway 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 1px rgba(245, 239, 225, 0.15));
 }
-@keyframes char-idle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.5px); }
+@keyframes char-idle-sway {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1px) rotate(-0.5deg); }
+  50% { transform: translateY(-2px) rotate(0deg); }
+  75% { transform: translateY(-1px) rotate(0.5deg); }
 }
 
 /* Legacy compat alias */
-.pixel-char--active { animation: char-walk 0.5s steps(2) infinite; }
+.pixel-char--active { animation: char-walk 0.45s steps(2) infinite; filter: drop-shadow(0 0 3px rgba(255, 224, 102, 0.5)); }
 
 .pixel-agent__caption {
   position: absolute;

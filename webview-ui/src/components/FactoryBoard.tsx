@@ -234,6 +234,7 @@ function RoomStage({
           <div
             key={agent.id}
             className={`pixel-agent-shell${isSelected ? ' pixel-agent-shell--selected' : ''}`}
+            data-status={agent.status}
             style={{
               ['--agent-x' as string]: `${motion.x}%`,
               ['--agent-y' as string]: `${motion.y}%`,
