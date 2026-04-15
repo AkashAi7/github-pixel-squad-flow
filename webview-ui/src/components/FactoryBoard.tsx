@@ -40,14 +40,14 @@ const STAGE_BOUNDS = {
 };
 
 const STATUS_MOTION_PROFILE: Record<AgentStatus, { step: [number, number]; duration: [number, number] }> = {
-  idle: { step: [2, 5], duration: [3200, 5000] },
-  planning: { step: [1, 3], duration: [3000, 4800] },
-  executing: { step: [3, 6], duration: [2800, 4200] },
-  waiting: { step: [1, 3], duration: [3800, 5400] },
-  blocked: { step: [0.5, 2], duration: [4000, 6000] },
-  paused: { step: [0.3, 1], duration: [5000, 7000] },
-  completed: { step: [2, 5], duration: [3200, 4800] },
-  failed: { step: [0.5, 2], duration: [4000, 6000] },
+  idle:      { step: [0.8, 2.0], duration: [5000, 8000] },
+  planning:  { step: [0.5, 1.2], duration: [5500, 8500] },
+  executing: { step: [1.2, 2.5], duration: [4500, 7000] },
+  waiting:   { step: [0.4, 1.0], duration: [6000, 9000] },
+  blocked:   { step: [0.2, 0.6], duration: [7000, 10000] },
+  paused:    { step: [0.1, 0.4], duration: [8000, 12000] },
+  completed: { step: [0.8, 2.0], duration: [5000, 8000] },
+  failed:    { step: [0.2, 0.6], duration: [7000, 10000] },
 };
 
 function clamp(value: number, min: number, max: number): number {

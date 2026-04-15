@@ -118,6 +118,7 @@ export async function runToolCallLoop(
 
     // Execute each tool call and feed results back to the model
     const toolResults: vscode.LanguageModelToolResultPart[] = [];
+    let autoFixHint = '';
     for (const call of toolCallParts) {
       const input = (call.input ?? {}) as Record<string, unknown>;
       let result: { content: string; isError: boolean };
@@ -136,6 +137,15 @@ export async function runToolCallLoop(
         isError: result.isError,
       });
 
+      // Auto-fix hint: if a command fails, prompt the agent to analyse and fix
+      if (call.name === 'runCommand' && result.isError) {
+        const cmd = String(input.command ?? '');
+        autoFixHint = `The command "${cmd}" failed with the above error. `
+          + 'Read the relevant source files, apply a targeted fix using editFile, then re-run the command. '
+          + 'Run getDiagnostics afterwards to confirm there are no remaining errors.';
+        onChunk?.(`\n⚠️ Command failed — triggering auto-fix cycle…\n`);
+      }
+
       // Stream the tool result summary so the user sees progress
       const resultPreview = result.content.slice(0, 120).replace(/\n/g, ' ');
       onChunk?.(`  → ${result.isError ? '❌' : '✓'} ${resultPreview}\n`);
@@ -148,6 +158,11 @@ export async function runToolCallLoop(
     }
 
     messages.push(vscode.LanguageModelChatMessage.User(toolResults));
+
+    // Append auto-fix instruction as a follow-up user message so the model sees it next round
+    if (autoFixHint) {
+      messages.push(vscode.LanguageModelChatMessage.User(autoFixHint));
+    }
   }
 
   // Exhausted all rounds

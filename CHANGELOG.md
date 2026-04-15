@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.24] — 2026-04-15
+### Fixed
+- **Agent jitter**: Reduced motion step sizes by ~60% and increased animation durations across all status profiles (idle, executing, planning, etc.) — agents now drift smoothly instead of twitching.
+### Added
+- **Inspector quick-assign**: Assign textarea is now always visible at the top of the inspector panel (above the tab bar) — no longer buried at the bottom of the Assign tab. Supports Ctrl/Cmd+Enter to submit.
+- **Agent dropdown in composer**: The global Route Task composer now has a "Quick-assign to" dropdown listing all agents. Selecting an agent bypasses the planner and assigns directly; leaving it on "auto-route" uses the Coordinator as before.
+- **Auto-fix loop**: When a `runCommand` tool call returns a non-zero exit code, the agent automatically receives a follow-up instruction to read the error, apply a targeted fix with `editFile`, re-run the command, and verify with `getDiagnostics`.
+### Changed
+- **Inspector tabs**: Removed the redundant standalone `⚡ Assign` tab — task assignment is now inline at the top of every inspector view.
+
 ## [0.1.23] — 2025-06-18
 ### Added
 - **editFile tool**: Targeted `oldString → newString` replacement for existing files — agents no longer need to rewrite entire files. Matches must be unique (exactly one occurrence).

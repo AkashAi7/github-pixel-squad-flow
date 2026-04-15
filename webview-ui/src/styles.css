@@ -121,6 +121,28 @@ summary:focus-visible {
   border-radius: 10px;
 }
 .composer-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Agent quick-assign row in composer */
+.composer-agent-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.composer-agent-label { font-size: 11px; color: var(--ps-muted); white-space: nowrap; }
+.composer-agent-select {
+  flex: 1; padding: 5px 8px; background: var(--ps-input); color: var(--ps-text);
+  border: 1px solid var(--ps-input-border); border-radius: 6px; font-size: 12px; cursor: pointer;
+}
+.composer-agent-select:focus { outline: none; border-color: var(--ps-accent); }
+/* Inline inspector quick-assign */
+.inspector-quick-assign { display: flex; gap: 6px; margin-bottom: 10px; align-items: flex-start; }
+.inspector-quick-assign__input {
+  flex: 1; padding: 7px 10px; background: var(--ps-input); color: var(--ps-text);
+  border: 1px solid var(--ps-input-border); border-radius: 8px; font-size: 12px;
+  resize: none; line-height: 1.4;
+}
+.inspector-quick-assign__input:focus { outline: none; border-color: var(--ps-accent); }
+.inspector-quick-assign__btn {
+  padding: 7px 12px; background: var(--ps-accent); color: var(--ps-accent-contrast);
+  border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
+  white-space: nowrap; align-self: stretch;
+}
+.inspector-quick-assign__btn:disabled { opacity: 0.5; cursor: wait; }
 .composer-button {
   padding: 10px 14px; border: 1px solid var(--ps-input-border);
   background: var(--ps-accent); color: var(--ps-accent-contrast); cursor: pointer; font-weight: 700;

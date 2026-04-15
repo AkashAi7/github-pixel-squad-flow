@@ -613,6 +613,22 @@ function App() {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Build a settings screen, persist preferences, and add a validation pass."
             />
+            <div className="composer-agent-row">
+              <label className="composer-agent-label" htmlFor="composer-agent-select">Quick-assign to:</label>
+              <select
+                id="composer-agent-select"
+                className="composer-agent-select"
+                value={selectedAgentId ?? ''}
+                onChange={(e) => setSelectedAgentId(e.target.value || null)}
+              >
+                <option value="">— auto-route —</option>
+                {snapshot.agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name} ({personas.get(agent.personaId)?.title ?? agent.personaId}) · {agent.status}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="composer-actions">
               <button
                 type="button"
@@ -620,11 +636,15 @@ function App() {
                 disabled={isSubmitting || prompt.trim().length === 0}
                 onClick={() => {
                   setIsSubmitting(true);
-                  vscode.postMessage({ type: 'createTask', prompt: prompt.trim() });
+                  if (selectedAgentId) {
+                    vscode.postMessage({ type: 'assignTask', agentId: selectedAgentId, prompt: prompt.trim() });
+                  } else {
+                    vscode.postMessage({ type: 'createTask', prompt: prompt.trim() });
+                  }
                   setPrompt('');
                 }}
               >
-                {isSubmitting ? 'Routing...' : 'Route Task'}
+                {isSubmitting ? 'Routing...' : selectedAgentId ? `⚡ Assign to ${snapshot.agents.find(a => a.id === selectedAgentId)?.name ?? 'Agent'}` : 'Route Task'}
               </button>
               <button
                 type="button"
@@ -745,13 +765,40 @@ function App() {
                   </span>
                 </div>
 
+                {/* ── Inline Assign (always visible) ── */}
+                <div className="inspector-quick-assign">
+                  <textarea
+                    className="inspector-quick-assign__input"
+                    value={agentTaskPrompt}
+                    onChange={(e) => setAgentTaskPrompt(e.target.value)}
+                    placeholder={`Assign a task to ${selectedAgent.name}…`}
+                    rows={2}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && agentTaskPrompt.trim().length > 0) {
+                        setIsAssigning(true);
+                        vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
+                        setAgentTaskPrompt('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="inspector-quick-assign__btn"
+                    disabled={isAssigning || agentTaskPrompt.trim().length === 0}
+                    onClick={() => {
+                      setIsAssigning(true);
+                      vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
+                      setAgentTaskPrompt('');
+                    }}
+                  >
+                    {isAssigning ? '…' : `⚡ Assign`}
+                  </button>
+                </div>
+
                 {/* ── Inspector Tab Bar ── */}
                 <div className="inspector-tabs">
                   <button type="button" className={`inspector-tabs__tab${inspectorTab === 'overview' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('overview')}>
                     Overview
-                  </button>
-                  <button type="button" className={`inspector-tabs__tab inspector-tabs__tab--assign${inspectorTab === 'assign' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('assign')}>
-                    ⚡ Assign
                   </button>
                   <button type="button" className={`inspector-tabs__tab${inspectorTab === 'work' ? ' inspector-tabs__tab--active' : ''}`} onClick={() => setInspectorTab('work')}>
                     Work <strong>{selectedAgentTasks.length}</strong>
