@@ -379,10 +379,19 @@ export class Coordinator {
         );
 
         if (applied) {
+          // Run terminal commands after file edits land.
+          // Serve/dev-server commands launch in a visible VS Code terminal;
+          // one-shot commands (build, install, test) are captured via exec().
+          const taskWithPlan = this.snapshot.tasks.find((t) => t.id === taskId);
+          if (taskWithPlan && (taskWithPlan.executionPlan?.terminalCommands.length ?? 0) > 0) {
+            await this.runTaskCommands(taskWithPlan);
+          }
+
           this.updateTask(taskId, {
             status: 'done',
             output: result.output,
-            executionPlan: hydratedPlan,
+            // executionPlan is not overwritten here — runTaskCommands already
+            // populated commandResults inside it.
             approvalState: 'applied',
             progress: this.progressForStatus('done'),
           });
@@ -433,6 +442,10 @@ export class Coordinator {
       // Broadcast task completion to room peers so they can pick up context
       if (room) {
         this.mailbox.broadcastToRoom(agent.id, room.id, room.agentIds, `I finished "${task.title}": ${result.output.slice(0, 200)}`, 'inform', taskId);
+        // Update idle/waiting peers' summaries so the inspector panel reflects
+        // the completion immediately — without waiting for a future task execution.
+        this.notifyRoomPeersOfCompletion(agent.id, room.agentIds, task.title);
+        this.store.save(this.snapshot);
       }
     } else {
       this.updateTask(taskId, { status: 'failed', output: result.output, progress: this.progressForStatus('failed') });
@@ -556,6 +569,13 @@ export class Coordinator {
     // When a task completes, check if downstream tasks are now unblocked
     if (action === 'complete') {
       this.promoteReadyTasks();
+      // Notify idle/waiting room peers so their inspector summary updates
+      const assignee = this.snapshot.agents.find((a) => a.id === task.assigneeId);
+      const completionRoom = assignee && this.snapshot.rooms.find((r) => r.id === assignee.roomId);
+      if (assignee && completionRoom) {
+        this.notifyRoomPeersOfCompletion(assignee.id, completionRoom.agentIds, task.title);
+        this.store.save(this.snapshot);
+      }
     }
   }
 
@@ -1009,6 +1029,32 @@ export class Coordinator {
     });
 
     for (const [index, command] of commands.entries()) {
+      // Long-running dev servers and app launchers go to a visible VS Code terminal.
+      // They are fire-and-forget — we mark them succeeded immediately.
+      if (this.isServeCommand(command.command)) {
+        this.launchInTerminal(command.command, `Pixel Squad · ${task.title}`);
+        const now = Date.now();
+        results = results.map((result) => result.commandIndex === index
+          ? {
+              ...result,
+              status: 'succeeded',
+              exitCode: 0,
+              stdout: `Command launched in VS Code terminal: "${command.command}"`,
+              startedAt: now,
+              completedAt: now,
+              durationMs: 0,
+            }
+          : result);
+        this.appendActivity(`Launched "${command.command}" in a VS Code terminal for "${task.title}".`, {
+          category: 'task',
+          taskId: task.id,
+          provider: task.provider,
+        });
+        this.updateTask(task.id, { executionPlan: { ...plan, commandResults: results } });
+        this.store.save(this.snapshot);
+        continue;
+      }
+
       const startedAt = Date.now();
       results = results.map((result) => result.commandIndex === index
         ? {
@@ -1128,5 +1174,80 @@ export class Coordinator {
     }
 
     return `${normalized.slice(0, maxLength)}\n... output truncated ...`;
+  }
+
+  /**
+   * Returns true when the command is a long-running serve/dev-server command
+   * that should be launched in a visible VS Code terminal rather than via exec().
+   */
+  private isServeCommand(command: string): boolean {
+    const servePatterns = [
+      /\bnpm\s+(run\s+)?(dev|start|serve|preview|watch)\b/i,
+      /\bpnpm\s+(run\s+)?(dev|start|serve|preview|watch)\b/i,
+      /\byarn\s+(run\s+)?(dev|start|serve|preview|watch)\b/i,
+      /\bbun\s+(run\s+)?(dev|start|serve|preview|watch)\b/i,
+      /\bvite(?!\s+build)\b/i,
+      /\bnext\s+(dev|start)\b/i,
+      /\bnuxt\s+(dev|start)\b/i,
+      /\bpython3?\s+.*manage\.py\s+runserver\b/i,
+      /\bflask\s+run\b/i,
+      /\buvicorn\b/i,
+      /\bfastapi\s+dev\b/i,
+      /\bnode\s+[\w./]+\.(js|ts)\b/i,
+      /\bdocker\s+(compose\s+)?up\b/i,
+      /\bdotnet\s+(run|watch)\b/i,
+      /\bcargo\s+run\b/i,
+      /\bgo\s+run\b/i,
+      /\bruby.*rails\s+server\b/i,
+      /\bphp\s+.*artisan\s+serve\b/i,
+      /\blive-server\b/i,
+      /\bhttp-server\b/i,
+    ];
+    return servePatterns.some((pattern) => pattern.test(command));
+  }
+
+  /**
+   * Open a named VS Code integrated terminal, show it to the user,
+   * and send the given command to it.  Used for long-running serve commands
+   * so the user can see the output and the process stays alive.
+   */
+  private launchInTerminal(command: string, terminalName: string): void {
+    const terminal = vscode.window.createTerminal({
+      name: terminalName,
+      cwd: this.rootPath,
+    });
+    terminal.show();
+    terminal.sendText(command);
+  }
+
+  /**
+   * When a task completes, update the summary of idle/waiting peers in the same
+   * room so they are visually aware in the inspector without needing active
+   * mailbox polling.
+   */
+  private notifyRoomPeersOfCompletion(
+    completingAgentId: string,
+    roomAgentIds: string[],
+    taskTitle: string,
+  ): void {
+    const completingAgent = this.snapshot.agents.find((a) => a.id === completingAgentId);
+    if (!completingAgent) {
+      return;
+    }
+
+    for (const peerId of roomAgentIds) {
+      if (peerId === completingAgentId) {
+        continue;
+      }
+
+      const peer = this.snapshot.agents.find((a) => a.id === peerId);
+      if (peer && (peer.status === 'idle' || peer.status === 'waiting')) {
+        const pendingCount = this.mailbox.count(peerId);
+        const inboxNote = pendingCount > 0 ? ` (${pendingCount} inbox message${pendingCount > 1 ? 's' : ''})` : '';
+        this.updateAgent(peerId, {
+          summary: `📬 ${completingAgent.name} completed "${taskTitle}"${inboxNote}.`,
+        });
+      }
+    }
   }
 }

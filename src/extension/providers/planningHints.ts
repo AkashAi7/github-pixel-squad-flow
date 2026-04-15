@@ -85,7 +85,7 @@ export function enrichAssignments(
       requiredSkillIds: normalizedSkillIds.length > 0
         ? normalizedSkillIds
         : inferRequiredSkillIds(persona, prompt, assignment.title, assignment.detail),
-      progressLabel: assignment.progressLabel?.trim() || defaultProgressLabel(index),
+      progressLabel: assignment.progressLabel?.trim() || defaultProgressLabel(_index),
     };
   });
 }
