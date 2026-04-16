@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Squad Astronaut Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1520;
+        --panel: rgba(20, 27, 38, 0.9);
+        --border: rgba(245, 239, 225, 0.1);
+        --text: #f5efe1;
+        --muted: rgba(245, 239, 225, 0.68);
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top, rgba(125, 140, 255, 0.14), transparent 30%),
+          linear-gradient(180deg, #121a28 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      main {
+        width: min(1080px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 36px 0 56px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 4vw, 40px);
+        letter-spacing: 0.04em;
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        padding: 16px 12px 14px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        min-height: 120px;
+        border-radius: 14px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.08)),
+          linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+          linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: auto, 16px 16px, 16px 16px;
+      }
+
+      .label {
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .astronaut-sprite {
+        position: relative;
+        display: inline-block;
+        width: 54px;
+        height: 68px;
+        padding-top: 12px;
+        filter: drop-shadow(0 10px 14px rgba(20, 28, 40, 0.24));
+        transform-origin: center bottom;
+      }
+
+      .astronaut-sprite__label,
+      .astronaut-sprite__helmet,
+      .astronaut-sprite__torso,
+      .astronaut-sprite__arm,
+      .astronaut-sprite__leg,
+      .astronaut-sprite__backpack,
+      .astronaut-sprite__shadow {
+        position: absolute;
+      }
+
+      .astronaut-sprite__label {
+        top: 0;
+        left: 50%;
+        display: grid;
+        place-items: center;
+        min-width: 24px;
+        height: 14px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 18%, white 82%);
+        border: 1px solid color-mix(in srgb, var(--accent) 42%, rgba(61, 46, 87, 0.5) 58%);
+        color: color-mix(in srgb, var(--accent) 78%, #352549 22%);
+        font-size: 7px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        transform: translateX(-50%);
+        z-index: 6;
+      }
+
+      .astronaut-sprite__helmet {
+        top: 14px;
+        left: 10px;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 32% 28%, #ffffff 0 18%, color-mix(in srgb, var(--accent-soft) 34%, #fdfefe 66%) 18% 58%, color-mix(in srgb, var(--accent) 16%, #d8e3ef 84%) 100%);
+        border: 2px solid rgba(61, 46, 87, 0.9);
+        box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 48%, white 52%);
+        z-index: 4;
+      }
+
+      .astronaut-sprite__helmet::before,
+      .astronaut-sprite__helmet::after {
+        content: '';
+        position: absolute;
+        top: 11px;
+        width: 8px;
+        height: 12px;
+        border-radius: 4px;
+        background: linear-gradient(180deg, #ffffff, #dce4ef);
+        border: 2px solid rgba(61, 46, 87, 0.82);
+      }
+
+      .astronaut-sprite__helmet::before { left: -8px; }
+      .astronaut-sprite__helmet::after { right: -8px; }
+
+      .astronaut-sprite__visor {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.98) 0 14%, rgba(255,255,255,0) 15%), linear-gradient(135deg, color-mix(in srgb, var(--accent) 25%, #1a1032 75%) 0%, #2b1445 42%, color-mix(in srgb, var(--accent) 48%, #30173d 52%) 100%);
+        border: 2px solid rgba(61, 46, 87, 0.82);
+        box-shadow: inset 0 -2px 0 rgba(255,255,255,0.08);
+      }
+
+      .astronaut-sprite__visor::before {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        width: 9px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.9);
+        transform: rotate(-24deg);
+      }
+
+      .astronaut-sprite__backpack {
+        top: 42px;
+        left: 39px;
+        width: 9px;
+        height: 20px;
+        border-radius: 5px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 72%, white 28%), color-mix(in srgb, var(--accent) 52%, #cfdae6 48%));
+        border: 2px solid rgba(61, 46, 87, 0.6);
+        z-index: 1;
+      }
+
+      .astronaut-sprite__torso {
+        position: absolute;
+        top: 43px;
+        left: 14px;
+        width: 26px;
+        height: 24px;
+        border-radius: 10px 10px 8px 8px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 60%, white 40%) 0%, color-mix(in srgb, var(--accent) 14%, #ebf1f8 86%) 100%);
+        border: 2px solid rgba(61, 46, 87, 0.82);
+        z-index: 3;
+      }
+
+      .astronaut-sprite__torso::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 6px;
+        width: 14px;
+        height: 8px;
+        border-radius: 6px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 62%, white 38%), #f4f8fd);
+        border: 2px solid rgba(61, 46, 87, 0.7);
+      }
+
+      .astronaut-sprite__torso::after {
+        content: '';
+        position: absolute;
+        left: 3px;
+        right: 3px;
+        bottom: 4px;
+        height: 5px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 82%, white 18%), color-mix(in srgb, var(--accent-soft) 80%, white 20%));
+        opacity: 0.95;
+      }
+
+      .astronaut-sprite__panel {
+        position: absolute;
+        top: 6px;
+        left: 7px;
+        display: grid;
+        place-items: center;
+        width: 12px;
+        height: 12px;
+        border-radius: 4px;
+        background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+        border: 2px solid rgba(61, 46, 87, 0.52);
+        color: #ffffff;
+        font-size: 6px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .astronaut-sprite__arm {
+        top: 47px;
+        width: 8px;
+        height: 18px;
+        border-radius: 8px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 42%, white 58%), color-mix(in srgb, var(--accent) 26%, #e3ebf4 74%));
+        border: 2px solid rgba(61, 46, 87, 0.78);
+        z-index: 2;
+      }
+
+      .astronaut-sprite__arm--left {
+        left: 9px;
+        transform: rotate(10deg);
+      }
+
+      .astronaut-sprite__arm--right {
+        right: 9px;
+        transform: rotate(-28deg);
+      }
+
+      .astronaut-sprite__arm--right::after {
+        content: '';
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--accent-soft) 48%, white 52%);
+        border: 2px solid rgba(61, 46, 87, 0.78);
+      }
+
+      .astronaut-sprite__leg {
+        top: 64px;
+        width: 8px;
+        height: 14px;
+        border-radius: 5px 5px 7px 7px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 36%, white 64%), color-mix(in srgb, var(--accent) 18%, #dee8f2 82%));
+        border: 2px solid rgba(61, 46, 87, 0.78);
+        z-index: 2;
+      }
+
+      .astronaut-sprite__leg--left { left: 17px; }
+      .astronaut-sprite__leg--right { left: 29px; }
+
+      .astronaut-sprite__leg::after {
+        content: '';
+        position: absolute;
+        left: -2px;
+        bottom: -4px;
+        width: 12px;
+        height: 6px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--accent-soft) 22%, white 78%);
+        border: 2px solid rgba(61, 46, 87, 0.78);
+      }
+
+      .astronaut-sprite__shadow {
+        left: 11px;
+        bottom: 1px;
+        width: 32px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(98, 92, 161, 0.18);
+        z-index: 0;
+      }
+
+      .astronaut-sprite--idle {
+        animation: sway 4s ease-in-out infinite;
+      }
+
+      @keyframes sway {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-2px); }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Vivid Astronaut Personas</h1>
+      <p>Rounded astronaut agents with brighter role-coded suits and one compact top label instead of side bubbles.</p>
+      <section class="grid">
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#ff6b7a;--accent-soft:#ffb1c1"><span class="astronaut-sprite__label">&lt;/&gt;</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">FE</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">FRONTEND</div>
+        </article>
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#4d96ff;--accent-soft:#b8d4ff"><span class="astronaut-sprite__label">API</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">BE</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">BACKEND</div>
+        </article>
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#34d399;--accent-soft:#b9f6d8"><span class="astronaut-sprite__label">QA</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">QA</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">TESTER</div>
+        </article>
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#ffd166;--accent-soft:#ffe9a8"><span class="astronaut-sprite__label">MAP</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">LD</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">LEAD</div>
+        </article>
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#8b5cf6;--accent-soft:#d4c0ff"><span class="astronaut-sprite__label">OPS</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">DV</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">DEVOPS</div>
+        </article>
+        <article class="card">
+          <div class="stage"><span class="astronaut-sprite astronaut-sprite--idle" style="--accent:#f472b6;--accent-soft:#ffc7e4"><span class="astronaut-sprite__label">UX</span><span class="astronaut-sprite__backpack"></span><span class="astronaut-sprite__helmet"><span class="astronaut-sprite__visor"></span></span><span class="astronaut-sprite__torso"><span class="astronaut-sprite__panel">DS</span></span><span class="astronaut-sprite__arm astronaut-sprite__arm--left"></span><span class="astronaut-sprite__arm astronaut-sprite__arm--right"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--left"></span><span class="astronaut-sprite__leg astronaut-sprite__leg--right"></span><span class="astronaut-sprite__shadow"></span></span></div>
+          <div class="label">DESIGNER</div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

@@ -2,12 +2,12 @@
 
 Pixel Squad is a VS Code extension for a multi-agent orchestrating pixel factory that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v0.1.6
+## What's New in v0.1.27
 
-- **Task Handoffs and Parallel Flow** — Downstream tasks now receive handoff packets, tasks can auto-promote when dependencies clear, and execution is concurrency-limited instead of single-threaded.
-- **Workspace-Aware Review** — Pixel Squad auto-captures editor and git context, shows diff-style file previews, and keeps review cards closer to an agent-mode patch workflow.
-- **Captured Command Results** — Review commands now run inside the workspace with stored stdout, stderr, exit code, and duration so task review preserves what actually happened.
-- **Room-Based Task Wall** — The webview can group tasks by room in addition to status and assignee, which makes multi-lane demos and real routing easier to follow.
+- **Astronaut persona refresh** — Factory-floor agents and roster cards now use brighter persona-coded astronaut sprites, giving each role a clearer visual identity.
+- **Inline agent assignment** — Quick-assign controls are now embedded directly in the inspector and composer, reducing friction when routing work to a specific agent.
+- **Tool-driven execution loop** — Copilot and Claude can read files, edit targeted regions, run commands, and self-correct after command failures before returning control.
+- **Faster, safer defaults** — Auto-execute is back to opt-in by default, workspace context capture stays bounded, and the extension remains review-friendly on first launch.
 
 ## Commands
 
@@ -23,7 +23,7 @@ npm run test:e2e
 
 ## Using Pixel Squad
 
-1. Open the `Agent Factory` panel (Pixel Squad tab in the bottom panel).
+1. Open the `Agent Factory` panel from the Pixel Squad view in the secondary sidebar.
 2. **Create rooms** — Click `+ Room` and pick a theme.
 3. **Spawn agents** — Click `+` on a room tile to spawn an agent with a persona and provider (Copilot or Claude).
 4. **Route tasks** — Enter a task in the composer or use `@pixel-squad` in Copilot Chat.
@@ -51,7 +51,7 @@ When a task suggests terminal commands, running them now captures stdout, stderr
 | `pixelSquad.autoExecute` | `false` | Auto-execute tasks after routing |
 | `pixelSquad.modelFamily` | `copilot` | Preferred model family (`copilot` or `claude`) |
 | `pixelSquad.autoPopulateWorkspaceContext` | `true` | Automatically capture active editor, open tabs, git state, and relevant files for each task |
-| `pixelSquad.workspaceContextMaxFiles` | `6` | Maximum number of workspace files auto-included as context |
+| `pixelSquad.workspaceContextMaxFiles` | `3` | Maximum number of workspace files auto-included as context |
 
 ## Smoke Test
 
@@ -92,5 +92,5 @@ Use `PIXEL_SQUAD_RECORD_STEP_DELAY_MS=2500 npm run demo:e2e:record` if you want 
 
 - Repository: https://github.com/AkashAi7/Pixel-Squad
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.1.6` runs the `Release VSIX` workflow.
+- Pushing a tag like `v0.1.27` runs the `Release VSIX` workflow.
 - The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.

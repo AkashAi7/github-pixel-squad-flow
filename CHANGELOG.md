@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.27] — 2026-04-16
+### Added
+- **Persona-coded astronaut sprites**: The live factory board and room roster now render brighter astronaut-style role sprites so frontend, backend, QA, lead, devops, and design agents are visually distinct at a glance.
+### Fixed
+- **E2E host selection**: The test and record harnesses now reject installs with update-staging markers and prefer a cleaner local/fallback host selection path, reducing contamination from stale `.vscode-test` state.
+- **Settings drift**: `pixelSquad.autoExecute` is opt-in again across the manifest, coordinator fallback, reset snapshot, and test flow, so fresh installs, resets, and command toggles now behave consistently.
+- **Workspace-context default drift**: `workspaceContextMaxFiles` now resolves to `3` consistently in runtime fallbacks and reset state, matching the shipped configuration.
+### Changed
+- **Release docs sync**: README release notes, sidebar placement guidance, settings defaults, and tag example now reflect the current extension behavior instead of the older `v0.1.6` copy.
+### Notes
+- **Validation status**: `npm run build` and VSIX packaging pass for `0.1.27`. `npm run test:e2e` is still blocked in this environment by the VS Code host bootstrap error `Code is currently being updated`, so this release is build-validated rather than E2E-validated.
+
 ## [0.1.26] — 2026-04-15
 ### Added
 - **MetroCity agent sprites**: Factory-floor agents and room roster cards now use repo-local MetroCity character art derived from the pack's CC0 public preview, replacing the older CSS-only placeholder characters.

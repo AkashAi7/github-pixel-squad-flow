@@ -62,10 +62,10 @@ export class Coordinator {
   getSettings() {
     const config = vscode.workspace.getConfiguration('pixelSquad');
     return {
-      autoExecute: config.get<boolean>('autoExecute', true),
+      autoExecute: config.get<boolean>('autoExecute', false),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
-      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 6),
+      workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
     };
   }
 

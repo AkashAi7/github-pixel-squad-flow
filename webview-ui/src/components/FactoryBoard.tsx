@@ -263,7 +263,7 @@ function RoomStage({
                 </div>
               )}
               <span className="pixel-agent__sprite">
-                <AgentSprite variant={agent.spriteVariant} status={agent.status} size="stage" />
+                <AgentSprite personaId={agent.personaId} status={agent.status} size="stage" />
               </span>
               <span className="pixel-agent__caption">
                 <span className="pixel-agent__label">{agent.name}</span>

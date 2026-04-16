@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+	<title id="title">QA Engineer SDLC persona</title>
+	<desc id="desc">Original 2D QA persona with clean testing gear, status chips, checklist, and a magnifier.</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#f7ffff"/>
+			<stop offset="1" stop-color="#bfe3ff"/>
+		</linearGradient>
+		<linearGradient id="visor" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#ffffff"/>
+			<stop offset="1" stop-color="#d9f2ff"/>
+		</linearGradient>
+	</defs>
+	<rect x="6" y="6" width="244" height="244" rx="30" fill="url(#bg)"/>
+	<path d="M32 0v256M96 0v256M160 0v256M224 0v256M0 32h256M0 96h256M0 160h256M0 224h256" stroke="#d8e7ef" opacity=".6"/>
+	<circle cx="128" cy="136" r="90" fill="#e8fff0" opacity=".44"/>
+	<text x="128" y="33" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="900" fill="#2c4154">QA ENGINEER</text>
+	<g transform="translate(128 143)">
+		<path d="M-58 15c0-44 28-80 58-80s58 36 58 80v33H-58Z" fill="#effff6"/>
+		<path d="M-24 -32l-16-22 24 10M24 -32l16-22-24 10" fill="#d8f4e4"/>
+		<rect x="-52" y="-10" width="104" height="54" rx="27" fill="#e7fbf1" stroke="#7eb8a4" stroke-width="4"/>
+		<rect x="-40" y="0" width="80" height="25" rx="12.5" fill="url(#visor)" stroke="#7eb8a4" stroke-width="4"/>
+		<circle cx="-14" cy="13" r="3" fill="#274751"/>
+		<circle cx="14" cy="13" r="3" fill="#274751"/>
+		<path d="M-30 48h60v66c-18 10-42 10-60 0V48Z" fill="#ffffff"/>
+		<path d="M-34 58c-14 8-23 21-29 37M34 58c14 8 23 21 29 37" stroke="#98cbb9" stroke-width="8" stroke-linecap="round" fill="none"/>
+		<path d="M0 72v15" stroke="#79c2b3" stroke-width="6" stroke-linecap="round"/>
+	</g>
+	<g>
+		<rect x="18" y="85" width="42" height="22" rx="8" fill="#b9ef94"/>
+		<text x="39" y="100" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="800" fill="#275b43">pass</text>
+		<rect x="20" y="114" width="34" height="22" rx="8" fill="#d4f7d8"/>
+		<text x="37" y="129" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="800" fill="#275b43">bug</text>
+		<rect x="202" y="116" width="34" height="22" rx="8" fill="#ffcfd4"/>
+		<text x="219" y="131" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="800" fill="#8d3341">fail</text>
+		<rect x="24" y="162" width="40" height="54" rx="8" fill="#fffef7" stroke="#a3c4b7" stroke-width="2"/>
+		<path d="M35 176h18M35 185h14M35 194h18" stroke="#8ab8a6" stroke-width="3"/>
+		<path d="M33 201l4 4 8-10" stroke="#55aa70" stroke-width="3" fill="none"/>
+		<g transform="translate(198 186)">
+			<circle cx="0" cy="0" r="18" fill="#f8fdff" stroke="#8dbbab" stroke-width="4"/>
+			<circle cx="0" cy="0" r="8" fill="none" stroke="#8dbbab" stroke-width="3"/>
+			<path d="M10 10l12 12" stroke="#8dbbab" stroke-width="4" stroke-linecap="round"/>
+		</g>
+	</g>
+</svg>

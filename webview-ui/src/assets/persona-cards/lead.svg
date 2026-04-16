@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+	<title id="title">Build Manager SDLC persona</title>
+	<desc id="desc">Original 2D build manager persona with console wiring, dashboard bars, and release controls.</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#ffe7bc"/>
+			<stop offset="1" stop-color="#d9c3ff"/>
+		</linearGradient>
+		<linearGradient id="visor" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#edf2ff"/>
+			<stop offset="1" stop-color="#bfd5ef"/>
+		</linearGradient>
+	</defs>
+	<rect x="6" y="6" width="244" height="244" rx="30" fill="url(#bg)"/>
+	<path d="M32 0v256M96 0v256M160 0v256M224 0v256M0 32h256M0 96h256M0 160h256M0 224h256" stroke="#ebd7ca" opacity=".5"/>
+	<circle cx="128" cy="136" r="90" fill="#fff2cf" opacity=".32"/>
+	<text x="128" y="33" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="900" fill="#413243">BUILD MANAGER</text>
+	<g>
+		<rect x="18" y="81" width="34" height="14" rx="7" fill="#81e58f"/>
+		<rect x="56" y="81" width="28" height="14" rx="7" fill="#dde96c"/>
+		<rect x="88" y="81" width="30" height="14" rx="7" fill="#ffca6e"/>
+		<rect x="122" y="81" width="34" height="14" rx="7" fill="#80bbff"/>
+		<rect x="160" y="81" width="28" height="14" rx="7" fill="#ff8cb9"/>
+	</g>
+	<g transform="translate(128 143)">
+		<path d="M-58 15c0-42 27-80 58-80s58 38 58 80v30H-58Z" fill="#7e8da8"/>
+		<path d="M-24 -32l-16-22 24 10M24 -32l16-22-24 10" fill="#96a5be"/>
+		<rect x="-50" y="-10" width="100" height="52" rx="25" fill="#dce5ef" stroke="#6d7d93" stroke-width="4"/>
+		<rect x="-38" y="0" width="76" height="22" rx="11" fill="url(#visor)" stroke="#6d7d93" stroke-width="4"/>
+		<circle cx="-14" cy="11" r="3" fill="#2b3950"/>
+		<circle cx="14" cy="11" r="3" fill="#2b3950"/>
+		<path d="M-33 48h66v64c-18 11-48 11-66 0V48Z" fill="#f0e9f8"/>
+		<path d="M-34 58c-13 8-23 21-29 37M34 58c13 8 23 21 29 37" stroke="#95a2b6" stroke-width="8" stroke-linecap="round" fill="none"/>
+	</g>
+	<rect x="25" y="168" width="80" height="50" rx="10" fill="#faedd1" stroke="#c7ae8b" stroke-width="2"/>
+	<path d="M38 181h54M38 192h42M38 203h48" stroke="#b19068" stroke-width="4"/>
+	<g transform="translate(196 187)">
+		<rect x="-31" y="-28" width="62" height="56" rx="10" fill="#6d8fb5"/>
+		<path d="M-20 -9h16M0 -9h20M-20 3h40M-20 15h26" stroke="#eff7ff" stroke-width="4"/>
+	</g>
+	<path d="M212 152l17 8-10 10z" fill="#f7d36a"/>
+	<path d="M60 219c0-13 13-23 27-23" stroke="#68ca8e" stroke-width="5" fill="none" stroke-linecap="round"/>
+	<path d="M209 173c15 0 22 15 22 22" stroke="#d2975d" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>

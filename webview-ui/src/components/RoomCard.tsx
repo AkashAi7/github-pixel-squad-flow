@@ -45,7 +45,7 @@ export function RoomCard({ room, agents, personas, selectedAgentId, onSelectAgen
               aria-pressed={isSelected}
             >
               <span className="agent-avatar" aria-hidden="true">
-                <AgentSprite variant={agent.spriteVariant} status={agent.status} size="card" />
+                <AgentSprite personaId={agent.personaId} status={agent.status} size="card" />
               </span>
               <span className="agent-name">{agent.name}</span>
               <span className="agent-role">{persona?.title ?? agent.personaId}</span>

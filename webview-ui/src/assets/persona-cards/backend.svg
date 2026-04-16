@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+	<title id="title">Back End SDLC persona</title>
+	<desc id="desc">Original 2D back end engineer persona with a deep systems palette, API badge, and database symbols.</desc>
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#202c3e"/>
+			<stop offset="1" stop-color="#0d1420"/>
+		</linearGradient>
+		<linearGradient id="visor" x1="0" y1="0" x2="1" y2="0">
+			<stop offset="0" stop-color="#e5f4ff"/>
+			<stop offset="1" stop-color="#98bad8"/>
+		</linearGradient>
+	</defs>
+	<rect x="6" y="6" width="244" height="244" rx="30" fill="url(#bg)"/>
+	<path d="M32 0v256M96 0v256M160 0v256M224 0v256M0 32h256M0 96h256M0 160h256M0 224h256" stroke="#30455d" opacity=".45"/>
+	<circle cx="128" cy="136" r="92" fill="#9dd6ff" opacity=".07"/>
+	<text x="128" y="33" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="900" fill="#9ad6ff">BACK END</text>
+	<g transform="translate(128 144)">
+		<path d="M-58 14c0-42 27-80 58-80s58 38 58 80v32H-58Z" fill="#627286"/>
+		<path d="M-24 -32l-16-24 24 9M24 -32l16-24-24 9" fill="#7e92a9"/>
+		<circle cx="-46" cy="-3" r="11" fill="#7287a0"/>
+		<circle cx="46" cy="-3" r="11" fill="#7287a0"/>
+		<rect x="-50" y="-10" width="100" height="52" rx="25" fill="#d7e0e8" stroke="#637487" stroke-width="4"/>
+		<rect x="-38" y="0" width="76" height="22" rx="11" fill="url(#visor)" stroke="#637487" stroke-width="4"/>
+		<circle cx="-14" cy="11" r="3" fill="#263548"/>
+		<circle cx="14" cy="11" r="3" fill="#263548"/>
+		<path d="M-33 48h66v64c-18 11-48 11-66 0V48Z" fill="#eaf0f6"/>
+		<path d="M-34 58c-13 8-23 21-29 37M34 58c13 8 23 21 29 37" stroke="#8897ab" stroke-width="8" stroke-linecap="round" fill="none"/>
+		<path d="M-16 76c10 4 22 4 32 0" stroke="#2a394d" stroke-width="4" stroke-linecap="round" fill="none"/>
+	</g>
+	<g>
+		<rect x="18" y="80" width="40" height="28" rx="8" fill="#4778ba"/>
+		<text x="38" y="98" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="800" fill="#eef7ff">API</text>
+		<g transform="translate(209 84)">
+			<ellipse cx="0" cy="-2" rx="13" ry="5" fill="#aec0d0"/>
+			<path d="M-13-2v19c0 4 6 7 13 7s13-3 13-7V-2" fill="none" stroke="#aec0d0" stroke-width="3"/>
+		</g>
+		<g fill="#6bd2ff" opacity=".28">
+			<circle cx="57" cy="133" r="2"/><circle cx="66" cy="140" r="2"/><circle cx="185" cy="132" r="2"/><circle cx="192" cy="138" r="2"/>
+		</g>
+		<text x="24" y="212" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#b7dc77">python</text>
+		<text x="174" y="212" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#88dd89">node.js</text>
+	</g>
+</svg>
