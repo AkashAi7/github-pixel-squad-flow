@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.34] — 2026-04-16
+### Fixed
+- **Editor-panel allocation sync**: Chat-driven task allocation now broadcasts fresh snapshot state to every connected Pixel Squad surface, so the editor panel immediately reflects the focused agent, room activity, and queued/active work instead of leaving agents visually idle.
+### Notes
+- **Validation status**: `npm run typecheck` and `npm run build` pass for `0.1.34`.
+
 ## [0.1.33] — 2026-04-16
 ### Fixed
 - **Command palette regression**: Restored the quick command-palette helpers for routing a task, assigning a task to an active agent, listing active agents, and fleet execution so the extension remains usable outside the chat entrypoint.

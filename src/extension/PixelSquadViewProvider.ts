@@ -11,6 +11,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private readonly coordinator: Coordinator;
   private staleReaperTimer?: ReturnType<typeof setInterval>;
+  private readonly messageSinks = new Set<(msg: ExtensionMessage) => void>();
 
   constructor(private readonly extensionUri: vscode.Uri) {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -31,6 +32,8 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       ]
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
+    const sink = (msg: ExtensionMessage) => void webviewView.webview.postMessage(msg);
+    this.messageSinks.add(sink);
 
     const unsubscribe = this.coordinator.activityBus.subscribe((message) => {
       this.postMessage(message);
@@ -49,6 +52,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     });
 
     webviewView.onDidDispose(() => {
+      this.messageSinks.delete(sink);
       unsubscribe();
       unsubOutput();
       unsubChat();
@@ -78,6 +82,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     panel.webview.html = this.getHtml(panel.webview);
 
     const post = (msg: ExtensionMessage) => void panel.webview.postMessage(msg);
+  this.messageSinks.add(post);
     const sync = () => post({ type: 'bootstrapState', snapshot: this.coordinator.getSnapshot() });
 
     const unsubActivity = this.coordinator.activityBus.subscribe(post);
@@ -86,6 +91,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     const unsubStream = this.coordinator.streamBus.subscribe(post);
 
     panel.onDidDispose(() => {
+      this.messageSinks.delete(post);
       unsubActivity();
       unsubOutput();
       unsubChat();
@@ -167,7 +173,9 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   }
 
   private postMessage(message: ExtensionMessage): void {
-    this.view?.webview.postMessage(message);
+    for (const sink of this.messageSinks) {
+      sink(message);
+    }
   }
 
   async createTaskFromPrompt(
