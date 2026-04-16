@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.29] — 2026-04-16
+### Added
+- **Persona-targeted `@pixel-squad` chat commands**: Copilot Chat can now route directly to `lead`, `frontend`, `backend`, `tester`, `devops`, or `designer`, automatically reusing or provisioning a matching room agent when needed.
+- **Changed-file visibility in the UI**: Task cards and the inspector now surface changed file paths directly, so you can see what an agent touched without digging through the full diff preview.
+### Fixed
+- **Queued task takeover for new room agents**: Spawning an agent into a room with queued work now defaults to moving the oldest queued task onto that new agent, carrying forward captured workspace context and pinned file hints.
+- **Planning-task timeout failures**: Prompts that are clearly asking for a plan, roadmap, or approach now use a planning-only response path instead of the heavy tool-execution loop, avoiding the 60-second execution timeout seen on plan-only requests.
+### Changed
+- **Chat-to-factory workflow**: Persona-targeted chat requests now update the live Pixel Squad panel in a GHCP-style flow where the selected persona is represented by a visible room agent and task.
+### Notes
+- **Validation status**: `npm run build` and VSIX packaging pass for `0.1.29`. Extension-host E2E remains blocked in this environment by the VS Code bootstrap error `Code is currently being updated`.
+
 ## [0.1.28] — 2026-04-16
 ### Added
 - **Spawn-time queued-task takeover**: Creating an agent inside a room can now immediately reassign one queued room task to that new agent from the spawn dialog.

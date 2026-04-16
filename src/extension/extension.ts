@@ -4,16 +4,24 @@ import { PixelSquadViewProvider, VIEW_ID } from './PixelSquadViewProvider.js';
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new PixelSquadViewProvider(context.extensionUri);
+  const personaCommandMap = new Set(['lead', 'frontend', 'backend', 'tester', 'devops', 'designer']);
 
   const chatParticipant = vscode.chat.createChatParticipant('pixelSquad.orchestrator', async (request, chatContext, stream, token) => {
     void chatContext;
-    const summary = await provider.createTaskFromPrompt(request.prompt, request.model, token);
+    const selectedPersona = request.command && personaCommandMap.has(request.command) ? request.command : undefined;
+    const summary = selectedPersona
+      ? await provider.assignTaskToPersona(selectedPersona, request.prompt)
+      : await provider.createTaskFromPrompt(request.prompt, request.model, token);
     stream.markdown([
-      'Pixel Squad routed your task and updated the Agent Factory panel.',
+      selectedPersona
+        ? `Pixel Squad routed your task directly to the ${selectedPersona} persona and updated the Agent Factory panel.`
+        : 'Pixel Squad routed your task and updated the Agent Factory panel.',
       '',
       summary,
       '',
-      'Open the Pixel Squad panel to inspect rooms, agent assignments, and the task wall.'
+      selectedPersona
+        ? 'Open the Pixel Squad panel to inspect the persona agent, execution output, changed files, and task wall.'
+        : 'Open the Pixel Squad panel to inspect rooms, agent assignments, and the task wall.'
     ].join('\n'));
   });
   chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'icon.svg');

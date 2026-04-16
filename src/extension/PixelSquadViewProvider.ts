@@ -155,7 +155,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     }
 
     if (message.type === 'spawnAgent') {
-      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona, message.assignTaskId);
+      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona, message.assignTaskId, 'panel');
       syncSnapshot();
     }
 
@@ -267,6 +267,12 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   /** Assign a task to a specific agent (CLI entry point) */
   async assignTaskToAgent(agentId: string, prompt: string): Promise<string> {
     const summary = await this.coordinator.assignTask(agentId, prompt);
+    this.syncSnapshot();
+    return summary;
+  }
+
+  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider): Promise<string> {
+    const summary = await this.coordinator.assignTaskToPersona(personaId, prompt, provider);
     this.syncSnapshot();
     return summary;
   }

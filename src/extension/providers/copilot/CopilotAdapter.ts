@@ -112,6 +112,10 @@ export class CopilotAdapter implements ProviderAdapter {
       };
     }
 
+    if (this.isPlanningOnlyTask(task)) {
+      return this.executePlanningTask(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
+    }
+
     const rootPath = workspaceContext.workspaceRoot;
     if (!rootPath) {
       // No workspace root — fall back to JSON plan mode
@@ -162,6 +166,74 @@ export class CopilotAdapter implements ProviderAdapter {
           success: false,
         };
       }
+    }
+  }
+
+  private isPlanningOnlyTask(task: TaskCard): boolean {
+    const text = `${task.title}\n${task.detail}`.toLowerCase();
+    const planningIntent = /\b(plan|strategy|roadmap|proposal|architecture|approach|business plan|deployment plan|migration plan|design doc|outline)\b/.test(text);
+    const implementationIntent = /\b(write|implement|fix|edit|modify|change|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
+    return planningIntent && !implementationIntent;
+  }
+
+  private async executePlanningTask(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
+    resolvedModel: vscode.LanguageModelChat,
+    token?: vscode.CancellationToken,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
+  ): Promise<ExecutionResult> {
+    const promptLines = [
+      `You are ${agent.name}, a ${persona.specialty} agent in Pixel Squad.`,
+      'This task is planning-only. Do not use tools, do not propose file edits, and do not run commands.',
+      'Return a concise execution plan as plain text with these sections: Goal, Recommended Azure/implementation path, Step-by-step plan, Risks, Validation.',
+      room ? `Room: ${room.name} (${room.theme}) — ${room.purpose}` : '',
+      `Task: ${task.title}`,
+      `Details: ${task.detail}`,
+      `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
+      `Active file: ${workspaceContext.activeFile || 'none'}`,
+      handoffPackets?.length ? `Prior handoff: ${handoffPackets.map((packet) => packet.summary).join(' | ')}` : '',
+      inboxMessages?.length ? `Agent messages: ${inboxMessages.map((message) => message.content).join(' | ')}` : '',
+    ].filter(Boolean);
+
+    try {
+      const response = await resolvedModel.sendRequest(
+        [vscode.LanguageModelChatMessage.User(promptLines.join('\n'))],
+        {},
+        token,
+      );
+
+      let text = '';
+      for await (const fragment of response.text) {
+        text += fragment;
+        onChunk?.(fragment);
+      }
+
+      const normalized = text.trim() || `Plan prepared for ${task.title}.`;
+      return {
+        output: normalized,
+        success: true,
+        plan: {
+          summary: `Planning response for "${task.title}"`,
+          fileEdits: [],
+          terminalCommands: [],
+          commandResults: [],
+          tests: [],
+          notes: [normalized.slice(0, 2000)],
+        },
+        done: true,
+      };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown planning error';
+      return {
+        output: `Planning failed: ${detail}`,
+        success: false,
+      };
     }
   }
 

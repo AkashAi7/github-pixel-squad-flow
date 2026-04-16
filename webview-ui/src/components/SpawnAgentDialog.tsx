@@ -14,7 +14,7 @@ export function SpawnAgentDialog({ roomName, roomId, roomTasks, personas, onSubm
   const [name, setName] = useState('');
   const [personaId, setPersonaId] = useState(personas[0]?.id ?? 'lead');
   const [provider, setProvider] = useState<Provider>('copilot');
-  const [assignTaskId, setAssignTaskId] = useState('');
+  const [assignTaskId, setAssignTaskId] = useState(roomTasks[0]?.id ?? '__none__');
   const [useCustomPersona, setUseCustomPersona] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [customSpecialty, setCustomSpecialty] = useState('');
@@ -43,6 +43,10 @@ export function SpawnAgentDialog({ roomName, roomId, roomTasks, personas, onSubm
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onCancel]);
+
+  useEffect(() => {
+    setAssignTaskId(roomTasks[0]?.id ?? '__none__');
+  }, [roomTasks, roomId]);
 
   return (
     <div className="dialog-backdrop" onClick={onCancel} role="dialog" aria-modal="true" aria-labelledby="spawn-agent-title">
@@ -139,20 +143,20 @@ export function SpawnAgentDialog({ roomName, roomId, roomTasks, personas, onSubm
 
         {roomTasks.length > 0 ? (
           <>
-            <label className="dialog-label">Auto-assign queued task</label>
+            <label className="dialog-label">Queued task for this new agent</label>
             <select
               className="dialog-input"
               value={assignTaskId}
               onChange={(event) => setAssignTaskId(event.target.value)}
             >
-              <option value="">No automatic task assignment</option>
+              <option value="__none__">Do not take a queued task</option>
               {roomTasks.map((task) => (
                 <option key={task.id} value={task.id}>
                   {task.title.length > 72 ? `${task.title.slice(0, 69)}...` : task.title}
                 </option>
               ))}
             </select>
-            <p className="inspector-copy">Move one queued room task to this new agent immediately after spawn.</p>
+            <p className="inspector-copy">By default, the oldest queued room task is moved to this new agent together with its captured workspace context.</p>
           </>
         ) : null}
 
@@ -161,7 +165,7 @@ export function SpawnAgentDialog({ roomName, roomId, roomTasks, personas, onSubm
             type="button"
             className="composer-button"
             disabled={name.trim().length === 0}
-            onClick={() => onSubmit(roomId, name.trim(), personaId, provider, customPersona, assignTaskId || undefined)}
+            onClick={() => onSubmit(roomId, name.trim(), personaId, provider, customPersona, assignTaskId === '__none__' ? '' : assignTaskId || undefined)}
           >
             Spawn Agent
           </button>

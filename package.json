@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -187,6 +187,30 @@
           {
             "name": "route",
             "description": "Route a task through the squad and update the factory."
+          },
+          {
+            "name": "lead",
+            "description": "Send this request directly to the lead persona."
+          },
+          {
+            "name": "frontend",
+            "description": "Send this request directly to the frontend persona."
+          },
+          {
+            "name": "backend",
+            "description": "Send this request directly to the backend persona."
+          },
+          {
+            "name": "tester",
+            "description": "Send this request directly to the tester persona."
+          },
+          {
+            "name": "devops",
+            "description": "Send this request directly to the devops persona."
+          },
+          {
+            "name": "designer",
+            "description": "Send this request directly to the designer persona."
           }
         ]
       }

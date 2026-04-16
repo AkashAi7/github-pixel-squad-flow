@@ -197,6 +197,10 @@ function renderCommandResults(task: TaskCard) {
   );
 }
 
+function changedFilesForTask(task: TaskCard): string[] {
+  return Array.from(new Set(task.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? []));
+}
+
 export function InspectorPanelComponent({
   selectedAgent,
   selectedAgentTasks,
@@ -219,6 +223,7 @@ export function InspectorPanelComponent({
   streamingOutputs,
   vscode,
 }: InspectorPanelProps) {
+  const focusChangedFiles = selectedAgentFocusTask ? changedFilesForTask(selectedAgentFocusTask) : [];
   return (
     <section className="panel inspector-panel">
       <p className="eyebrow">Selected Agent</p>
@@ -338,6 +343,14 @@ export function InspectorPanelComponent({
                     </div>
                     <strong>{selectedAgentFocusTask.title}</strong>
                     <p>{selectedAgentFocusTask.detail}</p>
+                    {focusChangedFiles.length > 0 ? (
+                      <div className="task-meta">
+                        <span className="task-chip">Changed files</span>
+                        {focusChangedFiles.slice(0, 4).map((filePath) => (
+                          <span key={`${selectedAgentFocusTask.id}-${filePath}`} className="task-chip" title={filePath}>{filePath}</span>
+                        ))}
+                      </div>
+                    ) : null}
                     {selectedAgentFocusTask.progress ? (
                       <div className={`task-progress${selectedAgentFocusTask.status === 'active' ? ' task-progress--active' : ''}`}>
                         <div className="task-progress__bar">
@@ -507,6 +520,9 @@ export function InspectorPanelComponent({
                 {selectedAgentTasks.length > 0 ? (
                   <div className="agent-work__list">
                     {selectedAgentTasks.map((task) => (
+                      (() => {
+                        const changedFiles = changedFilesForTask(task);
+                        return (
                       <article
                         key={task.id}
                         className={`agent-work__task agent-work__task--${task.status}${expandedTaskId === task.id ? ' agent-work__task--expanded' : ''}`}
@@ -525,6 +541,15 @@ export function InspectorPanelComponent({
                           <span className="agent-work__title">{task.title}</span>
                         </div>
                         <p className="agent-work__detail">{task.detail}</p>
+                        {changedFiles.length > 0 ? (
+                          <div className="task-meta">
+                            <span className="task-chip">Changed files</span>
+                            {changedFiles.slice(0, 3).map((filePath) => (
+                              <span key={`${task.id}-${filePath}`} className="task-chip" title={filePath}>{filePath}</span>
+                            ))}
+                            {changedFiles.length > 3 ? <span className="task-chip">+{changedFiles.length - 3} more</span> : null}
+                          </div>
+                        ) : null}
                         {task.status === 'active' && streamingOutputs[task.id] && (
                           <div className="task-output task-output--stream">
                             <p className="eyebrow">Live output</p>
@@ -568,6 +593,8 @@ export function InspectorPanelComponent({
                           </div>
                         ) : null}
                       </article>
+                        );
+                      })()
                     ))}
                   </div>
                 ) : null}

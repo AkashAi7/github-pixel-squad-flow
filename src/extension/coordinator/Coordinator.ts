@@ -277,6 +277,29 @@ export class Coordinator {
     return `Task assigned to ${agent.name} (${agent.provider}).`;
   }
 
+  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider): Promise<string> {
+    const persona = this.snapshot.personas.find((item) => item.id === personaId);
+    if (!persona) {
+      return 'Persona not found.';
+    }
+
+    const existingAgents = this.snapshot.agents
+      .filter((agent) => agent.personaId === personaId)
+      .sort((left, right) => this.openTaskCountForAgent(left.id) - this.openTaskCountForAgent(right.id));
+    let targetAgent = existingAgents.find((agent) => agent.status === 'idle') ?? existingAgents[0];
+
+    if (!targetAgent) {
+      const targetRoom = this.pickRoomForPersona(personaId);
+      const spawned = this.spawnAgent(targetRoom.id, '', personaId, provider ?? ((this.getSettings().modelFamily as Provider) ?? 'copilot'), undefined, '', 'chat');
+      if (!spawned) {
+        return `Unable to provision a ${persona.title} agent for this task.`;
+      }
+      targetAgent = spawned;
+    }
+
+    return this.assignTask(targetAgent.id, prompt);
+  }
+
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
     const task = this.snapshot.tasks.find((t) => t.id === taskId);
     if (!task) {
@@ -809,7 +832,7 @@ export class Coordinator {
 
   /* ── Agent spawning ───────────────────────────────── */
 
-  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft, assignTaskId?: string): SquadAgent | undefined {
+  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft, assignTaskId?: string, spawnSource: 'panel' | 'chat' = 'panel'): SquadAgent | undefined {
     const room = this.snapshot.rooms.find((r) => r.id === roomId);
     if (!room) return undefined;
 
@@ -817,6 +840,13 @@ export class Coordinator {
     const resolvedPersonaId = nextPersona?.id ?? personaId;
     const persona = this.snapshot.personas.find((p) => p.id === resolvedPersonaId) ?? nextPersona;
     if (!persona) return undefined;
+
+    const queuedRoomTasks = this.snapshot.tasks.filter((task) =>
+      task.status === 'queued' && this.snapshot.agents.find((existing) => existing.id === task.assigneeId)?.roomId === roomId,
+    );
+    const selectedTaskId = assignTaskId === ''
+      ? undefined
+      : (assignTaskId ?? (spawnSource === 'panel' ? queuedRoomTasks[0]?.id : undefined));
 
     const agent: SquadAgent = {
       id: this.makeId('agent'),
@@ -827,6 +857,7 @@ export class Coordinator {
       roomId,
       summary: `Ready for ${persona.specialty.toLowerCase()} tasks.`,
       spriteVariant: Math.floor(Math.random() * 4),
+      pinnedFiles: [],
     };
 
     this.snapshot = {
@@ -838,18 +869,28 @@ export class Coordinator {
       ),
     };
 
-    if (assignTaskId) {
-      const reassignedTask = this.snapshot.tasks.find((task) => task.id === assignTaskId);
+    if (selectedTaskId) {
+      const reassignedTask = this.snapshot.tasks.find((task) => task.id === selectedTaskId);
       if (reassignedTask && reassignedTask.status === 'queued') {
         const previousAssigneeId = reassignedTask.assigneeId;
+        const pinnedFiles = this.extractPinnedFilesFromTaskContext(reassignedTask);
         this.snapshot = {
           ...this.snapshot,
+          agents: this.snapshot.agents.map((existingAgent) =>
+            existingAgent.id === agent.id
+              ? {
+                  ...existingAgent,
+                  pinnedFiles: Array.from(new Set([...(existingAgent.pinnedFiles ?? []), ...pinnedFiles])),
+                  summary: `Picked up queued task: ${reassignedTask.title}`,
+                }
+              : existingAgent,
+          ),
           tasks: this.snapshot.tasks.map((task) =>
-            task.id === assignTaskId
+            task.id === selectedTaskId
               ? {
                   ...task,
                   assigneeId: agent.id,
-                  progress: this.progressForStatus('queued', 'Assigned to new agent', 1, 5),
+                  progress: this.progressForStatus('queued', 'Assigned to new agent with context', 1, 5),
                   updatedAt: Date.now(),
                 }
               : task,
@@ -1036,6 +1077,36 @@ export class Coordinator {
       case 'failed':
         return { value: value ?? total, total, label: label ?? 'Failed' };
     }
+  }
+
+  private openTaskCountForAgent(agentId: string): number {
+    return this.snapshot.tasks.filter((task) =>
+      task.assigneeId === agentId && task.status !== 'done' && task.status !== 'failed',
+    ).length;
+  }
+
+  private pickRoomForPersona(personaId: string): Room {
+    const preferredThemeByPersona: Partial<Record<string, RoomTheme>> = {
+      lead: 'general',
+      frontend: 'frontend',
+      backend: 'backend',
+      tester: 'testing',
+      devops: 'devops',
+      designer: 'design',
+    };
+    const preferredTheme = preferredThemeByPersona[personaId] ?? 'general';
+    return this.snapshot.rooms.find((room) => room.theme === preferredTheme)
+      ?? this.snapshot.rooms.find((room) => room.theme === 'general')
+      ?? this.snapshot.rooms[0];
+  }
+
+  private extractPinnedFilesFromTaskContext(task: TaskCard): string[] {
+    const files = [
+      ...(task.workspaceContext?.activeFile ? [task.workspaceContext.activeFile] : []),
+      ...(task.workspaceContext?.relevantFiles.map((file) => file.path) ?? []),
+      ...(task.handoffPackets?.flatMap((packet) => packet.filesChanged) ?? []),
+    ].filter((value): value is string => Boolean(value));
+    return Array.from(new Set(files));
   }
 
   private reconcileAgentStatuses(agentIds?: string[]): void {

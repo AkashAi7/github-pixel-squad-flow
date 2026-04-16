@@ -201,6 +201,10 @@ function renderCommandResults(task: TaskCard) {
   );
 }
 
+function changedFilesForTask(task: TaskCard): string[] {
+  return Array.from(new Set(task.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? []));
+}
+
 export function TaskCardComponent({
   task,
   agentsById,
@@ -220,6 +224,7 @@ export function TaskCardComponent({
   const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
   const isActiveProgress = task.status === 'active';
   const isExpanded = expandedTaskId === task.id;
+  const changedFiles = changedFilesForTask(task);
   const cardRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -269,6 +274,16 @@ export function TaskCardComponent({
       </div>
 
       <p className="task-card__detail">{task.detail}</p>
+
+      {changedFiles.length > 0 ? (
+        <div className="task-meta">
+          <span className="task-chip">Changed files</span>
+          {changedFiles.slice(0, 3).map((filePath) => (
+            <span key={`${task.id}-${filePath}`} className="task-chip" title={filePath}>{filePath}</span>
+          ))}
+          {changedFiles.length > 3 ? <span className="task-chip">+{changedFiles.length - 3} more</span> : null}
+        </div>
+      ) : null}
 
       <div className="task-card__footer">
         <div className="task-card__identity">
