@@ -1,18 +1,18 @@
 {
-  "name": "pixel-squad",
-  "displayName": "Pixel Squad",
-  "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.31",
+  "name": "github-pixel-squad-flow",
+  "displayName": "GitHub Pixel Squad Flow",
+  "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
+  "version": "0.1.32",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AkashAi7/Pixel-Squad.git"
+    "url": "https://github.com/AkashAi7/github-pixel-squad-flow.git"
   },
-  "homepage": "https://github.com/AkashAi7/Pixel-Squad",
+  "homepage": "https://github.com/AkashAi7/github-pixel-squad-flow",
   "icon": "assets/icon.png",
   "bugs": {
-    "url": "https://github.com/AkashAi7/Pixel-Squad/issues"
+    "url": "https://github.com/AkashAi7/github-pixel-squad-flow/issues"
   },
   "engines": {
     "vscode": "^1.105.0"
@@ -26,7 +26,7 @@
       "secondarySideBar": [
         {
           "id": "pixelSquad",
-          "title": "Pixel Squad",
+          "title": "GitHub Pixel Squad Flow",
           "icon": "assets/icon-activitybar.svg"
         }
       ]
@@ -43,28 +43,28 @@
     "commands": [
       {
         "command": "pixelSquad.showFactory",
-        "title": "Pixel Squad: Show Agent Factory"
+        "title": "GitHub Pixel Squad Flow: Show Agent Factory"
       },
       {
         "command": "pixelSquad.openInEditor",
-        "title": "Pixel Squad: Open in Editor Panel",
-        "category": "Pixel Squad"
+        "title": "GitHub Pixel Squad Flow: Open in Editor Panel",
+        "category": "GitHub Pixel Squad Flow"
       },
       {
         "command": "pixelSquad.resetWorkspace",
-        "title": "Pixel Squad: Reset Workspace State"
+        "title": "GitHub Pixel Squad Flow: Reset Workspace State"
       },
       {
         "command": "pixelSquad.runSmokeTest",
-        "title": "Pixel Squad: Run Smoke Test"
+        "title": "GitHub Pixel Squad Flow: Run Smoke Test"
       },
       {
         "command": "pixelSquad.toggleAutoExecute",
-        "title": "Pixel Squad: Toggle Auto-Execute"
+        "title": "GitHub Pixel Squad Flow: Toggle Auto-Execute"
       }
     ],
     "configuration": {
-      "title": "Pixel Squad",
+      "title": "GitHub Pixel Squad Flow",
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
@@ -101,16 +101,16 @@
     "walkthroughs": [
       {
         "id": "pixelSquad.getStarted",
-        "title": "Get Started with Pixel Squad",
-        "description": "Learn how to route tasks through your multi-agent factory powered by GitHub Copilot.",
+        "title": "Get Started with GitHub Pixel Squad Flow",
+        "description": "Learn how to route tasks through your chat-first multi-agent factory powered by GitHub Copilot.",
         "steps": [
           {
             "id": "openFactory",
             "title": "Open the Agent Factory",
-            "description": "Open the Pixel Squad panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
+            "description": "Open the GitHub Pixel Squad Flow panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
             "media": {
               "image": "assets/icon.svg",
-              "altText": "Pixel Squad icon"
+              "altText": "GitHub Pixel Squad Flow icon"
             }
           },
           {
@@ -156,8 +156,8 @@
       {
         "id": "pixelSquad.orchestrator",
         "name": "pixel-squad",
-        "fullName": "Pixel Squad Orchestrator",
-        "description": "Route a task through Pixel Squad (Copilot + Claude) and update the Agent Factory.",
+        "fullName": "GitHub Pixel Squad Flow Orchestrator",
+        "description": "Route a task through GitHub Pixel Squad Flow (Copilot + Claude) and update the Agent Factory.",
         "isSticky": true,
         "commands": [
           {
@@ -197,7 +197,7 @@
     "build:extension": "node ./esbuild.mjs",
     "build:webview": "npm --prefix webview-ui run build",
     "demo:e2e:record": "npm run build && node ./test/e2e/recordHostDemo.mjs",
-    "package:vsix": "npm run build && npx @vscode/vsce package --out pixel-squad.vsix",
+    "package:vsix": "npm run build && npx @vscode/vsce package --out github-pixel-squad-flow.vsix",
     "test:e2e": "npm run build && node ./test/e2e/runTest.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "watch:webview": "npm --prefix webview-ui run dev"

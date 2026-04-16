@@ -60,11 +60,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /** Open Pixel Squad as a full editor-area panel — more space, sits alongside Copilot Chat */
+  /** Open GitHub Pixel Squad Flow as a full editor-area panel — more space, sits alongside Copilot Chat */
   openAsEditorPanel(): void {
     const panel = vscode.window.createWebviewPanel(
       'pixelSquad.editorPanel',
-      'Pixel Squad',
+      'GitHub Pixel Squad Flow',
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
@@ -192,7 +192,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       'Build a settings screen, persist the selected theme, and add a tester validation pass.',
     );
     this.syncSnapshot();
-    return `Smoke test passed through Pixel Squad routing. ${summary}`;
+    return `Smoke test passed through GitHub Pixel Squad Flow routing. ${summary}`;
   }
 
   /** Return agents list for CLI QuickPick */
@@ -271,14 +271,14 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="${csp}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pixel Squad</title>
+    <title>GitHub Pixel Squad Flow</title>
     <style>
       body { font-family: sans-serif; padding: 24px; background: #101820; color: #f7f3e9; }
       strong { color: #ffe066; }
     </style>
   </head>
   <body>
-    <strong>Pixel Squad webview has not been built yet.</strong>
+    <strong>GitHub Pixel Squad Flow webview has not been built yet.</strong>
     <p>Run the webview build to replace this fallback with the factory UI.</p>
   </body>
 </html>`;

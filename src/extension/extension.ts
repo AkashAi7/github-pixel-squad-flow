@@ -14,8 +14,8 @@ export function activate(context: vscode.ExtensionContext): void {
       : await provider.createTaskFromPrompt(request.prompt, request.model, token);
     stream.markdown([
       selectedPersona
-        ? `Pixel Squad synced your chat request to the ${selectedPersona} agent lane and updated the runtime panel.`
-        : 'Pixel Squad routed your chat request and updated the runtime panel.',
+        ? `GitHub Pixel Squad Flow synced your chat request to the ${selectedPersona} agent lane and updated the runtime panel.`
+        : 'GitHub Pixel Squad Flow routed your chat request and updated the runtime panel.',
       '',
       summary,
       '',
@@ -29,11 +29,11 @@ export function activate(context: vscode.ExtensionContext): void {
     provideFollowups: () => [
       {
         label: 'Break this into frontend and backend tasks',
-        prompt: 'Break this into frontend and backend tasks for Pixel Squad.',
+        prompt: 'Break this into frontend and backend tasks for GitHub Pixel Squad Flow.',
       },
       {
         label: 'Add a tester pass',
-        prompt: 'Add a tester validation pass and update the Pixel Squad task wall.',
+        prompt: 'Add a tester validation pass and update the GitHub Pixel Squad Flow task wall.',
       },
     ]
   };
@@ -61,7 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const current = config.get<boolean>('autoExecute', false);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       provider.refresh();
-      void vscode.window.showInformationMessage(`Pixel Squad auto-execute: ${!current ? 'ON' : 'OFF'}`);
+      void vscode.window.showInformationMessage(`GitHub Pixel Squad Flow auto-execute: ${!current ? 'ON' : 'OFF'}`);
     }),
 
     /* ── Cleanup ──────────────────────────────────── */

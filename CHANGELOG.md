@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.31] — 2026-04-16
+## [0.1.32] — 2026-04-16
 ### Added
 - **Explicit run and agent-session state**: Pixel Squad now persists chat-driven runs, stage ordering, and per-agent session transcripts so the runtime panel can represent a real multi-agent pipeline instead of inferring everything from flat task cards.
 ### Changed
@@ -8,7 +8,7 @@
 - **Pipeline grouping source**: Task grouping by pipeline now uses the explicit run model, so grouped runs stay aligned with the active Copilot Chat session and focused agent lane.
 - **Protocol cleanup**: Removed obsolete panel-era webview message types and handlers for room CRUD, direct task assignment, and fleet launch flows that are no longer part of the chat-first product.
 ### Notes
-- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `0.1.31`. Extension-host E2E remains blocked in this environment by the VS Code bootstrap error `Code is currently being updated`.
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `0.1.32`. Extension-host E2E remains blocked in this environment by the VS Code bootstrap error `Code is currently being updated`.
 
 ## [0.1.30] — 2026-04-16
 ### Fixed
