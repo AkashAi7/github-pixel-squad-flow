@@ -155,7 +155,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     }
 
     if (message.type === 'spawnAgent') {
-      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona);
+      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona, message.assignTaskId);
       syncSnapshot();
     }
 

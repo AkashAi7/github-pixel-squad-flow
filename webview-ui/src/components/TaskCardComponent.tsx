@@ -26,15 +26,15 @@ export interface TaskCardProps {
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
     case 'queued':
-      return { value: 0, total: 3, label: 'Queued' };
+      return { value: 1, total: 5, label: 'Queued' };
     case 'active':
-      return { value: 1, total: 3, label: 'Executing' };
+      return { value: 2, total: 5, label: 'Executing' };
     case 'review':
-      return { value: 2, total: 3, label: 'Review' };
+      return { value: 4, total: 5, label: 'Review' };
     case 'done':
-      return { value: 3, total: 3, label: 'Complete' };
+      return { value: 5, total: 5, label: 'Complete' };
     case 'failed':
-      return { value: 3, total: 3, label: 'Failed' };
+      return { value: 5, total: 5, label: 'Failed' };
   }
 }
 
@@ -218,6 +218,7 @@ export function TaskCardComponent({
   const dependencyCount = task.dependsOn?.length ?? 0;
   const progress = task.progress ?? taskProgressForStatus(task.status);
   const progressWidth = `${Math.max(0, Math.min(100, (progress.value / progress.total) * 100))}%`;
+  const isActiveProgress = task.status === 'active';
   const isExpanded = expandedTaskId === task.id;
   const cardRef = useRef<HTMLElement | null>(null);
 
@@ -274,11 +275,11 @@ export function TaskCardComponent({
           <strong>{assignee?.name ?? 'Unassigned'}</strong>
           <span>{persona?.title ?? 'Unknown persona'}</span>
         </div>
-        <div className="task-progress" title={progress.label}>
+        <div className={`task-progress${isActiveProgress ? ' task-progress--active' : ''}`} title={progress.label}>
           <div className="task-progress__bar">
-            <div className="task-progress__fill" style={{ width: progressWidth }} />
+            <div className={`task-progress__fill${isActiveProgress ? ' task-progress__fill--active' : ''}`} style={{ width: progressWidth }} />
           </div>
-          <span>{progress.label}</span>
+          <span>{progress.label} · {Math.min(progress.value, progress.total)}/{progress.total}</span>
         </div>
       </div>
 

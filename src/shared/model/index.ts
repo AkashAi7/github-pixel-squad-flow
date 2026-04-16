@@ -138,6 +138,7 @@ export interface WorkspaceContext {
   gitStatus?: string[];
   activeFile?: string;
   selectedText?: string;
+  contextMode?: 'light' | 'full';
   relevantFiles: WorkspaceFileContext[];
 }
 

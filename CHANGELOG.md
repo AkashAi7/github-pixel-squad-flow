@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.28] — 2026-04-16
+### Added
+- **Spawn-time queued-task takeover**: Creating an agent inside a room can now immediately reassign one queued room task to that new agent from the spawn dialog.
+### Fixed
+- **Agent/task status drift**: Agent grid state is now reconciled from live task state so planning, executing, waiting, and idle stay aligned across the board, inspector, and task wall.
+- **Execution start latency**: Task creation and execution no longer block on full workspace-context hydration before starting; agents now begin from lightweight context and fill richer workspace context in the background.
+### Changed
+- **Active progress visibility**: Task cards and the inspector now show clearer five-step progress with animated active-state fills, making long-running work easier to track.
+- **Tool loop bound**: Tool-calling execution now hard-stops after 12 rounds instead of 25, reducing pathological long-tail runs when an agent gets stuck exploring.
+- **Tool prompt clarity**: Copilot and Claude execution prompts now explicitly tell agents to use surfaced MCP and extension-provided tools when available.
+### Notes
+- **Validation status**: `npm run build` and VSIX packaging pass for `0.1.28`. Extension-host E2E is still blocked in this environment by the VS Code bootstrap error `Code is currently being updated`.
+
 ## [0.1.27] — 2026-04-16
 ### Added
 - **Persona-coded astronaut sprites**: The live factory board and room roster now render brighter astronaut-style role sprites so frontend, backend, QA, lead, devops, and design agents are visually distinct at a glance.

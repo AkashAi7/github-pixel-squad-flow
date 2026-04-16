@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import type { CustomPersonaDraft, PersonaTemplate, Provider } from '../../../src/shared/model/index.js';
+import type { CustomPersonaDraft, PersonaTemplate, Provider, TaskCard } from '../../../src/shared/model/index.js';
 
 interface SpawnAgentDialogProps {
   roomName: string;
   roomId: string;
+  roomTasks: TaskCard[];
   personas: PersonaTemplate[];
-  onSubmit: (roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft) => void;
+  onSubmit: (roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft, assignTaskId?: string) => void;
   onCancel: () => void;
 }
 
-export function SpawnAgentDialog({ roomName, roomId, personas, onSubmit, onCancel }: SpawnAgentDialogProps) {
+export function SpawnAgentDialog({ roomName, roomId, roomTasks, personas, onSubmit, onCancel }: SpawnAgentDialogProps) {
   const [name, setName] = useState('');
   const [personaId, setPersonaId] = useState(personas[0]?.id ?? 'lead');
   const [provider, setProvider] = useState<Provider>('copilot');
+  const [assignTaskId, setAssignTaskId] = useState('');
   const [useCustomPersona, setUseCustomPersona] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [customSpecialty, setCustomSpecialty] = useState('');
@@ -135,12 +137,31 @@ export function SpawnAgentDialog({ roomName, roomId, personas, onSubmit, onCance
           </button>
         </div>
 
+        {roomTasks.length > 0 ? (
+          <>
+            <label className="dialog-label">Auto-assign queued task</label>
+            <select
+              className="dialog-input"
+              value={assignTaskId}
+              onChange={(event) => setAssignTaskId(event.target.value)}
+            >
+              <option value="">No automatic task assignment</option>
+              {roomTasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title.length > 72 ? `${task.title.slice(0, 69)}...` : task.title}
+                </option>
+              ))}
+            </select>
+            <p className="inspector-copy">Move one queued room task to this new agent immediately after spawn.</p>
+          </>
+        ) : null}
+
         <div className="dialog-actions">
           <button
             type="button"
             className="composer-button"
             disabled={name.trim().length === 0}
-            onClick={() => onSubmit(roomId, name.trim(), personaId, provider, customPersona)}
+            onClick={() => onSubmit(roomId, name.trim(), personaId, provider, customPersona, assignTaskId || undefined)}
           >
             Spawn Agent
           </button>

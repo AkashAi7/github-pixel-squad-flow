@@ -24,15 +24,15 @@ const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'rooms', 'tasks', 'provider
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
     case 'queued':
-      return { value: 0, total: 3, label: 'Queued' };
+      return { value: 1, total: 5, label: 'Queued' };
     case 'active':
-      return { value: 1, total: 3, label: 'Executing' };
+      return { value: 2, total: 5, label: 'Executing' };
     case 'review':
-      return { value: 2, total: 3, label: 'Review' };
+      return { value: 4, total: 5, label: 'Review' };
     case 'done':
-      return { value: 3, total: 3, label: 'Complete' };
+      return { value: 5, total: 5, label: 'Complete' };
     case 'failed':
-      return { value: 3, total: 3, label: 'Failed' };
+      return { value: 5, total: 5, label: 'Failed' };
   }
 }
 
@@ -542,9 +542,10 @@ function App() {
         <SpawnAgentDialog
           roomName={spawnRoom.name}
           roomId={spawnRoom.id}
+          roomTasks={snapshot.tasks.filter((task) => task.status === 'queued' && agentsById.get(task.assigneeId)?.roomId === spawnRoom.id)}
           personas={snapshot.personas}
-          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider, customPersona) => {
-            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider, customPersona });
+          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider, customPersona, assignTaskId) => {
+            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider, customPersona, assignTaskId });
             setSpawnRoomId(null);
           }}
           onCancel={() => setSpawnRoomId(null)}

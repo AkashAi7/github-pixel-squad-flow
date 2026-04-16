@@ -40,6 +40,7 @@ export class WorkspaceContextService {
       gitStatus: this.getCached('status')?.split(/\r?\n/).filter(Boolean).slice(0, 20),
       activeFile,
       selectedText,
+      contextMode: 'light',
       relevantFiles: [],
     };
   }
@@ -85,6 +86,7 @@ export class WorkspaceContextService {
         gitStatus: gitStatus ? gitStatus.split(/\r?\n/).filter(Boolean).slice(0, 20) : undefined,
         activeFile,
         selectedText,
+        contextMode: 'full',
         relevantFiles: budgeted,
       };
     } catch {

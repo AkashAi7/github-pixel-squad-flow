@@ -50,6 +50,7 @@ export class Coordinator {
     this.store = new ProjectStateStore(rootPath);
     this.workspaceContext = new WorkspaceContextService(rootPath);
     this.snapshot = this.loadSnapshot();
+    this.reconcileAgentStatuses();
   }
 
   getSnapshot(): WorkspaceSnapshot {
@@ -98,7 +99,7 @@ export class Coordinator {
     const lightContext = this.workspaceContext.captureLightweight();
     const fullContextPromise = settings.autoPopulateWorkspaceContext
       ? this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles)
-      : Promise.resolve(lightContext as import('../../shared/model/index.js').WorkspaceContext);
+      : Promise.resolve(undefined);
     const selectedProvider = provider ?? (this.getSettings().modelFamily as Provider) ?? 'copilot';
     const adapter = this.providers[selectedProvider] ?? this.copilot;
     const planPromise = adapter.createPlan(normalizedPrompt, this.snapshot.personas, lightContext, model, token);
@@ -106,13 +107,13 @@ export class Coordinator {
       setTimeout(() => reject(new Error(`Planning timed out after ${PLAN_TIMEOUT_MS / 1000}s`)), PLAN_TIMEOUT_MS),
     );
     const plan = await Promise.race([planPromise, planTimeout]);
-    const workspaceContext = await fullContextPromise;
     const updatedAgents = [...this.snapshot.agents];
     const newTasks: TaskCard[] = [];
     const createdAt = Date.now();
     const batchId = this.makeId('batch');
     const stagedTaskIds = plan.assignments.map(() => this.makeId('task'));
     const personaTaskMap = new Map<string, string>();
+    const autoExecute = this.getSettings().autoExecute;
 
     for (const [index, assignment] of plan.assignments.entries()) {
       const agent = updatedAgents.find((item) => item.personaId === assignment.personaId)
@@ -129,9 +130,14 @@ export class Coordinator {
       // tasks could run in parallel on different agents.
       const inferredDependencyIds = dependencyIds;
 
+      const nextStatus: TaskStatus = inferredDependencyIds.length === 0
+        ? (autoExecute ? 'active' : 'queued')
+        : 'queued';
       const refreshedAgent: SquadAgent = {
         ...agent,
-        status: dependencyIds.length === 0 ? 'executing' : 'planning',
+        status: inferredDependencyIds.length === 0
+          ? (autoExecute ? 'executing' : 'planning')
+          : 'planning',
         summary: assignment.detail,
       };
       updatedAgents[updatedAgents.findIndex((item) => item.id === agent.id)] = refreshedAgent;
@@ -139,15 +145,15 @@ export class Coordinator {
       newTasks.push({
         id: stagedTaskIds[index],
         title: assignment.title,
-        status: inferredDependencyIds.length === 0 ? 'active' : 'queued',
+        status: nextStatus,
         assigneeId: refreshedAgent.id,
         provider: refreshedAgent.provider,
         source: 'factory',
         detail: assignment.detail,
         dependsOn: inferredDependencyIds,
         requiredSkillIds: assignment.requiredSkillIds ?? [],
-        workspaceContext,
-        progress: this.progressForStatus(index === 0 ? 'active' : 'queued', assignment.progressLabel),
+        workspaceContext: lightContext,
+        progress: this.progressForStatus(nextStatus, assignment.progressLabel ?? (nextStatus === 'queued' ? 'Ready to start' : 'Executing'), undefined, 5),
         batchId,
         createdAt,
         updatedAt: createdAt,
@@ -162,9 +168,22 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
+    this.reconcileAgentStatuses(updatedAgents.map((item) => item.id));
     this.scheduleSave();
     this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
     this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
+
+    if (settings.autoPopulateWorkspaceContext && newTasks.length > 0) {
+      void fullContextPromise.then((fullContext) => {
+        if (!fullContext) {
+          return;
+        }
+        for (const task of newTasks) {
+          this.updateTask(task.id, { workspaceContext: fullContext });
+        }
+        this.scheduleSave();
+      }).catch(() => undefined);
+    }
 
     // Auto-execute all active (no-dep) tasks in parallel when enabled
     if (this.getSettings().autoExecute && newTasks.length > 0) {
@@ -190,16 +209,18 @@ export class Coordinator {
 
     // Optimistic: create the task immediately with lightweight context
     const lightContext = this.workspaceContext.captureLightweight();
+    const settings = this.getSettings();
+    const initialStatus: TaskStatus = settings.autoExecute ? 'active' : 'queued';
     const updatedAgent: SquadAgent = {
       ...agent,
-      status: 'executing' as AgentStatus,
+      status: settings.autoExecute ? 'executing' : 'planning',
       summary: normalizedPrompt,
     };
 
     const task: TaskCard = {
       id: this.makeId('task'),
       title: normalizedPrompt.length > 60 ? normalizedPrompt.slice(0, 57) + '...' : normalizedPrompt,
-      status: 'active',
+      status: initialStatus,
       assigneeId: agent.id,
       provider: agent.provider,
       source: 'factory',
@@ -207,7 +228,7 @@ export class Coordinator {
       dependsOn: [],
       requiredSkillIds: [],
       workspaceContext: lightContext,
-      progress: this.progressForStatus('active'),
+      progress: this.progressForStatus(initialStatus, initialStatus === 'queued' ? 'Ready to start' : 'Preparing workspace'),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -222,6 +243,7 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
+    this.reconcileAgentStatuses([agent.id]);
     this.scheduleSave();
     this.appendActivity(`Task assigned to ${agent.name}: ${task.title}`, {
       category: 'task',
@@ -238,7 +260,6 @@ export class Coordinator {
     });
 
     // Enrich context and auto-execute in the background (non-blocking)
-    const settings = this.getSettings();
     if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
       void (async () => {
         if (settings.autoPopulateWorkspaceContext) {
@@ -297,9 +318,18 @@ export class Coordinator {
       return 'Agent persona not found.';
     }
 
-    const workspaceContext = task.workspaceContext
-      ?? await this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles, model);
+    const currentTask = this.snapshot.tasks.find((candidate) => candidate.id === taskId) ?? task;
+    const workspaceContext = currentTask.workspaceContext ?? this.workspaceContext.captureLightweight();
+    const shouldHydrateContext = this.getSettings().autoPopulateWorkspaceContext && workspaceContext.contextMode !== 'full';
     const room = this.snapshot.rooms.find((r) => r.id === agent.roomId);
+
+    if (shouldHydrateContext) {
+      void this.workspaceContext.capture(`${task.title}\n${task.detail}`, undefined, agent.pinnedFiles, model)
+        .then((fullContext) => {
+          this.updateTask(taskId, { workspaceContext: fullContext });
+        })
+        .catch(() => undefined);
+    }
 
     // Collect handoff packets from completed predecessor tasks
     const handoffPackets = this.collectHandoffPackets(task);
@@ -307,7 +337,7 @@ export class Coordinator {
     // Update task to active, agent to executing
     this.updateTask(taskId, {
       status: 'active',
-      progress: this.progressForStatus('active'),
+      progress: this.progressForStatus('active', 'Preparing workspace', 2, 5),
       workspaceContext,
       approvalState: undefined,
       handoffPackets: handoffPackets.length > 0 ? handoffPackets : undefined,
@@ -328,7 +358,7 @@ export class Coordinator {
       // Keep task alive — the reaper uses updatedAt to detect stale work
       if (turn > 0) {
         this.updateTask(taskId, {
-          progress: this.progressForStatus('active', `Executing turn ${turn + 1}`),
+          progress: this.progressForStatus('active', `Agent turn ${turn + 1}/${MAX_MAILBOX_TURNS}`, 3, 5),
         });
       }
       const inboxMessages = this.mailbox.drain(agent.id);
@@ -429,7 +459,7 @@ export class Coordinator {
           status: 'active',
           output: result.output,
           executionPlan: hydratedPlan,
-          progress: this.progressForStatus('active', 'Applying changes'),
+          progress: this.progressForStatus('active', 'Applying changes', 4, 5),
         });
         const applied = await this.applyTaskPlan(
           this.snapshot.tasks.find((t) => t.id === taskId) ?? task,
@@ -450,7 +480,7 @@ export class Coordinator {
             // executionPlan is not overwritten here — runTaskCommands already
             // populated commandResults inside it.
             approvalState: 'applied',
-            progress: this.progressForStatus('done'),
+            progress: this.progressForStatus('done', 'Complete', 5, 5),
           });
           this.updateAgent(agent.id, { status: 'idle', summary: `Completed: ${task.title}` });
           this.appendActivity(`${agent.name} finished "${task.title}" — changes auto-applied.`, {
@@ -482,7 +512,7 @@ export class Coordinator {
           output: result.output,
           executionPlan: hydratedPlan,
           approvalState: hasPlanArtifacts ? (autoApply ? 'applied' : 'pending') : undefined,
-          progress: this.progressForStatus(autoApply ? 'done' : 'review'),
+          progress: this.progressForStatus(autoApply ? 'done' : 'review', autoApply ? 'Complete' : 'Ready for review', autoApply ? 5 : 4, 5),
         });
         this.updateAgent(agent.id, {
           status: autoApply ? 'idle' : 'waiting',
@@ -779,7 +809,7 @@ export class Coordinator {
 
   /* ── Agent spawning ───────────────────────────────── */
 
-  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft): SquadAgent | undefined {
+  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider, customPersona?: CustomPersonaDraft, assignTaskId?: string): SquadAgent | undefined {
     const room = this.snapshot.rooms.find((r) => r.id === roomId);
     if (!room) return undefined;
 
@@ -807,12 +837,42 @@ export class Coordinator {
         r.id === roomId ? { ...r, agentIds: [...r.agentIds, agent.id] } : r,
       ),
     };
+
+    if (assignTaskId) {
+      const reassignedTask = this.snapshot.tasks.find((task) => task.id === assignTaskId);
+      if (reassignedTask && reassignedTask.status === 'queued') {
+        const previousAssigneeId = reassignedTask.assigneeId;
+        this.snapshot = {
+          ...this.snapshot,
+          tasks: this.snapshot.tasks.map((task) =>
+            task.id === assignTaskId
+              ? {
+                  ...task,
+                  assigneeId: agent.id,
+                  progress: this.progressForStatus('queued', 'Assigned to new agent', 1, 5),
+                  updatedAt: Date.now(),
+                }
+              : task,
+          ),
+        };
+        this.appendActivity(`Queued task "${reassignedTask.title}" was assigned to ${agent.name} during spawn.`, {
+          category: 'task',
+          taskId: reassignedTask.id,
+          agentId: agent.id,
+          roomId,
+          provider,
+        });
+        this.reconcileAgentStatuses([previousAssigneeId, agent.id]);
+      }
+    }
+
     this.appendActivity(`Agent "${agent.name}" spawned in "${room.name}" (${provider}).`, {
       category: 'agent',
       agentId: agent.id,
       roomId,
       provider,
     });
+    this.reconcileAgentStatuses([agent.id]);
     this.scheduleSave();
     return agent;
   }
@@ -867,6 +927,7 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: this.getSettings(),
     };
+    this.reconcileAgentStatuses();
     this.mailbox.clear();
     this.flushSave();
   }
@@ -880,12 +941,16 @@ export class Coordinator {
   }
 
   private updateTask(taskId: string, updates: Partial<TaskCard>): void {
+    const currentTask = this.snapshot.tasks.find((task) => task.id === taskId);
     this.snapshot = {
       ...this.snapshot,
       tasks: this.snapshot.tasks.map((t) =>
         t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t
       ),
     };
+    if (currentTask) {
+      this.reconcileAgentStatuses([currentTask.assigneeId]);
+    }
   }
 
   private updateAgent(agentId: string, updates: Partial<SquadAgent>): void {
@@ -958,19 +1023,64 @@ export class Coordinator {
       .filter((dependency) => dependency.status !== 'done');
   }
 
-  private progressForStatus(status: TaskStatus, label?: string): TaskProgress {
+  private progressForStatus(status: TaskStatus, label?: string, value?: number, total = 5): TaskProgress {
     switch (status) {
       case 'queued':
-        return { value: 0, total: 3, label: label ?? 'Queued' };
+        return { value: value ?? 1, total, label: label ?? 'Queued' };
       case 'active':
-        return { value: 1, total: 3, label: label ?? 'Executing' };
+        return { value: value ?? 2, total, label: label ?? 'Executing' };
       case 'review':
-        return { value: 2, total: 3, label: label ?? 'Review' };
+        return { value: value ?? 4, total, label: label ?? 'Review' };
       case 'done':
-        return { value: 3, total: 3, label: label ?? 'Complete' };
+        return { value: value ?? total, total, label: label ?? 'Complete' };
       case 'failed':
-        return { value: 3, total: 3, label: label ?? 'Failed' };
+        return { value: value ?? total, total, label: label ?? 'Failed' };
     }
+  }
+
+  private reconcileAgentStatuses(agentIds?: string[]): void {
+    const targets = agentIds ? new Set(agentIds) : undefined;
+    this.snapshot = {
+      ...this.snapshot,
+      agents: this.snapshot.agents.map((agent) => {
+        if (targets && !targets.has(agent.id)) {
+          return agent;
+        }
+
+        if (agent.status === 'paused' || agent.status === 'blocked') {
+          return agent;
+        }
+
+        const assignedTasks = this.snapshot.tasks.filter((task) =>
+          task.assigneeId === agent.id && task.status !== 'done' && task.status !== 'failed',
+        );
+        const hasFailedTask = this.snapshot.tasks.some((task) => task.assigneeId === agent.id && task.status === 'failed');
+
+        let nextStatus: AgentStatus;
+        if (assignedTasks.some((task) => task.status === 'active')) {
+          nextStatus = 'executing';
+        } else if (assignedTasks.some((task) => task.status === 'review')) {
+          nextStatus = 'waiting';
+        } else if (assignedTasks.some((task) => task.status === 'queued')) {
+          nextStatus = 'planning';
+        } else if (agent.status === 'completed') {
+          nextStatus = 'completed';
+        } else if (agent.status === 'failed' && hasFailedTask) {
+          nextStatus = 'failed';
+        } else {
+          nextStatus = 'idle';
+        }
+
+        if (nextStatus === agent.status) {
+          return agent;
+        }
+
+        return {
+          ...agent,
+          status: nextStatus,
+        };
+      }),
+    };
   }
 
   private makeId(prefix: string): string {

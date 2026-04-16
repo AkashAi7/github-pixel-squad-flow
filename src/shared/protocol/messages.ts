@@ -53,6 +53,7 @@ export interface SpawnAgentMessage {
   personaId: string;
   provider: Provider;
   customPersona?: CustomPersonaDraft;
+  assignTaskId?: string;
 }
 
 export interface RemoveAgentMessage {

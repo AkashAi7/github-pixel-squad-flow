@@ -4,7 +4,7 @@ import { WORKSPACE_TOOLS } from './definitions.js';
 import type { ProposedFileEdit, ProposedTerminalCommand, TaskExecutionPlan, CommandExecutionResult } from '../../shared/model/index.js';
 
 /** Maximum rounds of tool-calling before we force-stop. */
-const MAX_TOOL_ROUNDS = 25;
+const MAX_TOOL_ROUNDS = 12;
 
 /* ── MCP / external tool discovery ──────────────────────── */
 
@@ -75,6 +75,7 @@ export async function runToolCallLoop(
   const externalTools = discoverExternalTools();
   const allTools = [...WORKSPACE_TOOLS, ...externalTools];
   const ownToolNames = new Set(WORKSPACE_TOOLS.map((t) => t.name));
+  const externalToolNames = externalTools.map((tool) => tool.name);
 
   const messages: vscode.LanguageModelChatMessage[] = [
     vscode.LanguageModelChatMessage.User(
@@ -83,7 +84,8 @@ export async function runToolCallLoop(
       + '2. Use editFile for targeted changes to existing files (prefer over writeFile).\n'
       + '3. After making edits or running commands, use getDiagnostics to check for errors.\n'
       + '4. If diagnostics reveal errors, fix them before moving on.\n'
-      + '5. When finished, provide a concise summary of what you accomplished.',
+      + `5. External MCP/extension tools are available when surfaced by VS Code${externalToolNames.length > 0 ? `: ${externalToolNames.join(', ')}` : ''}. Use them whenever they help complete the task.\n`
+      + '6. When finished, provide a concise summary of what was accomplished.',
     ),
     vscode.LanguageModelChatMessage.User(prompt),
   ];

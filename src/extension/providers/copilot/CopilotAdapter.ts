@@ -180,6 +180,7 @@ export class CopilotAdapter implements ProviderAdapter {
       `Your role: ${persona.title}.`,
       '',
       'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage.',
+      'You also have access to any MCP or extension-provided tools surfaced by VS Code for this session. Use them when they are the best tool for the job.',
       'Use editFile for targeted changes to existing files (preferred over writeFile for modifications).',
       'After making edits, use getDiagnostics to check for compile/lint errors and fix any issues before finishing.',
       'When you are finished, provide a concise summary of what you accomplished.',

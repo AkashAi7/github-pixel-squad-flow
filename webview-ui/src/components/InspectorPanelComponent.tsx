@@ -338,6 +338,17 @@ export function InspectorPanelComponent({
                     </div>
                     <strong>{selectedAgentFocusTask.title}</strong>
                     <p>{selectedAgentFocusTask.detail}</p>
+                    {selectedAgentFocusTask.progress ? (
+                      <div className={`task-progress${selectedAgentFocusTask.status === 'active' ? ' task-progress--active' : ''}`}>
+                        <div className="task-progress__bar">
+                          <div
+                            className={`task-progress__fill${selectedAgentFocusTask.status === 'active' ? ' task-progress__fill--active' : ''}`}
+                            style={{ width: `${Math.max(0, Math.min(100, (selectedAgentFocusTask.progress.value / selectedAgentFocusTask.progress.total) * 100))}%` }}
+                          />
+                        </div>
+                        <span>{selectedAgentFocusTask.progress.label} · {Math.min(selectedAgentFocusTask.progress.value, selectedAgentFocusTask.progress.total)}/{selectedAgentFocusTask.progress.total}</span>
+                      </div>
+                    ) : null}
                     {selectedAgentFocusTask.status === 'active' && streamingOutputs[selectedAgentFocusTask.id] && (
                       <div className="task-output task-output--stream">
                         <p className="eyebrow">Live output</p>
