@@ -10,7 +10,7 @@ export function activate(context: vscode.ExtensionContext): void {
     void chatContext;
     const selectedPersona = request.command && personaCommandMap.has(request.command) ? request.command : undefined;
     const summary = selectedPersona
-      ? await provider.assignTaskToPersona(selectedPersona, request.prompt)
+      ? await provider.assignTaskToPersona(selectedPersona, request.prompt, 'copilot', request.model, token)
       : await provider.createTaskFromPrompt(request.prompt, request.model, token);
     stream.markdown([
       selectedPersona

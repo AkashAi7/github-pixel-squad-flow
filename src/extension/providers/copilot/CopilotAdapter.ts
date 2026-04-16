@@ -7,7 +7,7 @@ import { runToolCallLoop, buildPlanFromToolCalls } from '../../tools/toolCallLoo
 
 export class CopilotAdapter implements ProviderAdapter {
   readonly id = 'copilot' as const;
-  private cachedModel: vscode.LanguageModelChat | undefined;
+  private cachedModels: vscode.LanguageModelChat[] | undefined;
   private lastHealth: ProviderHealth = {
     provider: 'copilot',
     state: 'ready',
@@ -37,7 +37,7 @@ export class CopilotAdapter implements ProviderAdapter {
       };
     }
 
-    const resolvedModel = model ?? (await this.pickModel());
+    const resolvedModel = await this.pickModel(model);
     if (!resolvedModel) {
       this.lastHealth = {
         provider: 'copilot',
@@ -71,9 +71,11 @@ export class CopilotAdapter implements ProviderAdapter {
         providerDetail: this.lastHealth.detail
       };
     } catch (error) {
-      const detail = error instanceof Error
-        ? `Copilot planning failed (${error.message}). Pixel Squad used local routing heuristics instead.`
-        : 'Copilot planning failed. Pixel Squad used local routing heuristics instead.';
+      const detail = this.isQuotaExhaustedError(error)
+        ? 'Copilot premium quota was exhausted. Pixel Squad switched to lightweight local routing for this step.'
+        : error instanceof Error
+          ? `Copilot planning failed (${error.message}). Pixel Squad used local routing heuristics instead.`
+          : 'Copilot planning failed. Pixel Squad used local routing heuristics instead.';
       this.lastHealth = {
         provider: 'copilot',
         state: 'unavailable',
@@ -83,11 +85,36 @@ export class CopilotAdapter implements ProviderAdapter {
     }
   }
 
-  private async pickModel(): Promise<vscode.LanguageModelChat | undefined> {
-    if (this.cachedModel) { return this.cachedModel; }
-    const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
-    this.cachedModel = models[0];
-    return this.cachedModel;
+  private async pickModel(preferredModel?: vscode.LanguageModelChat, excludedIds: string[] = []): Promise<vscode.LanguageModelChat | undefined> {
+    if (!this.cachedModels) {
+      const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+      this.cachedModels = [...models].sort((left, right) => this.scoreModel(right) - this.scoreModel(left));
+    }
+
+    const deduped = new Map<string, vscode.LanguageModelChat>();
+    if (preferredModel) {
+      deduped.set(preferredModel.id, preferredModel);
+    }
+    for (const model of this.cachedModels) {
+      deduped.set(model.id, model);
+    }
+    return [...deduped.values()].find((candidate) => !excludedIds.includes(candidate.id));
+  }
+
+  private scoreModel(model: vscode.LanguageModelChat): number {
+    const haystack = `${model.id} ${model.name} ${model.family} ${model.version}`.toLowerCase();
+    let score = 0;
+    if (haystack.includes('auto')) score += 1000;
+    if (haystack.includes('mini')) score += 400;
+    if (haystack.includes('flash')) score += 200;
+    if (haystack.includes('4o-mini') || haystack.includes('4.1-mini')) score += 250;
+    if (haystack.includes('gpt-5') || haystack.includes('o1') || haystack.includes('o3') || haystack.includes('o4') || haystack.includes('sonnet') || haystack.includes('opus')) score -= 150;
+    return score;
+  }
+
+  private isQuotaExhaustedError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    return message.includes('premium model quota') || message.includes('premium requests') || message.includes('allowance to renew') || message.includes('quota');
   }
 
   async executeTask(
@@ -102,7 +129,7 @@ export class CopilotAdapter implements ProviderAdapter {
     inboxMessages?: AgentMessage[],
     onChunk?: (chunk: string) => void,
   ): Promise<ExecutionResult> {
-    const resolvedModel = model ?? (await this.pickModel());
+    const resolvedModel = await this.pickModel(model);
     if (!resolvedModel) {
       const fallbackPlan = this.createFallbackExecutionPlan(task, workspaceContext);
       return {
@@ -124,12 +151,27 @@ export class CopilotAdapter implements ProviderAdapter {
 
     try {
       const prompt = this.buildExecutionPrompt(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages);
-      const { text, toolCalls } = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk);
+      let activeModel = resolvedModel;
+      let loopResult;
+      try {
+        loopResult = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk);
+      } catch (error) {
+        if (!this.isQuotaExhaustedError(error)) {
+          throw error;
+        }
+        const alternateModel = await this.pickModel(undefined, [resolvedModel.id]);
+        if (!alternateModel) {
+          throw error;
+        }
+        activeModel = alternateModel;
+        loopResult = await runToolCallLoop(alternateModel, prompt, rootPath, token, onChunk);
+      }
+      const { text, toolCalls } = loopResult;
 
       this.lastHealth = {
         provider: 'copilot',
         state: 'ready',
-        detail: `Executed via ${resolvedModel.vendor}/${resolvedModel.family} with ${toolCalls.length} tool call(s).`,
+        detail: `Executed via ${activeModel.vendor}/${activeModel.family} with ${toolCalls.length} tool call(s).`,
       };
 
       // Extract agent messages from sendAgentMessage tool calls
@@ -202,19 +244,41 @@ export class CopilotAdapter implements ProviderAdapter {
     ].filter(Boolean);
 
     try {
-      const response = await resolvedModel.sendRequest(
-        [vscode.LanguageModelChatMessage.User(promptLines.join('\n'))],
-        {},
-        token,
-      );
-
+      let activeModel = resolvedModel;
       let text = '';
-      for await (const fragment of response.text) {
-        text += fragment;
-        onChunk?.(fragment);
+      const runRequest = async (candidate: vscode.LanguageModelChat) => {
+        const response = await candidate.sendRequest(
+          [vscode.LanguageModelChatMessage.User(promptLines.join('\n'))],
+          {},
+          token,
+        );
+        let buffer = '';
+        for await (const fragment of response.text) {
+          buffer += fragment;
+          onChunk?.(fragment);
+        }
+        return buffer;
+      };
+      try {
+        text = await runRequest(resolvedModel);
+      } catch (error) {
+        if (!this.isQuotaExhaustedError(error)) {
+          throw error;
+        }
+        const alternateModel = await this.pickModel(undefined, [resolvedModel.id]);
+        if (!alternateModel) {
+          throw error;
+        }
+        activeModel = alternateModel;
+        text = await runRequest(alternateModel);
       }
 
       const normalized = text.trim() || `Plan prepared for ${task.title}.`;
+      this.lastHealth = {
+        provider: 'copilot',
+        state: 'ready',
+        detail: `Planned via ${activeModel.vendor}/${activeModel.family}.`,
+      };
       return {
         output: normalized,
         success: true,
@@ -372,22 +436,39 @@ export class CopilotAdapter implements ProviderAdapter {
 
       const prompt = promptLines.join('\n');
 
-      const response = await resolvedModel.sendRequest(
-        [vscode.LanguageModelChatMessage.User(prompt)],
-        {},
-        token,
-      );
-
+      let activeModel = resolvedModel;
       let text = '';
-      for await (const fragment of response.text) {
-        text += fragment;
-        onChunk?.(fragment);
+      const runRequest = async (candidate: vscode.LanguageModelChat) => {
+        const response = await candidate.sendRequest(
+          [vscode.LanguageModelChatMessage.User(prompt)],
+          {},
+          token,
+        );
+        let buffer = '';
+        for await (const fragment of response.text) {
+          buffer += fragment;
+          onChunk?.(fragment);
+        }
+        return buffer;
+      };
+      try {
+        text = await runRequest(resolvedModel);
+      } catch (error) {
+        if (!this.isQuotaExhaustedError(error)) {
+          throw error;
+        }
+        const alternateModel = await this.pickModel(undefined, [resolvedModel.id]);
+        if (!alternateModel) {
+          throw error;
+        }
+        activeModel = alternateModel;
+        text = await runRequest(alternateModel);
       }
 
       this.lastHealth = {
         provider: 'copilot',
         state: 'ready',
-        detail: `Executed via ${resolvedModel.vendor}/${resolvedModel.family}.`
+        detail: `Executed via ${activeModel.vendor}/${activeModel.family}.`
       };
 
       const parsed = this.parseExecutionPlan(text);

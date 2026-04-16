@@ -189,14 +189,14 @@ export class Coordinator {
     if (this.getSettings().autoExecute && newTasks.length > 0) {
       const activeTasks = newTasks.filter((t) => t.status === 'active');
       for (const t of activeTasks) {
-        void this.executeTask(t.id);
+        void this.executeTask(t.id, model, token);
       }
     }
 
     return `${plan.summary} ${plan.providerDetail}`;
   }
 
-  async assignTask(agentId: string, prompt: string): Promise<string> {
+  async assignTask(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task.';
@@ -269,7 +269,7 @@ export class Coordinator {
           this.updateTask(task.id, { workspaceContext: fullContext });
         }
         if (settings.autoExecute) {
-          void this.executeTask(task.id);
+          void this.executeTask(task.id, model, token);
         }
       })();
     }
@@ -277,7 +277,7 @@ export class Coordinator {
     return `Task assigned to ${agent.name} (${agent.provider}).`;
   }
 
-  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider): Promise<string> {
+  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
     const persona = this.snapshot.personas.find((item) => item.id === personaId);
     if (!persona) {
       return 'Persona not found.';
@@ -297,7 +297,7 @@ export class Coordinator {
       targetAgent = spawned;
     }
 
-    return this.assignTask(targetAgent.id, prompt);
+    return this.assignTask(targetAgent.id, prompt, model, token);
   }
 
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {

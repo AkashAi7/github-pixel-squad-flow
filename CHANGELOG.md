@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.30] — 2026-04-16
+### Fixed
+- **Copilot quota degradation**: When Copilot premium quota is exhausted, Pixel Squad now falls back more gracefully instead of surfacing the raw quota failure message as the main routing experience.
+- **Chat-model reuse**: Persona-targeted `@pixel-squad` requests now reuse the model already selected in Copilot Chat for downstream assignment/execution startup, reducing needless model mismatches.
+### Changed
+- **Lower-cost Copilot preference**: Pixel Squad now prefers Auto/mini-like Copilot models when selecting a model itself, which reduces premium-request burn during normal routing and execution.
+- **Deterministic fast-routing coverage**: Single-domain prompts now fast-route across more personas, and planning-only prompts fast-route directly to the lead persona more often, cutting unnecessary planning calls.
+### Notes
+- **Validation status**: `npm run build` passes for `0.1.30`. Extension-host E2E remains blocked in this environment by the VS Code bootstrap error `Code is currently being updated`.
+
 ## [0.1.29] — 2026-04-16
 ### Added
 - **Persona-targeted `@pixel-squad` chat commands**: Copilot Chat can now route directly to `lead`, `frontend`, `backend`, `tester`, `devops`, or `designer`, automatically reusing or provisioning a matching room agent when needed.

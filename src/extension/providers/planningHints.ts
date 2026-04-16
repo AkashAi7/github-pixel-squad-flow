@@ -127,8 +127,42 @@ export function createDeterministicAssignments(prompt: string, personas: Persona
  */
 export function tryFastRoute(prompt: string, personas: PersonaTemplate[]): PersonaAssignment[] | undefined {
   const lower = prompt.toLowerCase();
+  const planningIntent = /\b(plan|strategy|roadmap|proposal|architecture|approach|business plan|deployment plan|migration plan|design doc|outline)\b/.test(lower);
+  const implementationIntent = /\b(write|implement|fix|edit|modify|change|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(lower);
+
+  if (planningIntent && !implementationIntent) {
+    const leadPersona = personas.find((persona) => persona.id === 'lead');
+    if (leadPersona) {
+      return [{
+        personaId: 'lead',
+        title: 'Draft the delivery plan',
+        detail: prompt,
+        dependsOnPersonaIds: [],
+        requiredSkillIds: inferRequiredSkillIds(leadPersona, prompt, 'Draft the delivery plan', prompt),
+        progressLabel: 'Ready to start',
+      }];
+    }
+  }
 
   const FAST_ROUTE_BINS: Array<{ personaId: string; keywords: string[]; title: string; detail: string }> = [
+    {
+      personaId: 'lead',
+      keywords: ['plan', 'roadmap', 'proposal', 'approach', 'strategy', 'outline'],
+      title: 'Planning task',
+      detail: prompt,
+    },
+    {
+      personaId: 'frontend',
+      keywords: ['frontend', 'ui', 'webview', 'component', 'layout', 'css', 'theme'],
+      title: 'Frontend task',
+      detail: prompt,
+    },
+    {
+      personaId: 'backend',
+      keywords: ['backend', 'api', 'runtime', 'coordinator', 'persist', 'storage', 'service'],
+      title: 'Backend task',
+      detail: prompt,
+    },
     {
       personaId: 'tester',
       keywords: ['test', 'regression', 'qa', 'verify', 'validation', 'spec', 'coverage', 'failing test'],
@@ -137,7 +171,7 @@ export function tryFastRoute(prompt: string, personas: PersonaTemplate[]): Perso
     },
     {
       personaId: 'devops',
-      keywords: ['deploy', 'ci', 'pipeline', 'infra', 'docker', 'release', 'workflow', 'yml', 'yaml', 'github action'],
+      keywords: ['deploy', 'ci', 'pipeline', 'infra', 'docker', 'release', 'workflow', 'yml', 'yaml', 'github action', 'azure', 'vm', 'iac'],
       title: 'DevOps task',
       detail: prompt,
     },

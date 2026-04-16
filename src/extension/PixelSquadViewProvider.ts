@@ -265,14 +265,14 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   }
 
   /** Assign a task to a specific agent (CLI entry point) */
-  async assignTaskToAgent(agentId: string, prompt: string): Promise<string> {
-    const summary = await this.coordinator.assignTask(agentId, prompt);
+  async assignTaskToAgent(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const summary = await this.coordinator.assignTask(agentId, prompt, model, token);
     this.syncSnapshot();
     return summary;
   }
 
-  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider): Promise<string> {
-    const summary = await this.coordinator.assignTaskToPersona(personaId, prompt, provider);
+  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const summary = await this.coordinator.assignTaskToPersona(personaId, prompt, provider, model, token);
     this.syncSnapshot();
     return summary;
   }
