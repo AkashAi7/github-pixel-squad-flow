@@ -44,8 +44,78 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.showFactory', async () => {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
     }),
+    vscode.commands.registerCommand('pixelSquad.createTask', async () => {
+      const prompt = await vscode.window.showInputBox({
+        prompt: 'Describe the task you want GitHub Pixel Squad Flow to route',
+        placeHolder: 'Break this feature into agent stages and track the pipeline',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.createTaskFromPrompt(prompt);
+      void vscode.window.showInformationMessage(summary);
+    }),
     vscode.commands.registerCommand('pixelSquad.openInEditor', () => {
       provider.openAsEditorPanel();
+    }),
+    vscode.commands.registerCommand('pixelSquad.assignTask', async () => {
+      const agents = provider.getAgents();
+      if (agents.length === 0) {
+        void vscode.window.showWarningMessage('No agents are available yet. Start a run from chat first or use the smoke test to seed the board.');
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        agents.map((agent) => ({
+          label: `$(person) ${agent.name}`,
+          description: `${agent.provider} · ${agent.status}`,
+          detail: agent.persona,
+          agentId: agent.id,
+        })),
+        { placeHolder: 'Pick an agent lane to assign work to', matchOnDescription: true },
+      );
+      if (!pick) {
+        return;
+      }
+
+      const prompt = await vscode.window.showInputBox({
+        prompt: `Describe the task for ${pick.label.replace('$(person) ', '')}`,
+        placeHolder: 'Review the latest UI flow and report blockers',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
+      void vscode.window.showInformationMessage(summary);
+    }),
+    vscode.commands.registerCommand('pixelSquad.listAgents', async () => {
+      const agents = provider.getAgents();
+      if (agents.length === 0) {
+        void vscode.window.showInformationMessage('No agent lanes are active yet.');
+        return;
+      }
+
+      const pick = await vscode.window.showQuickPick(
+        agents.map((agent) => ({
+          label: `$(person) ${agent.name}`,
+          description: `${agent.provider} · ${agent.status}`,
+          detail: agent.persona,
+          agentId: agent.id,
+        })),
+        { placeHolder: 'Active GitHub Pixel Squad Flow agent lanes', matchOnDescription: true },
+      );
+      if (!pick) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      provider.refresh();
     }),
     vscode.commands.registerCommand('pixelSquad.resetWorkspace', async () => {
       provider.resetWorkspace();
@@ -54,6 +124,20 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.runSmokeTest', async () => {
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       const summary = await provider.runSmokeTest();
+      void vscode.window.showInformationMessage(summary);
+    }),
+    vscode.commands.registerCommand('pixelSquad.fleetExecute', async () => {
+      const prompt = await vscode.window.showInputBox({
+        prompt: 'Describe the task to send across all idle agents',
+        placeHolder: 'Audit the current implementation and summarize issues by persona',
+        ignoreFocusOut: true,
+      });
+      if (!prompt) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = await provider.fleetExecute(prompt);
       void vscode.window.showInformationMessage(summary);
     }),
     vscode.commands.registerCommand('pixelSquad.toggleAutoExecute', async () => {

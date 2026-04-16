@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "GitHub Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -46,9 +46,21 @@
         "title": "GitHub Pixel Squad Flow: Show Agent Factory"
       },
       {
+        "command": "pixelSquad.createTask",
+        "title": "GitHub Pixel Squad Flow: Route Task From Command Palette"
+      },
+      {
         "command": "pixelSquad.openInEditor",
         "title": "GitHub Pixel Squad Flow: Open in Editor Panel",
         "category": "GitHub Pixel Squad Flow"
+      },
+      {
+        "command": "pixelSquad.assignTask",
+        "title": "GitHub Pixel Squad Flow: Assign Task to Agent"
+      },
+      {
+        "command": "pixelSquad.listAgents",
+        "title": "GitHub Pixel Squad Flow: List Agents"
       },
       {
         "command": "pixelSquad.resetWorkspace",
@@ -57,6 +69,10 @@
       {
         "command": "pixelSquad.runSmokeTest",
         "title": "GitHub Pixel Squad Flow: Run Smoke Test"
+      },
+      {
+        "command": "pixelSquad.fleetExecute",
+        "title": "GitHub Pixel Squad Flow: Fleet Execute"
       },
       {
         "command": "pixelSquad.toggleAutoExecute",

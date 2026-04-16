@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.33] — 2026-04-16
+### Fixed
+- **Command palette regression**: Restored the quick command-palette helpers for routing a task, assigning a task to an active agent, listing active agents, and fleet execution so the extension remains usable outside the chat entrypoint.
+### Changed
+- **Chat-first with command fallback**: GitHub Pixel Squad Flow still treats chat as the primary control plane, but command-palette workflows are now available again as lightweight shortcuts.
+### Notes
+- **Validation status**: `npm run typecheck` and `npm run build` pass for `0.1.33`.
+
 ## [0.1.32] — 2026-04-16
 ### Added
 - **Explicit run and agent-session state**: Pixel Squad now persists chat-driven runs, stage ordering, and per-agent session transcripts so the runtime panel can represent a real multi-agent pipeline instead of inferring everything from flat task cards.
