@@ -171,6 +171,8 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
         updatedAt: Date.now(),
       },
     ],
+    runs: [],
+    agentSessions: [],
     providers: [
       {
         provider: 'copilot',
@@ -193,6 +195,9 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       modelFamily: 'copilot',
       autoPopulateWorkspaceContext: true,
       workspaceContextMaxFiles: 3,
+    },
+    ui: {
+      activeAgentId: 'lead-1',
     },
   };
 }

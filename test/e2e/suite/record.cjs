@@ -106,29 +106,6 @@ async function run() {
       : undefined;
   });
 
-  await announce('Assigning a real task to Mica through the extension command flow.');
-  const assignPrompt = 'Run QA on onboarding and settings persistence, then summarize failures.';
-  await withStubbedWindowPrompts({
-    showQuickPick: async (items) => items.find((item) => item.agentId === 'tester-1') ?? items[0],
-    showInputBox: async () => assignPrompt,
-  }, async () => {
-    await vscode.commands.executeCommand('pixelSquad.assignTask');
-  });
-
-  await poll(() => {
-    const snapshot = readSnapshot(snapshotPath);
-    const assignedTask = snapshot.tasks.find((task) => task.detail === assignPrompt);
-    const assignedAgent = snapshot.agents.find((agent) => agent.id === 'tester-1');
-
-    if (!assignedTask || !assignedAgent) {
-      return undefined;
-    }
-
-    return assignedTask.assigneeId === 'tester-1' && assignedTask.status === 'active' && assignedAgent.status === 'executing'
-      ? snapshot
-      : undefined;
-  });
-
   await announce(`Recordable host demo complete. Holding the VS Code window for ${holdMs}ms.`);
   await delay(holdMs);
 }

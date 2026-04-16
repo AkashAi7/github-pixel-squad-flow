@@ -14,14 +14,14 @@ export function activate(context: vscode.ExtensionContext): void {
       : await provider.createTaskFromPrompt(request.prompt, request.model, token);
     stream.markdown([
       selectedPersona
-        ? `Pixel Squad routed your task directly to the ${selectedPersona} persona and updated the Agent Factory panel.`
-        : 'Pixel Squad routed your task and updated the Agent Factory panel.',
+        ? `Pixel Squad synced your chat request to the ${selectedPersona} agent lane and updated the runtime panel.`
+        : 'Pixel Squad routed your chat request and updated the runtime panel.',
       '',
       summary,
       '',
       selectedPersona
-        ? 'Open the Pixel Squad panel to inspect the persona agent, execution output, changed files, and task wall.'
-        : 'Open the Pixel Squad panel to inspect rooms, agent assignments, and the task wall.'
+        ? 'Open the Pixel Squad panel to inspect the focused agent, pipeline state, execution output, and changed files.'
+        : 'Open the Pixel Squad panel to inspect the active run, engaged agents, and pipeline state.'
     ].join('\n'));
   });
   chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'icon.svg');
@@ -47,20 +47,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('pixelSquad.openInEditor', () => {
       provider.openAsEditorPanel();
     }),
-    vscode.commands.registerCommand('pixelSquad.createTask', async () => {
-      const prompt = await vscode.window.showInputBox({
-        prompt: 'Describe the task you want Pixel Squad to route',
-        placeHolder: 'Build the settings screen and persist the theme selection',
-        ignoreFocusOut: true,
-      });
-      if (!prompt) {
-        return;
-      }
-
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      const summary = await provider.createTaskFromPrompt(prompt);
-      void vscode.window.showInformationMessage(summary);
-    }),
     vscode.commands.registerCommand('pixelSquad.resetWorkspace', async () => {
       provider.resetWorkspace();
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
@@ -76,91 +62,6 @@ export function activate(context: vscode.ExtensionContext): void {
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       provider.refresh();
       void vscode.window.showInformationMessage(`Pixel Squad auto-execute: ${!current ? 'ON' : 'OFF'}`);
-    }),
-    vscode.commands.registerCommand('pixelSquad.createRoom', async () => {
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      void vscode.window.showInformationMessage('Use the Agent Factory panel to create a room.');
-    }),
-    vscode.commands.registerCommand('pixelSquad.spawnAgent', async () => {
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      void vscode.window.showInformationMessage('Use the Agent Factory panel to spawn an agent.');
-    }),
-
-    /* ── CLI: Assign Task to Agent ────────────────── */
-    vscode.commands.registerCommand('pixelSquad.assignTask', async () => {
-      const agents = provider.getAgents();
-      if (agents.length === 0) {
-        void vscode.window.showWarningMessage('No agents available. Spawn agents first.');
-        return;
-      }
-
-      const pick = await vscode.window.showQuickPick(
-        agents.map((a) => ({
-          label: `$(person) ${a.name}`,
-          description: `${a.provider} · ${a.status}`,
-          detail: a.persona,
-          agentId: a.id,
-        })),
-        { placeHolder: 'Pick an agent to assign a task to', matchOnDescription: true },
-      );
-      if (!pick) return;
-
-      const prompt = await vscode.window.showInputBox({
-        prompt: `Describe the task for ${pick.label.replace('$(person) ', '')}`,
-        placeHolder: 'e.g. Write unit tests for the auth module',
-        ignoreFocusOut: true,
-      });
-      if (!prompt) return;
-
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
-      void vscode.window.showInformationMessage(summary);
-    }),
-
-    /* ── CLI: Fleet Execute ─────────────────────── */
-    vscode.commands.registerCommand('pixelSquad.fleetExecute', async () => {
-      const prompt = await vscode.window.showInputBox({
-        prompt: 'Describe the task to send to ALL idle agents simultaneously',
-        placeHolder: 'e.g. Refactor the authentication module',
-        ignoreFocusOut: true,
-      });
-      if (!prompt) return;
-
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      const summary = await provider.fleetExecute(prompt);
-      void vscode.window.showInformationMessage(summary);
-    }),
-
-    /* ── CLI: List Agents ─────────────────────────── */
-    vscode.commands.registerCommand('pixelSquad.listAgents', async () => {
-      const agents = provider.getAgents();
-      if (agents.length === 0) {
-        void vscode.window.showInformationMessage('No agents in the squad yet.');
-        return;
-      }
-
-      const pick = await vscode.window.showQuickPick(
-        agents.map((a) => ({
-          label: `$(person) ${a.name}`,
-          description: `${a.provider} · ${a.status}`,
-          detail: a.persona,
-          agentId: a.id,
-        })),
-        { placeHolder: 'Your Pixel Squad agents (pick to assign a task)', matchOnDescription: true },
-      );
-      if (!pick) return;
-
-      // If they pick an agent, let them assign a task
-      const prompt = await vscode.window.showInputBox({
-        prompt: `Assign a task to ${pick.label.replace('$(person) ', '')}?`,
-        placeHolder: 'Leave empty to cancel, or describe a task',
-        ignoreFocusOut: true,
-      });
-      if (!prompt) return;
-
-      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
-      const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
-      void vscode.window.showInformationMessage(summary);
     }),
 
     /* ── Cleanup ──────────────────────────────────── */

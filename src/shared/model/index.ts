@@ -10,6 +10,9 @@ export type ActivityCategory = 'system' | 'task' | 'agent' | 'provider' | 'agent
 export type ApprovalState = 'pending' | 'applied' | 'rejected';
 export type FileEditAction = 'create' | 'replace';
 export type CommandExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed';
+export type RunStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
+export type AgentSessionStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
+export type AgentSessionMessageRole = 'user' | 'agent' | 'system';
 
 /* ── Room theme palette ────────────────────────────────── */
 
@@ -202,6 +205,57 @@ export interface SquadSettings {
   workspaceContextMaxFiles: number;
 }
 
+export interface WorkspaceUiState {
+  activeAgentId?: string;
+  activeBatchId?: string;
+}
+
+export interface RunStage {
+  id: string;
+  taskId: string;
+  title: string;
+  detail: string;
+  status: TaskStatus;
+  agentId: string;
+  provider: Provider;
+  source: TaskSource;
+  dependsOnTaskIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface RunRecord {
+  id: string;
+  title: string;
+  summary: string;
+  status: RunStatus;
+  source: TaskSource;
+  createdAt: number;
+  updatedAt: number;
+  stages: RunStage[];
+  activeAgentIds: string[];
+}
+
+export interface AgentSessionMessage {
+  id: string;
+  role: AgentSessionMessageRole;
+  content: string;
+  timestamp: number;
+  taskId?: string;
+}
+
+export interface AgentSession {
+  id: string;
+  runId: string;
+  agentId: string;
+  personaId: string;
+  provider: Provider;
+  status: AgentSessionStatus;
+  startedAt: number;
+  updatedAt: number;
+  messageLog: AgentSessionMessage[];
+}
+
 export interface ActivityEntry {
   id: string;
   category: ActivityCategory;
@@ -219,9 +273,12 @@ export interface WorkspaceSnapshot {
   personas: PersonaTemplate[];
   agents: SquadAgent[];
   tasks: TaskCard[];
+  runs: RunRecord[];
+  agentSessions: AgentSession[];
   providers: ProviderHealth[];
   activityFeed: ActivityEntry[];
   settings: SquadSettings;
+  ui: WorkspaceUiState;
 }
 
 export function createActivityEntry(

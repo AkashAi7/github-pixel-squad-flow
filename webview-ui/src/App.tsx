@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { ActivityEntry, ActivityCategory, CommandExecutionResult, HandoffPacket, ProposedFileEdit, Provider, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskStatus, WorkspaceSnapshot } from '../../src/shared/model/index.js';
+import type { ActivityEntry, ActivityCategory, CommandExecutionResult, HandoffPacket, ProposedFileEdit, Provider, SquadAgent, TaskCard, TaskExecutionPlan, TaskStatus, WorkspaceSnapshot } from '../../src/shared/model/index.js';
 import { AGENT_MOOD } from '../../src/shared/model/index.js';
 import type { ExtensionMessage } from '../../src/shared/protocol/messages.js';
 import { FactoryBoard } from './components/FactoryBoard.js';
-import { RoomCard } from './components/RoomCard.js';
-import { CreateRoomDialog } from './components/CreateRoomDialog.js';
-import { SpawnAgentDialog } from './components/SpawnAgentDialog.js';
 import { TaskCardComponent } from './components/TaskCardComponent.js';
 import { ActivityFeedComponent, ACTIVITY_FILTERS } from './components/ActivityFeedComponent.js';
 import { ProvidersViewComponent } from './components/ProvidersViewComponent.js';
@@ -18,8 +15,8 @@ declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 const vscode = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (_message: unknown) => undefined };
-type WorkspaceView = 'factory' | 'rooms' | 'tasks' | 'providers' | 'activity';
-const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'rooms', 'tasks', 'providers', 'activity'];
+type WorkspaceView = 'factory' | 'tasks' | 'providers' | 'activity';
+const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'tasks', 'providers', 'activity'];
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -63,6 +60,8 @@ function normalizeSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
       requiredSkillIds: task.requiredSkillIds ?? [],
       progress: task.progress ?? taskProgressForStatus(task.status),
     })),
+    runs: snapshot.runs ?? [],
+    agentSessions: snapshot.agentSessions ?? [],
     activityFeed: (snapshot.activityFeed as Array<ActivityEntry | string>).map((entry, index) => normalizeActivityEntry(entry, index)),
   };
 }
@@ -270,18 +269,12 @@ function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [prompt, setPrompt] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCreateRoom, setShowCreateRoom] = useState(false);
-  const [spawnRoomId, setSpawnRoomId] = useState<string | null>(null);
-  const [agentTaskPrompt, setAgentTaskPrompt] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<'overview' | 'assign' | 'work'>('overview');
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'channel' | 'work'>('overview');
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [activeView, setActiveView] = useState<WorkspaceView>('factory');
-  const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room'>('status');
+  const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room' | 'pipeline'>('pipeline');
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
   const [taskPersonaFilter, setTaskPersonaFilter] = useState<string | 'all'>('all');
@@ -315,13 +308,7 @@ function App() {
         const nextSnapshot = normalizeSnapshot(event.data.snapshot);
         setSnapshot(nextSnapshot);
         setActivity(nextSnapshot.activityFeed);
-        setSelectedAgentId((prev) => prev ?? nextSnapshot.agents[0]?.id ?? null);
-        setIsSubmitting(false);
-        setIsAssigning(false);
-      }
-
-      if (event.data.type === 'assignAck') {
-        setIsAssigning(false);
+        setSelectedAgentId(nextSnapshot.ui.activeAgentId ?? nextSnapshot.agents[0]?.id ?? null);
       }
 
       if (event.data.type === 'activity') {
@@ -336,6 +323,8 @@ function App() {
           } else if (msg.toLowerCase().includes('complete') || msg.toLowerCase().includes('done')) {
             addToast(msg, 'success');
           }
+        } else if (cat === 'agent-chat') {
+          addToast(nextActivity.message, 'info');
         } else if (cat === 'provider' && nextActivity.message.toLowerCase().includes('unavailable')) {
           addToast(nextActivity.message, 'error');
         }
@@ -387,11 +376,6 @@ function App() {
     [snapshot],
   );
 
-  const spawnRoom = useMemo(
-    () => snapshot?.rooms.find((r) => r.id === spawnRoomId) ?? null,
-    [spawnRoomId, snapshot],
-  );
-
   const agentsById = useMemo(
     () => new Map(snapshot?.agents.map((agent) => [agent.id, agent]) ?? []),
     [snapshot],
@@ -411,6 +395,33 @@ function App() {
 
   const taskGroups = useMemo(() => {
     if (!snapshot) return [] as Array<{ key: string; label: string; tasks: TaskCard[] }>;
+
+    if (taskGroupBy === 'pipeline') {
+      const runIds = new Set(filteredTasks.map((task) => task.batchId ?? task.id));
+      return snapshot.runs
+        .filter((run) => runIds.has(run.id))
+        .map((run) => {
+          const orderedTasks = filteredTasks
+            .filter((task) => (task.batchId ?? task.id) === run.id)
+            .sort((left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0));
+          const runKind = run.source === 'copilot-chat'
+            ? 'Chat Run'
+            : run.source === 'claude-chat'
+              ? 'Claude Run'
+              : run.stages.length > 1
+                ? 'Pipeline'
+                : 'Task';
+          return {
+            key: run.id,
+            label: `${runKind} · ${run.title}`,
+            tasks: orderedTasks,
+            updatedAt: run.updatedAt,
+          };
+        })
+        .filter((group) => group.tasks.length > 0)
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .map(({ key, label, tasks }) => ({ key, label, tasks }));
+    }
 
     if (taskGroupBy === 'assignee') {
       const groups = new Map<string, { label: string; tasks: TaskCard[] }>();
@@ -489,16 +500,34 @@ function App() {
     : [];
 
   const selectedAgentFocusTask = selectedAgent ? pickFocusTask(snapshot.tasks, selectedAgent.id) : null;
+  const activeRunId = snapshot.ui.activeBatchId ?? selectedAgentFocusTask?.batchId ?? null;
+  const selectedRun = activeRunId
+    ? snapshot.runs.find((run) => run.id === activeRunId) ?? null
+    : null;
+  const selectedSession = selectedAgent
+    ? snapshot.agentSessions.find((session) => session.agentId === selectedAgent.id && session.runId === (selectedRun?.id ?? activeRunId))
+      ?? snapshot.agentSessions.find((session) => session.agentId === selectedAgent.id)
+      ?? null
+    : null;
+  const activeBatchTasks = selectedRun
+    ? snapshot.tasks.filter((task) => (task.batchId ?? task.id) === selectedRun.id)
+    : [];
+  const activeRunCounts = {
+    total: selectedRun?.stages.length ?? activeBatchTasks.length,
+    done: selectedRun?.stages.filter((stage) => stage.status === 'done').length ?? activeBatchTasks.filter((task) => task.status === 'done').length,
+    active: selectedRun?.stages.filter((stage) => stage.status === 'active').length ?? activeBatchTasks.filter((task) => task.status === 'active').length,
+    queued: selectedRun?.stages.filter((stage) => stage.status === 'queued').length ?? activeBatchTasks.filter((task) => task.status === 'queued').length,
+    review: selectedRun?.stages.filter((stage) => stage.status === 'review').length ?? activeBatchTasks.filter((task) => task.status === 'review').length,
+    failed: selectedRun?.stages.filter((stage) => stage.status === 'failed').length ?? activeBatchTasks.filter((task) => task.status === 'failed').length,
+  };
 
   const handleSelectAgent = (agentId: string) => {
-    setSelectedAgentId(agentId);
     setActiveView('factory');
     setInspectorTab('overview');
     vscode.postMessage({ type: 'showAgent', agentId });
   };
 
   const handleRevealAgentTask = (agentId: string) => {
-    setSelectedAgentId(agentId);
     setTaskStatusFilter('all');
     setTaskProviderFilter('all');
     setTaskPersonaFilter('all');
@@ -528,30 +557,6 @@ function App() {
         </div>
       )}
 
-      {/* ─── Dialogs ─── */}
-      {showCreateRoom && (
-        <CreateRoomDialog
-          onSubmit={(name: string, theme: RoomTheme, purpose: string) => {
-            vscode.postMessage({ type: 'createRoom', name, theme, purpose });
-            setShowCreateRoom(false);
-          }}
-          onCancel={() => setShowCreateRoom(false)}
-        />
-      )}
-      {spawnRoom && (
-        <SpawnAgentDialog
-          roomName={spawnRoom.name}
-          roomId={spawnRoom.id}
-          roomTasks={snapshot.tasks.filter((task) => task.status === 'queued' && agentsById.get(task.assigneeId)?.roomId === spawnRoom.id)}
-          personas={snapshot.personas}
-          onSubmit={(roomId: string, name: string, personaId: string, provider: Provider, customPersona, assignTaskId) => {
-            vscode.postMessage({ type: 'spawnAgent', roomId, name, personaId, provider, customPersona, assignTaskId });
-            setSpawnRoomId(null);
-          }}
-          onCancel={() => setSpawnRoomId(null)}
-        />
-      )}
-
       {/* ─── Hero ─── */}
       <section className="hero-panel hero-panel--activitybar">
         <div className="hero-panel__header">
@@ -559,7 +564,7 @@ function App() {
             <p className="eyebrow">Agent Factory · Copilot + Claude</p>
             <h1>{snapshot.projectName}</h1>
             <p className="hero-copy">
-              Route work, inspect agents, and steer the squad from a tighter activity-bar control surface.
+              GitHub Copilot Chat is now the control plane. This panel tracks the active agent lane, live run status, and pipeline progress.
             </p>
           </div>
           <div className="hero-panel__summary">
@@ -584,15 +589,15 @@ function App() {
               <ol className="first-run-banner__steps">
                 <li className="first-run-banner__step">
                   <span className="first-run-banner__step-num">1</span>
-                  <span>Create a <strong>Room</strong> — a logical workspace for a team of agents (e.g. "Frontend", "API").</span>
+                  <span>Open <strong>GitHub Copilot Chat</strong> and start a run with <strong>@pixel-squad</strong>.</span>
                 </li>
                 <li className="first-run-banner__step">
                   <span className="first-run-banner__step-num">2</span>
-                  <span>Spawn an <strong>Agent</strong> inside the room — choose a persona and provider (GitHub Copilot or Claude).</span>
+                  <span>Target a persona lane with commands like <strong>/lead</strong>, <strong>/frontend</strong>, or <strong>/tester</strong>.</span>
                 </li>
                 <li className="first-run-banner__step">
                   <span className="first-run-banner__step-num">3</span>
-                  <span><strong>Route a task</strong> — describe any goal in the box below and press Route Task.</span>
+                  <span>Return here to inspect the active run, pipeline state, files changed, and agent execution progress.</span>
                 </li>
               </ol>
             </div>
@@ -627,80 +632,44 @@ function App() {
               </article>
             ))}
           </div>
-          <div className="task-composer">
-            <label className="composer-label" htmlFor="task-prompt">Route a new task</label>
-            <textarea
-              id="task-prompt"
-              className="composer-input"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Build a settings screen, persist preferences, and add a validation pass."
-            />
-            <div className="composer-agent-row">
-              <label className="composer-agent-label" htmlFor="composer-agent-select">Quick-assign to:</label>
-              <select
-                id="composer-agent-select"
-                className="composer-agent-select"
-                value={selectedAgentId ?? ''}
-                onChange={(e) => setSelectedAgentId(e.target.value || null)}
-              >
-                <option value="">— auto-route —</option>
-                {snapshot.agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name} ({personas.get(agent.personaId)?.title ?? agent.personaId}) · {agent.status}
-                  </option>
-                ))}
-              </select>
+          <div className="chat-launchpad">
+            <div className="chat-launchpad__copy">
+              <p className="eyebrow">Chat-first Launchpad</p>
+              <h3>{selectedAgent ? `${selectedAgent.name} is the active lane` : 'Start from Copilot Chat'}</h3>
+              <p>
+                {selectedAgent
+                  ? `Use @pixel-squad /${selectedAgent.personaId} in Copilot Chat to continue directing ${selectedAgent.name}.`
+                  : 'Use @pixel-squad in Copilot Chat to start a run, or target a persona lane with /lead, /frontend, /backend, /tester, /devops, or /designer.'}
+              </p>
+              <div className="chat-launchpad__command">@pixel-squad /lead break this BRD into agent stages and track the pipeline</div>
             </div>
-            <div className="composer-actions">
-              <button
-                type="button"
-                className={`composer-button${isSubmitting ? ' composer-button--loading' : ''}`}
-                disabled={isSubmitting || prompt.trim().length === 0}
-                onClick={() => {
-                  setIsSubmitting(true);
-                  if (selectedAgentId) {
-                    vscode.postMessage({ type: 'assignTask', agentId: selectedAgentId, prompt: prompt.trim() });
-                  } else {
-                    vscode.postMessage({ type: 'createTask', prompt: prompt.trim() });
-                  }
-                  setPrompt('');
-                }}
-                aria-busy={isSubmitting}
-              >
-                {isSubmitting ? <><span className="inline-spinner" aria-hidden="true" />Routing...</> : selectedAgentId ? `⚡ Assign to ${snapshot.agents.find(a => a.id === selectedAgentId)?.name ?? 'Agent'}` : 'Route Task'}
-              </button>
-              <button
-                type="button"
-                className={`composer-button composer-button--fleet${isSubmitting ? ' composer-button--loading' : ''}`}
-                disabled={isSubmitting || prompt.trim().length === 0}
-                title="Fleet mode: execute across all idle agents in parallel"
-                onClick={() => {
-                  setIsSubmitting(true);
-                  vscode.postMessage({ type: 'fleetExecute', prompt: prompt.trim() });
-                  setPrompt('');
-                }}
-                aria-busy={isSubmitting}
-              >
-                {isSubmitting ? <><span className="inline-spinner" aria-hidden="true" />Launching...</> : '🚀 Fleet'}
-              </button>
-              <button
-                type="button"
-                className="composer-button composer-button--accent"
-                onClick={() => setShowCreateRoom(true)}
-              >
-                + Room
-              </button>
-              <button
-                type="button"
-                className="composer-button composer-button--ghost"
-                onClick={() => {
-                  setPrompt('');
-                  vscode.postMessage({ type: 'resetWorkspace' });
-                }}
-              >
-                Reset
-              </button>
+            <div className="chat-launchpad__status">
+              <p className="eyebrow">Active Run</p>
+              {activeRunCounts.total > 0 ? (
+                <>
+                  <strong>{selectedRun ? `${selectedRun.title} · ${activeRunCounts.total} stage${activeRunCounts.total === 1 ? '' : 's'}` : `${activeRunCounts.total} stage${activeRunCounts.total === 1 ? '' : 's'}`}</strong>
+                  {selectedRun ? <p>{selectedRun.summary}</p> : null}
+                  <div className="task-meta">
+                    {selectedRun ? <span className={`task-chip task-chip--status-${selectedRun.status}`}>{selectedRun.status}</span> : null}
+                    <span className="task-chip">{activeRunCounts.done} done</span>
+                    <span className="task-chip">{activeRunCounts.active} active</span>
+                    <span className="task-chip">{activeRunCounts.queued} queued</span>
+                    {activeRunCounts.review > 0 ? <span className="task-chip">{activeRunCounts.review} review</span> : null}
+                    {activeRunCounts.failed > 0 ? <span className="task-chip">{activeRunCounts.failed} failed</span> : null}
+                  </div>
+                </>
+              ) : (
+                <p>No active pipeline selected yet. The next chat-run will appear here automatically.</p>
+              )}
+              <div className="composer-actions">
+                <button
+                  type="button"
+                  className="composer-button composer-button--ghost"
+                  onClick={() => vscode.postMessage({ type: 'resetWorkspace' })}
+                >
+                  Reset
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -709,7 +678,7 @@ function App() {
       <section className="workspace-nav panel">
         <div className="workspace-nav__header">
           <p className="eyebrow">Workspace Views</p>
-          <span className="workspace-nav__hint">Factory control, roster, queue, and feed.</span>
+          <span className="workspace-nav__hint">Runtime floor, pipeline queue, provider health, and activity feed.</span>
         </div>
         <div className="workspace-nav__tabs" role="tablist" onKeyDown={handleWorkspaceNavKeyDown}>
           <button
@@ -722,17 +691,6 @@ function App() {
           >
             <span>Agent Factory</span>
             <strong>{snapshot.agents.length}</strong>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeView === 'rooms'}
-            tabIndex={activeView === 'rooms' ? 0 : -1}
-            className={`workspace-nav__tab${activeView === 'rooms' ? ' workspace-nav__tab--active' : ''}`}
-            onClick={() => setActiveView('rooms')}
-          >
-            <span>Rooms</span>
-            <strong>{snapshot.rooms.length}</strong>
           </button>
           <button
             type="button"
@@ -779,9 +737,6 @@ function App() {
             tasks={snapshot.tasks}
             selectedAgentId={selectedAgentId}
             onSelectAgent={handleRevealAgentTask}
-            onSpawnAgent={(roomId) => setSpawnRoomId(roomId)}
-            onDeleteRoom={(roomId) => vscode.postMessage({ type: 'deleteRoom', roomId })}
-            onRemoveAgent={(agentId) => vscode.postMessage({ type: 'removeAgent', agentId })}
           />
 
           <InspectorPanelComponent
@@ -790,12 +745,10 @@ function App() {
             selectedAgentFocusTask={selectedAgentFocusTask}
             personas={personas}
             rooms={snapshot.rooms}
+            selectedRun={selectedRun}
+            selectedSession={selectedSession}
             inspectorTab={inspectorTab}
             setInspectorTab={setInspectorTab}
-            agentTaskPrompt={agentTaskPrompt}
-            setAgentTaskPrompt={setAgentTaskPrompt}
-            isAssigning={isAssigning}
-            setIsAssigning={setIsAssigning}
             expandedTaskId={expandedTaskId}
             setExpandedTaskId={setExpandedTaskId}
             showFilePicker={showFilePicker}
@@ -806,23 +759,6 @@ function App() {
             streamingOutputs={streamingOutputs}
             vscode={vscode}
           />
-        </section>
-      ) : null}
-
-      {activeView === 'rooms' ? (
-        <section className="workspace-stack">
-          <div className="column column--rooms column--stacked">
-            {snapshot.rooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                agents={snapshot.agents.filter((a) => a.roomId === room.id)}
-                personas={snapshot.personas}
-                selectedAgentId={selectedAgentId}
-                onSelectAgent={handleRevealAgentTask}
-              />
-            ))}
-          </div>
         </section>
       ) : null}
 

@@ -2,7 +2,7 @@
   "name": "pixel-squad",
   "displayName": "Pixel Squad",
   "description": "Multi-agent orchestrating pixel factory — dual-provider (Copilot + Claude) inside VS Code.",
-  "version": "0.1.30",
+  "version": "0.1.31",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -51,10 +51,6 @@
         "category": "Pixel Squad"
       },
       {
-        "command": "pixelSquad.createTask",
-        "title": "Pixel Squad: Create Routed Task"
-      },
-      {
         "command": "pixelSquad.resetWorkspace",
         "title": "Pixel Squad: Reset Workspace State"
       },
@@ -65,26 +61,6 @@
       {
         "command": "pixelSquad.toggleAutoExecute",
         "title": "Pixel Squad: Toggle Auto-Execute"
-      },
-      {
-        "command": "pixelSquad.createRoom",
-        "title": "Pixel Squad: Create Room"
-      },
-      {
-        "command": "pixelSquad.spawnAgent",
-        "title": "Pixel Squad: Spawn Agent in Room"
-      },
-      {
-        "command": "pixelSquad.assignTask",
-        "title": "Pixel Squad: Assign Task to Agent"
-      },
-      {
-        "command": "pixelSquad.listAgents",
-        "title": "Pixel Squad: List Agents"
-      },
-      {
-        "command": "pixelSquad.fleetExecute",
-        "title": "Pixel Squad: Fleet Execute (All Agents)"
       }
     ],
     "configuration": {
@@ -139,11 +115,11 @@
           },
           {
             "id": "routeATask",
-            "title": "Route Your First Task",
-            "description": "Use the command palette or the panel composer to describe a task. Pixel Squad will plan it with GitHub Copilot and assign agents.\n\n[Create a Task](command:pixelSquad.createTask)",
+            "title": "Start From Copilot Chat",
+            "description": "Use `@pixel-squad` in GitHub Copilot Chat to start a run. Add persona commands like `/frontend` or `/tester` to engage a specific lane. The runtime panel updates automatically.",
             "media": {
               "image": "assets/icon.svg",
-              "altText": "Route a task"
+              "altText": "Start a run from chat"
             }
           },
           {

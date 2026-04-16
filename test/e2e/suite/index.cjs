@@ -134,38 +134,6 @@ async function run() {
     'Expected routed tasks to include dependency, skill, and progress metadata.',
   );
 
-  const assignTaskPrompt = 'Audit the settings migration path and report any regressions.';
-
-  await withStubbedWindowPrompts({
-    showQuickPick: async (items) => items.find((item) => item.agentId === 'tester-1') ?? items[0],
-    showInputBox: async () => assignTaskPrompt,
-  }, async () => {
-    await vscode.commands.executeCommand('pixelSquad.assignTask');
-  });
-
-  const assignedSnapshot = await poll(() => {
-    const snapshot = readSnapshot(snapshotPath);
-    const assignedTask = snapshot.tasks.find((task) => task.detail === assignTaskPrompt);
-    const assignedAgent = snapshot.agents.find((agent) => agent.id === 'tester-1');
-
-    if (!assignedTask || !assignedAgent || assignedTask.assigneeId !== 'tester-1') {
-      return undefined;
-    }
-
-    // With auto-execute on by default the task may already be in review/done by the time
-    // the poll fires. Accept any terminal-or-active state as long as assignment was recorded.
-    if (!activityIncludes(snapshot.activityFeed, 'Task assigned to Mica:')) {
-      return undefined;
-    }
-
-    return { snapshot, assignedTask, assignedAgent };
-  });
-
-  assert.ok(
-    activityIncludes(assignedSnapshot.snapshot.activityFeed, 'Task assigned to Mica:'),
-    'Expected assignTask command to persist assignment activity.',
-  );
-
   await vscode.commands.executeCommand('pixelSquad.toggleAutoExecute');
   await poll(() => {
     const autoExecute = vscode.workspace.getConfiguration('pixelSquad').get('autoExecute');

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { exec, type ExecException } from 'node:child_process';
 import * as vscode from 'vscode';
 
-import type { ActivityCategory, ActivityEntry, AgentMessage, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import type { ActivityCategory, ActivityEntry, AgentMessage, AgentSession, AgentSessionMessage, AgentSessionMessageRole, AgentSessionStatus, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, RunRecord, RunStatus, RunStage, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskSource, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
 import { ROOM_THEME_META, createActivityEntry } from '../../shared/model/index.js';
 import type { ActivityMessage, AgentChatMessage, TaskOutputMessage, TaskStreamChunkMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
@@ -54,6 +54,7 @@ export class Coordinator {
   }
 
   getSnapshot(): WorkspaceSnapshot {
+    this.syncRuntimeProjection();
     return {
       ...this.snapshot,
       settings: this.getSettings(),
@@ -87,7 +88,7 @@ export class Coordinator {
     }
   }
 
-  async createTask(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, provider?: Provider): Promise<string> {
+  async createTask(prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, provider?: Provider, source: TaskSource = 'factory'): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task request.';
@@ -148,7 +149,7 @@ export class Coordinator {
         status: nextStatus,
         assigneeId: refreshedAgent.id,
         provider: refreshedAgent.provider,
-        source: 'factory',
+        source,
         detail: assignment.detail,
         dependsOn: inferredDependencyIds,
         requiredSkillIds: assignment.requiredSkillIds ?? [],
@@ -172,6 +173,22 @@ export class Coordinator {
     this.scheduleSave();
     this.appendActivity(`Task received: ${plan.title}`, { category: 'task', provider: selectedProvider });
     this.appendActivity(plan.providerDetail, { category: 'provider', provider: selectedProvider });
+    if (newTasks.length > 0) {
+      this.setUiFocus(newTasks[0].assigneeId, batchId);
+      if (source !== 'factory') {
+        this.appendSessionMessage(batchId, newTasks[0].assigneeId, 'user', normalizedPrompt, newTasks[0].id);
+        const focusedAgent = updatedAgents.find((agent) => agent.id === newTasks[0].assigneeId);
+        if (focusedAgent) {
+          this.appendActivity(`Copilot Chat engaged ${focusedAgent.name} for run ${batchId}.`, {
+            category: 'agent-chat',
+            agentId: focusedAgent.id,
+            roomId: focusedAgent.roomId,
+            provider: focusedAgent.provider,
+            taskId: newTasks[0].id,
+          });
+        }
+      }
+    }
 
     if (settings.autoPopulateWorkspaceContext && newTasks.length > 0) {
       void fullContextPromise.then((fullContext) => {
@@ -196,7 +213,7 @@ export class Coordinator {
     return `${plan.summary} ${plan.providerDetail}`;
   }
 
-  async assignTask(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+  async assignTask(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, source: TaskSource = 'factory', runIdOverride?: string): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task.';
@@ -211,6 +228,7 @@ export class Coordinator {
     const lightContext = this.workspaceContext.captureLightweight();
     const settings = this.getSettings();
     const initialStatus: TaskStatus = settings.autoExecute ? 'active' : 'queued';
+    const batchId = runIdOverride ?? this.makeId('run');
     const updatedAgent: SquadAgent = {
       ...agent,
       status: settings.autoExecute ? 'executing' : 'planning',
@@ -223,12 +241,13 @@ export class Coordinator {
       status: initialStatus,
       assigneeId: agent.id,
       provider: agent.provider,
-      source: 'factory',
+      source,
       detail: normalizedPrompt,
       dependsOn: [],
       requiredSkillIds: [],
       workspaceContext: lightContext,
       progress: this.progressForStatus(initialStatus, initialStatus === 'queued' ? 'Ready to start' : 'Preparing workspace'),
+      batchId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -258,6 +277,19 @@ export class Coordinator {
       roomId: room?.id,
       provider: agent.provider,
     });
+    this.setUiFocus(agent.id, batchId);
+    if (source !== 'factory') {
+      this.appendSessionMessage(batchId, agent.id, 'user', normalizedPrompt, task.id);
+    }
+    if (source !== 'factory') {
+      this.appendActivity(`Copilot Chat engaged ${agent.name}: ${normalizedPrompt}`, {
+        category: 'agent-chat',
+        agentId: agent.id,
+        roomId: room?.id,
+        provider: agent.provider,
+        taskId: task.id,
+      });
+    }
 
     // Enrich context and auto-execute in the background (non-blocking)
     if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
@@ -274,10 +306,12 @@ export class Coordinator {
       })();
     }
 
-    return `Task assigned to ${agent.name} (${agent.provider}).`;
+    return runIdOverride
+      ? `Message sent to ${agent.name} (${agent.provider}) in active run ${batchId}.`
+      : `Task assigned to ${agent.name} (${agent.provider}).`;
   }
 
-  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+  async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, source: TaskSource = 'factory'): Promise<string> {
     const persona = this.snapshot.personas.find((item) => item.id === personaId);
     if (!persona) {
       return 'Persona not found.';
@@ -286,7 +320,10 @@ export class Coordinator {
     const existingAgents = this.snapshot.agents
       .filter((agent) => agent.personaId === personaId)
       .sort((left, right) => this.openTaskCountForAgent(left.id) - this.openTaskCountForAgent(right.id));
-    let targetAgent = existingAgents.find((agent) => agent.status === 'idle') ?? existingAgents[0];
+    const focusedAgent = this.snapshot.ui.activeAgentId
+      ? existingAgents.find((agent) => agent.id === this.snapshot.ui.activeAgentId)
+      : undefined;
+    let targetAgent = focusedAgent ?? existingAgents.find((agent) => agent.status === 'idle') ?? existingAgents[0];
 
     if (!targetAgent) {
       const targetRoom = this.pickRoomForPersona(personaId);
@@ -297,7 +334,11 @@ export class Coordinator {
       targetAgent = spawned;
     }
 
-    return this.assignTask(targetAgent.id, prompt, model, token);
+    const activeRunId = source !== 'factory' && this.snapshot.ui.activeBatchId && this.hasAgentInRun(this.snapshot.ui.activeBatchId, targetAgent.id)
+      ? this.snapshot.ui.activeBatchId
+      : undefined;
+
+    return this.assignTask(targetAgent.id, prompt, model, token, source, activeRunId);
   }
 
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
@@ -566,6 +607,10 @@ export class Coordinator {
         agentId: agent.id,
         provider: task.provider,
       });
+    }
+
+    if (task.batchId) {
+      this.appendSessionMessage(task.batchId, agent.id, 'agent', result.output.slice(0, 2000), taskId);
     }
 
     this.scheduler.finish(taskId);
@@ -978,7 +1023,10 @@ export class Coordinator {
   }
 
   selectAgent(agentId: string): void {
-    this.appendActivity(`Inspector focused on ${agentId}.`, { category: 'agent', agentId });
+    const focusTask = this.pickFocusTaskForAgent(agentId);
+    this.setUiFocus(agentId, focusTask?.batchId);
+    this.appendActivity(`Inspector focused on ${agentId}.`, { category: 'agent', agentId, taskId: focusTask?.id });
+    this.scheduleSave();
   }
 
   private updateTask(taskId: string, updates: Partial<TaskCard>): void {
@@ -1005,11 +1053,35 @@ export class Coordinator {
 
   private loadSnapshot(): WorkspaceSnapshot {
     const snapshot = this.store.load();
-    return {
+    this.snapshot = {
       ...snapshot,
       providers: this.getProviderHealths(),
       settings: snapshot.settings ?? this.getSettings(),
+      ui: snapshot.ui ?? {},
     };
+    this.syncRuntimeProjection();
+    return this.snapshot;
+  }
+
+  private setUiFocus(agentId?: string, batchId?: string): void {
+    this.snapshot = {
+      ...this.snapshot,
+      ui: {
+        ...this.snapshot.ui,
+        activeAgentId: agentId,
+        activeBatchId: batchId,
+      },
+    };
+  }
+
+  private pickFocusTaskForAgent(agentId: string): TaskCard | undefined {
+    const tasks = this.snapshot.tasks
+      .filter((task) => task.assigneeId === agentId)
+      .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0));
+    return tasks.find((task) => task.status === 'active')
+      ?? tasks.find((task) => task.status === 'review')
+      ?? tasks.find((task) => task.status === 'queued')
+      ?? tasks[0];
   }
 
   private getProviderHealths(): ProviderHealth[] {
@@ -1021,6 +1093,7 @@ export class Coordinator {
     if (this.saveTimer) return;
     this.saveTimer = setTimeout(() => {
       this.saveTimer = undefined;
+      this.syncRuntimeProjection();
       this.store.saveAsync(this.snapshot);
     }, SAVE_DEBOUNCE_MS);
   }
@@ -1031,7 +1104,139 @@ export class Coordinator {
       clearTimeout(this.saveTimer);
       this.saveTimer = undefined;
     }
+    this.syncRuntimeProjection();
     this.store.save(this.snapshot);
+  }
+
+  private hasAgentInRun(runId: string, agentId: string): boolean {
+    return this.snapshot.tasks.some((task) => (task.batchId ?? task.id) === runId && task.assigneeId === agentId);
+  }
+
+  private appendSessionMessage(runId: string, agentId: string, role: AgentSessionMessageRole, content: string, taskId?: string): void {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const sessionId = `session:${runId}:${agentId}`;
+    const existing = this.snapshot.agentSessions.find((session) => session.id === sessionId);
+    const agent = this.snapshot.agents.find((item) => item.id === agentId);
+    const nextMessage: AgentSessionMessage = {
+      id: `session-message-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      role,
+      content: trimmed,
+      timestamp: Date.now(),
+      taskId,
+    };
+
+    const messageLog = [...(existing?.messageLog ?? []), nextMessage].slice(-20);
+    const session: AgentSession = {
+      id: sessionId,
+      runId,
+      agentId,
+      personaId: agent?.personaId ?? existing?.personaId ?? 'unknown',
+      provider: agent?.provider ?? existing?.provider ?? 'copilot',
+      status: existing?.status ?? 'queued',
+      startedAt: existing?.startedAt ?? Date.now(),
+      updatedAt: Date.now(),
+      messageLog,
+    };
+
+    this.snapshot = {
+      ...this.snapshot,
+      agentSessions: [
+        session,
+        ...this.snapshot.agentSessions.filter((item) => item.id !== sessionId),
+      ],
+    };
+  }
+
+  private syncRuntimeProjection(): void {
+    const existingSessions = new Map(this.snapshot.agentSessions.map((session) => [session.id, session]));
+    const tasksByRun = new Map<string, TaskCard[]>();
+
+    for (const task of this.snapshot.tasks) {
+      const runId = task.batchId ?? task.id;
+      const current = tasksByRun.get(runId);
+      if (current) {
+        current.push(task);
+      } else {
+        tasksByRun.set(runId, [task]);
+      }
+    }
+
+    const runs: RunRecord[] = Array.from(tasksByRun.entries()).map(([runId, tasks]) => {
+      const orderedTasks = [...tasks].sort((left, right) => (left.createdAt ?? 0) - (right.createdAt ?? 0));
+      const stages: RunStage[] = orderedTasks.map((task) => ({
+        id: `stage:${task.id}`,
+        taskId: task.id,
+        title: task.title,
+        detail: task.detail,
+        status: task.status,
+        agentId: task.assigneeId,
+        provider: task.provider,
+        source: task.source,
+        dependsOnTaskIds: task.dependsOn ?? [],
+        createdAt: task.createdAt ?? 0,
+        updatedAt: task.updatedAt ?? task.createdAt ?? 0,
+      }));
+      const leadTask = orderedTasks[0];
+
+      return {
+        id: runId,
+        title: leadTask.title,
+        summary: leadTask.detail,
+        status: this.runStatusForTasks(orderedTasks),
+        source: leadTask.source,
+        createdAt: Math.min(...orderedTasks.map((task) => task.createdAt ?? Date.now())),
+        updatedAt: Math.max(...orderedTasks.map((task) => task.updatedAt ?? task.createdAt ?? Date.now())),
+        stages,
+        activeAgentIds: Array.from(new Set(orderedTasks.map((task) => task.assigneeId))),
+      };
+    }).sort((left, right) => right.updatedAt - left.updatedAt);
+
+    const sessions: AgentSession[] = [];
+    for (const run of runs) {
+      for (const agentId of run.activeAgentIds) {
+        const sessionId = `session:${run.id}:${agentId}`;
+        const existing = existingSessions.get(sessionId);
+        const agent = this.snapshot.agents.find((item) => item.id === agentId);
+        const sessionTasks = this.snapshot.tasks.filter((task) => (task.batchId ?? task.id) === run.id && task.assigneeId === agentId);
+        sessions.push({
+          id: sessionId,
+          runId: run.id,
+          agentId,
+          personaId: agent?.personaId ?? existing?.personaId ?? 'unknown',
+          provider: agent?.provider ?? existing?.provider ?? 'copilot',
+          status: this.sessionStatusForTasks(sessionTasks),
+          startedAt: existing?.startedAt ?? Math.min(...sessionTasks.map((task) => task.createdAt ?? Date.now())),
+          updatedAt: Math.max(existing?.updatedAt ?? 0, ...sessionTasks.map((task) => task.updatedAt ?? task.createdAt ?? Date.now())),
+          messageLog: existing?.messageLog ?? [],
+        });
+      }
+    }
+
+    this.snapshot = {
+      ...this.snapshot,
+      runs,
+      agentSessions: sessions.sort((left, right) => right.updatedAt - left.updatedAt),
+    };
+  }
+
+  private runStatusForTasks(tasks: TaskCard[]): RunStatus {
+    if (tasks.some((task) => task.status === 'active')) return 'active';
+    if (tasks.some((task) => task.status === 'review')) return 'review';
+    if (tasks.some((task) => task.status === 'failed')) return 'failed';
+    if (tasks.some((task) => task.status === 'queued')) return 'queued';
+    return 'done';
+  }
+
+  private sessionStatusForTasks(tasks: TaskCard[]): AgentSessionStatus {
+    if (tasks.some((task) => task.status === 'active')) return 'active';
+    if (tasks.some((task) => task.status === 'review')) return 'review';
+    if (tasks.some((task) => task.status === 'failed')) return 'failed';
+    if (tasks.some((task) => task.status === 'queued')) return 'queued';
+    return 'done';
   }
 
   /** Flush any pending debounced save before the extension is torn down. */

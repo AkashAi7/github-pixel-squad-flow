@@ -205,6 +205,16 @@ function changedFilesForTask(task: TaskCard): string[] {
   return Array.from(new Set(task.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? []));
 }
 
+function sourceLabel(task: TaskCard): string {
+  if (task.source === 'copilot-chat') {
+    return 'Chat';
+  }
+  if (task.source === 'claude-chat') {
+    return 'Claude Chat';
+  }
+  return 'Panel';
+}
+
 export function TaskCardComponent({
   task,
   agentsById,
@@ -260,7 +270,8 @@ export function TaskCardComponent({
         <span className={`provider-badge provider-badge--${task.provider}`}>
           {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
         </span>
-        <span>{task.source}</span>
+        <span className="task-chip">{sourceLabel(task)}</span>
+        {task.batchId ? <span className="task-chip">Run</span> : null}
         {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
         {task.approvalState ? <span className="task-chip">{task.approvalState}</span> : null}
       </div>

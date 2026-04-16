@@ -115,6 +115,111 @@ summary:focus-visible {
   gap: 10px;
 }
 
+.chat-launchpad {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.chat-launchpad__copy,
+.chat-launchpad__status {
+  padding: 14px;
+  border: 1px solid var(--ps-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ps-panel-elevated) 92%, transparent);
+}
+
+.chat-launchpad__copy h3,
+.chat-launchpad__status strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.chat-launchpad__copy p,
+.chat-launchpad__status p {
+  color: var(--ps-muted);
+  line-height: 1.45;
+}
+
+.chat-launchpad__command,
+.chat-channel-card__command {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ps-input-border);
+  border-radius: 10px;
+  background: var(--ps-input);
+  color: var(--ps-text);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.chat-channel-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ps-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ps-panel-elevated) 90%, transparent);
+}
+
+.chat-channel-card h3 {
+  margin: 0;
+}
+
+.run-summary-card,
+.channel-transcript {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ps-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ps-input) 82%, transparent);
+}
+
+.run-summary-card__header,
+.channel-transcript__header,
+.channel-message__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.run-summary-card p,
+.channel-message p,
+.channel-transcript__header span,
+.run-summary-card__header span,
+.channel-message__meta span {
+  color: var(--ps-muted);
+}
+
+.channel-transcript__list {
+  display: grid;
+  gap: 10px;
+}
+
+.channel-message {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ps-border);
+}
+
+.channel-message--user {
+  background: color-mix(in srgb, #247ba0 18%, transparent);
+}
+
+.channel-message--agent {
+  background: color-mix(in srgb, #70c1b3 16%, transparent);
+}
+
+.channel-message--system {
+  background: color-mix(in srgb, #ffe066 10%, transparent);
+}
+
 /* ── Task Composer ───────────────────────────────── */
 .task-composer { display: grid; gap: 10px; margin-top: 18px; }
 .composer-label { color: var(--ps-accent); font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -2551,6 +2656,10 @@ summary:focus-visible {
 
 .shell--activitybar .task-composer {
   margin-top: 16px;
+}
+
+.shell--activitybar .chat-launchpad {
+  grid-template-columns: 1fr;
 }
 
 .shell--activitybar .composer-input {

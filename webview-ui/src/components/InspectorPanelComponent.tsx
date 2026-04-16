@@ -1,7 +1,9 @@
 import type {
+  AgentSession,
   PersonaTemplate,
   ProposedFileEdit,
   Room,
+  RunRecord,
   SquadAgent,
   TaskCard,
   TaskExecutionPlan,
@@ -15,12 +17,10 @@ export interface InspectorPanelProps {
   selectedAgentFocusTask: TaskCard | undefined;
   personas: Map<string, PersonaTemplate>;
   rooms: Room[];
-  inspectorTab: 'overview' | 'assign' | 'work';
-  setInspectorTab: (tab: 'overview' | 'assign' | 'work') => void;
-  agentTaskPrompt: string;
-  setAgentTaskPrompt: (prompt: string) => void;
-  isAssigning: boolean;
-  setIsAssigning: (value: boolean) => void;
+  selectedRun: RunRecord | null;
+  selectedSession: AgentSession | null;
+  inspectorTab: 'overview' | 'channel' | 'work';
+  setInspectorTab: (tab: 'overview' | 'channel' | 'work') => void;
   expandedTaskId: string | null;
   setExpandedTaskId: (id: string | null) => void;
   showFilePicker: boolean;
@@ -207,12 +207,10 @@ export function InspectorPanelComponent({
   selectedAgentFocusTask,
   personas,
   rooms,
+  selectedRun,
+  selectedSession,
   inspectorTab,
   setInspectorTab,
-  agentTaskPrompt,
-  setAgentTaskPrompt,
-  isAssigning,
-  setIsAssigning,
   expandedTaskId,
   setExpandedTaskId,
   showFilePicker,
@@ -224,6 +222,7 @@ export function InspectorPanelComponent({
   vscode,
 }: InspectorPanelProps) {
   const focusChangedFiles = selectedAgentFocusTask ? changedFilesForTask(selectedAgentFocusTask) : [];
+  const personaTitle = selectedAgent ? personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId : '';
   return (
     <section className="panel inspector-panel">
       <p className="eyebrow">Selected Agent</p>
@@ -244,36 +243,6 @@ export function InspectorPanelComponent({
             </span>
           </div>
 
-          {/* ── Inline Assign (always visible) ── */}
-          <div className="inspector-quick-assign">
-            <textarea
-              className="inspector-quick-assign__input"
-              value={agentTaskPrompt}
-              onChange={(e) => setAgentTaskPrompt(e.target.value)}
-              placeholder={`Assign a task to ${selectedAgent.name}…`}
-              rows={2}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && agentTaskPrompt.trim().length > 0) {
-                  setIsAssigning(true);
-                  vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                  setAgentTaskPrompt('');
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="inspector-quick-assign__btn"
-              disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-              onClick={() => {
-                setIsAssigning(true);
-                vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                setAgentTaskPrompt('');
-              }}
-            >
-              {isAssigning ? '…' : `⚡ Assign`}
-            </button>
-          </div>
-
           {/* ── Inspector Tab Bar ── */}
           <div
             className="inspector-tabs"
@@ -281,10 +250,10 @@ export function InspectorPanelComponent({
             onKeyDown={(event) => {
               if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
                 event.preventDefault();
-                setInspectorTab(inspectorTab === 'overview' ? 'work' : 'overview');
+                setInspectorTab(inspectorTab === 'overview' ? 'channel' : inspectorTab === 'channel' ? 'work' : 'overview');
               } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
                 event.preventDefault();
-                setInspectorTab(inspectorTab === 'work' ? 'overview' : 'work');
+                setInspectorTab(inspectorTab === 'work' ? 'channel' : inspectorTab === 'channel' ? 'overview' : 'work');
               }
             }}
           >
@@ -297,6 +266,16 @@ export function InspectorPanelComponent({
               onClick={() => setInspectorTab('overview')}
             >
               Overview
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={inspectorTab === 'channel'}
+              tabIndex={inspectorTab === 'channel' ? 0 : -1}
+              className={`inspector-tabs__tab${inspectorTab === 'channel' ? ' inspector-tabs__tab--active' : ''}`}
+              onClick={() => setInspectorTab('channel')}
+            >
+              Chat Channel
             </button>
             <button
               type="button"
@@ -370,7 +349,7 @@ export function InspectorPanelComponent({
                     )}
                   </div>
                 ) : (
-                  <p className="inspector-copy">No active assignment. Switch to the <strong>⚡ Assign</strong> tab to give this agent work.</p>
+                  <p className="inspector-copy">No active assignment yet. Use Copilot Chat with <strong>@pixel-squad /{selectedAgent.personaId}</strong> to engage this agent lane.</p>
                 )}
               </section>
               <div className="agent-controls">
@@ -478,36 +457,61 @@ export function InspectorPanelComponent({
             </div>
           )}
 
-          {/* ── Tab: Assign ── */}
-          {inspectorTab === 'assign' && (
+          {/* ── Tab: Channel ── */}
+          {inspectorTab === 'channel' && (
             <div className="inspector-tab-content">
-              <div className="assign-task assign-task--prominent">
-                <label className="composer-label" htmlFor="agent-task-prompt">⚡ Assign task to {selectedAgent.name}</label>
-                <textarea
-                  id="agent-task-prompt"
-                  className="assign-task__input"
-                  value={agentTaskPrompt}
-                  onChange={(e) => setAgentTaskPrompt(e.target.value)}
-                  placeholder={`Describe a task for ${selectedAgent.name}...`}
-                  rows={4}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="composer-button assign-task__btn"
-                  disabled={isAssigning || agentTaskPrompt.trim().length === 0}
-                  onClick={() => {
-                    setIsAssigning(true);
-                    vscode.postMessage({ type: 'assignTask', agentId: selectedAgent.id, prompt: agentTaskPrompt.trim() });
-                    setAgentTaskPrompt('');
-                  }}
-                >
-                  {isAssigning ? 'Assigning...' : `⚡ Assign to ${selectedAgent.name}`}
-                </button>
-                <p className="inspector-copy" style={{ marginTop: '8px' }}>
-                  This assigns a task directly to <strong>{selectedAgent.name}</strong>, bypassing the planner.
-                  Use "Route Task" in the hero composer to let the planner decide assignment.
+              <div className="chat-channel-card">
+                <p className="eyebrow">Chat-first Control</p>
+                <h3>Talk to {selectedAgent.name} from Copilot Chat</h3>
+                <p className="inspector-copy">
+                  Use <strong>@pixel-squad /{selectedAgent.personaId}</strong> in GitHub Copilot Chat to keep directing the {personaTitle} lane.
+                  Pixel Squad now treats chat as the control plane and keeps this inspector focused on the active agent session.
                 </p>
+                <div className="chat-channel-card__command">
+                  <code>@pixel-squad /{selectedAgent.personaId} continue with the next step and report blockers</code>
+                </div>
+                <div className="task-meta">
+                  <span className="task-chip">Focused agent</span>
+                  <span className="task-chip">{selectedAgent.name}</span>
+                  <span className="task-chip">{personaTitle}</span>
+                  <span className="task-chip">{selectedAgent.provider}</span>
+                  {selectedRun ? <span className={`task-chip task-chip--status-${selectedRun.status}`}>{selectedRun.status}</span> : null}
+                </div>
+                {selectedRun ? (
+                  <div className="run-summary-card">
+                    <div className="run-summary-card__header">
+                      <strong>{selectedRun.title}</strong>
+                      <span>{selectedRun.stages.length} stages</span>
+                    </div>
+                    <p>{selectedRun.summary}</p>
+                    <div className="task-meta">
+                      {selectedRun.stages.map((stage) => (
+                        <span key={stage.id} className={`task-chip task-chip--status-${stage.status}`} title={stage.detail}>{stage.title}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="channel-transcript">
+                  <div className="channel-transcript__header">
+                    <p className="eyebrow">Session Transcript</p>
+                    <span>{selectedSession?.messageLog.length ?? 0} entries</span>
+                  </div>
+                  {selectedSession?.messageLog.length ? (
+                    <div className="channel-transcript__list">
+                      {selectedSession.messageLog.map((message) => (
+                        <article key={message.id} className={`channel-message channel-message--${message.role}`}>
+                          <div className="channel-message__meta">
+                            <strong>{message.role === 'user' ? 'Copilot Chat' : message.role === 'agent' ? selectedAgent.name : 'System'}</strong>
+                            <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p>{message.content}</p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="inspector-copy">No chat transcript captured for this lane yet. Start or continue the run from Copilot Chat and the transcript will accumulate here.</p>
+                  )}
+                </div>
               </div>
             </div>
           )}

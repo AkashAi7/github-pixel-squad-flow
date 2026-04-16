@@ -10,7 +10,7 @@ import { TaskCardComponent } from './TaskCardComponent.js';
 
 export const TASK_STATUS_ORDER: TaskStatus[] = ['active', 'queued', 'review', 'done', 'failed'];
 
-export type TaskGroupBy = 'status' | 'assignee' | 'room';
+export type TaskGroupBy = 'status' | 'assignee' | 'room' | 'pipeline';
 
 export interface TaskGroup {
   key: string;
@@ -91,6 +91,13 @@ export function TaskWallComponent({
                 onClick={() => setTaskGroupBy('room')}
               >
                 By room
+              </button>
+              <button
+                type="button"
+                className={`toggle-chip${taskGroupBy === 'pipeline' ? ' toggle-chip--active' : ''}`}
+                onClick={() => setTaskGroupBy('pipeline')}
+              >
+                By pipeline
               </button>
             </div>
           </div>

@@ -11,9 +11,6 @@ interface FactoryBoardProps {
   tasks: TaskCard[];
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
-  onSpawnAgent: (roomId: string) => void;
-  onDeleteRoom: (roomId: string) => void;
-  onRemoveAgent: (agentId: string) => void;
 }
 
 const THEME_FLOORS: Record<string, string> = {
@@ -181,8 +178,6 @@ interface RoomStageProps {
   tasks: TaskCard[];
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
-  onSpawnAgent: (roomId: string) => void;
-  onRemoveAgent: (agentId: string) => void;
 }
 
 function RoomStage({
@@ -192,8 +187,6 @@ function RoomStage({
   tasks,
   selectedAgentId,
   onSelectAgent,
-  onSpawnAgent,
-  onRemoveAgent,
 }: RoomStageProps) {
   const [motions, setMotions] = useState<Record<string, AgentMotion>>({});
   const tickRef = useRef(0);
@@ -270,33 +263,20 @@ function RoomStage({
                 <span className="pixel-agent__meta">{mood.label}</span>
               </span>
             </button>
-            <button
-              type="button"
-              className="pixel-agent__remove"
-              title={`Remove ${agent.name}`}
-              aria-label={`Remove agent ${agent.name}`}
-              onClick={() => onRemoveAgent(agent.id)}
-            >
-              ×
-            </button>
           </div>
         );
       })}
       {roomAgents.length === 0 && (
-        <button
-          type="button"
-          className="factory-room__empty"
-          onClick={() => onSpawnAgent(room.id)}
-        >
-          + Spawn Agent
-        </button>
+        <div className="factory-room__empty">
+          Waiting for Copilot Chat to engage an agent lane.
+        </div>
       )}
     </div>
   );
 }
 
 export function FactoryBoard({
-  rooms, agents, personas, tasks, selectedAgentId, onSelectAgent, onSpawnAgent, onDeleteRoom, onRemoveAgent,
+  rooms, agents, personas, tasks, selectedAgentId, onSelectAgent,
 }: FactoryBoardProps) {
   const personaMap = useMemo(() => new Map(personas.map((persona) => [persona.id, persona])), [personas]);
 
@@ -308,7 +288,7 @@ export function FactoryBoard({
           <h2 id="factory-board-title">Agent Factory</h2>
         </div>
         <p className="factory-board__copy">
-          Create rooms, spawn agents, and visualize your multi-agent squad working in parallel.
+          Monitor which agent lanes Copilot Chat has engaged, then inspect live multi-agent progress room by room.
         </p>
       </div>
       <div className="factory-board__grid" role="list" aria-label="Factory rooms">
@@ -340,24 +320,6 @@ export function FactoryBoard({
                 <span className={`factory-room__state${roomHasLiveWork ? ' factory-room__state--live' : ''}`}>
                   {roomHasLiveWork ? 'Live' : 'Ready'}
                 </span>
-                <div className="factory-room__actions">
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn--add"
-                    title="Spawn agent in this room"
-                    onClick={() => onSpawnAgent(room.id)}
-                  >
-                    +
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn--remove"
-                    title="Delete this room"
-                    onClick={() => onDeleteRoom(room.id)}
-                  >
-                    ×
-                  </button>
-                </div>
               </header>
               <p className="factory-room__purpose">{room.purpose}</p>
               <div className="factory-room__metrics">
@@ -372,8 +334,6 @@ export function FactoryBoard({
                 tasks={tasks}
                 selectedAgentId={selectedAgentId}
                 onSelectAgent={onSelectAgent}
-                onSpawnAgent={onSpawnAgent}
-                onRemoveAgent={onRemoveAgent}
               />
             </article>
           );

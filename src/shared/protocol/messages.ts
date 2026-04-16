@@ -1,4 +1,4 @@
-import type { ActivityEntry, AgentMessage, CustomPersonaDraft, Provider, RoomTheme, WorkspaceSnapshot } from '../model/index.js';
+import type { ActivityEntry, AgentMessage, WorkspaceSnapshot } from '../model/index.js';
 
 export interface WebviewReadyMessage {
   type: 'webviewReady';
@@ -7,11 +7,6 @@ export interface WebviewReadyMessage {
 export interface ShowAgentMessage {
   type: 'showAgent';
   agentId: string;
-}
-
-export interface CreateTaskMessage {
-  type: 'createTask';
-  prompt: string;
 }
 
 export interface ResetWorkspaceMessage {
@@ -28,43 +23,6 @@ export interface TaskActionMessage {
   type: 'taskAction';
   taskId: string;
   action: 'execute' | 'complete' | 'fail' | 'retry' | 'run';
-}
-
-/* ── Room CRUD ─────────────────────────────────────────── */
-
-export interface CreateRoomMessage {
-  type: 'createRoom';
-  name: string;
-  theme: RoomTheme;
-  purpose: string;
-}
-
-export interface DeleteRoomMessage {
-  type: 'deleteRoom';
-  roomId: string;
-}
-
-/* ── Agent spawning ────────────────────────────────────── */
-
-export interface SpawnAgentMessage {
-  type: 'spawnAgent';
-  roomId: string;
-  name: string;
-  personaId: string;
-  provider: Provider;
-  customPersona?: CustomPersonaDraft;
-  assignTaskId?: string;
-}
-
-export interface RemoveAgentMessage {
-  type: 'removeAgent';
-  agentId: string;
-}
-
-export interface AssignTaskMessage {
-  type: 'assignTask';
-  agentId: string;
-  prompt: string;
 }
 
 export interface PinFilesMessage {
@@ -86,28 +44,16 @@ export interface ToggleAutoExecuteMessage {
   type: 'toggleAutoExecute';
 }
 
-export interface FleetExecuteMessage {
-  type: 'fleetExecute';
-  prompt: string;
-}
-
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
-  | CreateTaskMessage
   | ResetWorkspaceMessage
   | AgentActionMessage
   | TaskActionMessage
-  | CreateRoomMessage
-  | DeleteRoomMessage
-  | SpawnAgentMessage
-  | RemoveAgentMessage
-  | AssignTaskMessage
   | PinFilesMessage
   | PinActiveFileMessage
   | RequestWorkspaceFilesMessage
-  | ToggleAutoExecuteMessage
-  | FleetExecuteMessage;
+  | ToggleAutoExecuteMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';
@@ -126,12 +72,6 @@ export interface TaskOutputMessage {
   output: string;
 }
 
-export interface AssignAckMessage {
-  type: 'assignAck';
-  agentId: string;
-  taskId: string;
-}
-
 export interface AgentChatMessage {
   type: 'agentChat';
   message: AgentMessage;
@@ -148,4 +88,4 @@ export interface TaskStreamChunkMessage {
   chunk: string;
 }
 
-export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AssignAckMessage | AgentChatMessage | WorkspaceFilesMessage | TaskStreamChunkMessage;
+export type ExtensionMessage = BootstrapStateMessage | ActivityMessage | TaskOutputMessage | AgentChatMessage | WorkspaceFilesMessage | TaskStreamChunkMessage;

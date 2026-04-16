@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import { Coordinator } from './coordinator/Coordinator.js';
+import type { Provider } from '../shared/model/index.js';
 import type { ExtensionMessage, WebviewMessage } from '../shared/protocol/messages.js';
 
 export const VIEW_ID = 'pixelSquad.factoryView';
@@ -113,18 +114,6 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       syncSnapshot();
     }
 
-    if (message.type === 'createTask') {
-      try {
-        const summary = await this.coordinator.createTask(message.prompt);
-        syncSnapshot();
-        void vscode.window.showInformationMessage(summary);
-      } catch (error) {
-        syncSnapshot();
-        const detail = error instanceof Error ? error.message : 'Unknown error';
-        void vscode.window.showErrorMessage(`Pixel Squad routing failed: ${detail}`);
-      }
-    }
-
     if (message.type === 'resetWorkspace') {
       this.coordinator.resetWorkspace();
       syncSnapshot();
@@ -142,40 +131,6 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
         // taskAction failure — still sync state
       }
       syncSnapshot();
-    }
-
-    if (message.type === 'createRoom') {
-      this.coordinator.createRoom(message.name, message.theme, message.purpose);
-      syncSnapshot();
-    }
-
-    if (message.type === 'deleteRoom') {
-      this.coordinator.deleteRoom(message.roomId);
-      syncSnapshot();
-    }
-
-    if (message.type === 'spawnAgent') {
-      this.coordinator.spawnAgent(message.roomId, message.name, message.personaId, message.provider, message.customPersona, message.assignTaskId, 'panel');
-      syncSnapshot();
-    }
-
-    if (message.type === 'removeAgent') {
-      this.coordinator.removeAgent(message.agentId);
-      syncSnapshot();
-    }
-
-    if (message.type === 'assignTask') {
-      try {
-        const summary = await this.coordinator.assignTask(message.agentId, message.prompt);
-        postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
-        syncSnapshot();
-        void vscode.window.showInformationMessage(summary);
-      } catch (error) {
-        postMessage({ type: 'assignAck', agentId: message.agentId, taskId: '' });
-        syncSnapshot();
-        const detail = error instanceof Error ? error.message : 'Unknown error';
-        void vscode.window.showErrorMessage(`Task assignment failed: ${detail}`);
-      }
     }
 
     if (message.type === 'pinFiles') {
@@ -209,17 +164,6 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       syncSnapshot();
     }
 
-    if (message.type === 'fleetExecute') {
-      try {
-        const summary = await this.coordinator.fleetExecute(message.prompt);
-        syncSnapshot();
-        void vscode.window.showInformationMessage(summary);
-      } catch (error) {
-        syncSnapshot();
-        const detail = error instanceof Error ? error.message : 'Unknown error';
-        void vscode.window.showErrorMessage(`Fleet execution failed: ${detail}`);
-      }
-    }
   }
 
   private postMessage(message: ExtensionMessage): void {
@@ -231,7 +175,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     model?: vscode.LanguageModelChat,
     token?: vscode.CancellationToken,
   ): Promise<string> {
-    const summary = await this.coordinator.createTask(prompt, model, token);
+    const summary = await this.coordinator.createTask(prompt, model, token, 'copilot', 'copilot-chat');
     this.syncSnapshot();
     return summary;
   }
@@ -272,7 +216,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
   }
 
   async assignTaskToPersona(personaId: string, prompt: string, provider?: Provider, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
-    const summary = await this.coordinator.assignTaskToPersona(personaId, prompt, provider, model, token);
+    const summary = await this.coordinator.assignTaskToPersona(personaId, prompt, provider, model, token, 'copilot-chat');
     this.syncSnapshot();
     return summary;
   }

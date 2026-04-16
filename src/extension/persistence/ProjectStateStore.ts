@@ -74,11 +74,17 @@ export class ProjectStateStore {
       personas: (snapshot.personas ?? fallback.personas).map((persona) => this.normalizePersona(persona, personaDefaults)),
       agents: snapshot.agents ?? fallback.agents,
       tasks: (snapshot.tasks ?? fallback.tasks).map((task) => this.normalizeTask(task)),
+      runs: snapshot.runs ?? fallback.runs,
+      agentSessions: snapshot.agentSessions ?? fallback.agentSessions,
       providers: snapshot.providers ?? fallback.providers,
       activityFeed: this.normalizeActivityFeed(snapshot.activityFeed ?? fallback.activityFeed),
       settings: {
         ...fallback.settings,
         ...snapshot.settings,
+      },
+      ui: {
+        ...fallback.ui,
+        ...snapshot.ui,
       },
     };
   }
