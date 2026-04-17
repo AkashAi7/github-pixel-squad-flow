@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] — 2026-04-17
+### Fixed
+- **Chat-assigned task startup latency**: Direct persona and agent-lane assignments now start execution immediately when auto-execute is enabled instead of waiting for a full workspace-context capture first, which reduces perceived slowness for follow-up work routed from Copilot Chat.
+### Notes
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.1`.
+
 ## [1.0.0] — 2026-04-17
 ### Added
 - **Independent release baseline**: GitHub Pixel Squad Flow now starts its own clean release line at `v1.0.0`, separate from the original Pixel Squad tag history.

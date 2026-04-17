@@ -2,10 +2,12 @@ src/**
 webview-ui/**
 node_modules/**/.cache/**
 .github/**
+.agents/**
 .vscode/**
 .vscode-test/**
 test/**
 *.vsix
+skills-lock.json
 playwright-pixel-squad-demo.png
 .gitignore
 tsconfig.json

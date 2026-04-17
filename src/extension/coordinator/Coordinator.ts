@@ -291,18 +291,16 @@ export class Coordinator {
       });
     }
 
-    // Enrich context and auto-execute in the background (non-blocking)
-    if (settings.autoPopulateWorkspaceContext || settings.autoExecute) {
+    // Start execution immediately when auto-execute is on.
+    // executeTask() can hydrate richer context in parallel, which avoids
+    // paying the full workspace-context capture cost before the agent starts.
+    if (settings.autoExecute) {
+      void this.executeTask(task.id, model, token);
+    } else if (settings.autoPopulateWorkspaceContext) {
       void (async () => {
-        if (settings.autoPopulateWorkspaceContext) {
-          // Resolve a model for token-aware context filling
-          const contextModel = await this.resolveModelForAgent(agent.provider);
-          const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles, contextModel);
-          this.updateTask(task.id, { workspaceContext: fullContext });
-        }
-        if (settings.autoExecute) {
-          void this.executeTask(task.id, model, token);
-        }
+        const contextModel = await this.resolveModelForAgent(agent.provider);
+        const fullContext = await this.workspaceContext.capture(normalizedPrompt, settings.workspaceContextMaxFiles, agent.pinnedFiles, contextModel);
+        this.updateTask(task.id, { workspaceContext: fullContext });
       })();
     }
 
