@@ -11,6 +11,7 @@ interface FactoryBoardProps {
   tasks: TaskCard[];
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
+  onTalkToAgent: (agentId: string) => void;
 }
 
 const THEME_FLOORS: Record<string, string> = {
@@ -178,6 +179,7 @@ interface RoomStageProps {
   tasks: TaskCard[];
   selectedAgentId: string | null;
   onSelectAgent: (agentId: string) => void;
+  onTalkToAgent: (agentId: string) => void;
 }
 
 function RoomStage({
@@ -187,6 +189,7 @@ function RoomStage({
   tasks,
   selectedAgentId,
   onSelectAgent,
+  onTalkToAgent,
 }: RoomStageProps) {
   const [motions, setMotions] = useState<Record<string, AgentMotion>>({});
   const tickRef = useRef(0);
@@ -276,6 +279,18 @@ function RoomStage({
                 <span className="pixel-agent__meta">{mood.label}</span>
               </span>
             </button>
+            <button
+              type="button"
+              className="pixel-agent-shell__talk"
+              onClick={(event) => {
+                event.stopPropagation();
+                onTalkToAgent(agent.id);
+              }}
+              title={`Talk to ${agent.name} in Copilot Chat`}
+              aria-label={`Talk to ${agent.name} in Copilot Chat`}
+            >
+              Talk
+            </button>
           </div>
         );
       })}
@@ -289,7 +304,7 @@ function RoomStage({
 }
 
 export function FactoryBoard({
-  rooms, agents, personas, tasks, selectedAgentId, onSelectAgent,
+  rooms, agents, personas, tasks, selectedAgentId, onSelectAgent, onTalkToAgent,
 }: FactoryBoardProps) {
   const personaMap = useMemo(() => new Map(personas.map((persona) => [persona.id, persona])), [personas]);
 
@@ -347,6 +362,7 @@ export function FactoryBoard({
                 tasks={tasks}
                 selectedAgentId={selectedAgentId}
                 onSelectAgent={onSelectAgent}
+                onTalkToAgent={onTalkToAgent}
               />
             </article>
           );

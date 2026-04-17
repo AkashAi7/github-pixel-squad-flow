@@ -662,6 +662,17 @@ function App() {
                   : 'Use @pixel-squad in Copilot Chat to start a run, or target a persona lane with /lead, /frontend, /backend, /tester, /devops, or /designer.'}
               </p>
               <div className="chat-launchpad__command">@pixel-squad /lead break this BRD into agent stages and track the pipeline</div>
+              {selectedAgent ? (
+                <div className="composer-actions">
+                  <button
+                    type="button"
+                    className="composer-button composer-button--accent"
+                    onClick={() => handleSelectAgent(selectedAgent.id)}
+                  >
+                    Talk to {selectedAgent.name}
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="chat-launchpad__status">
               <p className="eyebrow">Active Run</p>
@@ -771,6 +782,7 @@ function App() {
             tasks={snapshot.tasks}
             selectedAgentId={selectedAgentId}
             onSelectAgent={handleRevealAgentTask}
+            onTalkToAgent={handleSelectAgent}
           />
 
           <InspectorPanelComponent

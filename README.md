@@ -2,11 +2,14 @@
 
 Pixel Squad Flow is a VS Code extension for chat-first multi-agent orchestration that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v1.0.0
+## What's New in v1.0.4
 
 - **Independent release line** — Pixel Squad Flow now publishes from its own clean release stream starting at `v1.0.0`.
 - **Chat-first runtime orchestration** — GitHub Copilot Chat drives task routing while the extension visualizes active runs, agent lanes, transcripts, and pipeline progress.
 - **Safer release workflow** — The repo now includes release guidance and a GitHub release helper that preserve proper markdown notes and avoid pushing unrelated legacy tags.
+- **Easy lane handoff** — Factory agent cards now expose a visible `Talk` action, and the launchpad shows `Talk to <agent>` when a lane is active.
+- **Panel provisioning controls** — The runtime panel now includes visible `Create Room` and `Provision Agent` buttons.
+- **Run visualization** — Selected agent channels can show a visual run flow with stage status and dependency hints.
 
 ## Commands
 
@@ -26,7 +29,8 @@ npm run test:e2e
 2. Start a run from GitHub Copilot Chat with `@pixel-squad`.
 3. Target a persona lane like `/lead`, `/frontend`, `/backend`, `/tester`, `/devops`, or `/designer`.
 4. Watch the runtime panel update with the active run, engaged agents, and pipeline stages.
-5. Click agents to inspect the active lane, transcript, outputs, and changed files.
+5. Click `Talk` on any agent card to continue that agent in GitHub Copilot Chat, or click the agent to inspect its lane, transcript, outputs, and changed files.
+6. Use `Create Room` and `Provision Agent` from the panel when you need more rooms or lanes.
 
 When both Copilot and Claude models are available, tasks are dispatched to the provider assigned to the executing agent. If a model is unavailable, the extension falls back to deterministic local routing.
 
@@ -42,6 +46,8 @@ That auto-populated context is used during planning and execution review so task
 Review cards now include a diff-style preview for proposed file edits before approval, so the task wall acts more like a lightweight patch review surface instead of only listing filenames and summaries.
 
 When a task suggests terminal commands, running them now captures stdout, stderr, exit code, and duration back into the task review card instead of only sending the commands to a terminal.
+
+When an agent is active, the launchpad shows a `Talk to <agent>` action and the selected agent channel includes both `Open in Copilot Chat` and `Visualize Run`, so lane continuation and related-stage inspection are reachable from the main runtime surface.
 
 ## Settings
 

@@ -845,6 +845,37 @@ summary:focus-visible {
   transition: left var(--wander-duration, 3600ms) ease-in-out, top var(--wander-duration, 3600ms) ease-in-out;
 }
 .pixel-agent-shell--selected { z-index: 999; }
+.pixel-agent-shell__talk {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  z-index: 12;
+  border: 1px solid color-mix(in srgb, var(--accent, #7d8cff) 45%, rgba(245, 239, 225, 0.18));
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(7, 11, 17, 0.96);
+  color: #f5efe1;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.pixel-agent-shell:hover .pixel-agent-shell__talk,
+.pixel-agent-shell--selected .pixel-agent-shell__talk {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pixel-agent-shell__talk:hover,
+.pixel-agent-shell__talk:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, #7d8cff) 75%, transparent);
+  outline: none;
+}
 .pixel-agent {
   position: relative;
   display: grid;

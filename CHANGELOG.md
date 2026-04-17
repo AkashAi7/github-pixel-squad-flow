@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.4] — 2026-04-17
+### Added
+- **Easy talk-to-agent controls**: Added visible `Talk` buttons directly on factory agent cards and a `Talk to <agent>` action in the launchpad so continuing a runtime lane no longer depends on finding the inspector first.
+### Notes
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.4`.
+
 ## [1.0.3] — 2026-04-17
 ### Added
 - **Panel room controls**: Added visible `Create Room` and `Provision Agent` buttons inside the runtime panel so room and agent growth no longer requires a command-palette detour.
