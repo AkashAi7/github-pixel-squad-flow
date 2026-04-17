@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.6] — 2026-04-17
+### Added
+- **Autonomous downstream routing**: Agents can now create follow-up work for the next owning persona during execution, so completed lead or implementation stages can hand off automatically inside the same run.
+### Changed
+- **Prototype-aligned mission shell**: Ported the professional runtime prototype structure into the live webview with a mission-control header, run board, side-rail inspector layout, and room lane roster cards.
+### Fixed
+- **Lane continuation awareness**: Follow-up prompts now preserve current lane focus, latest output, transcript context, changed files, and predecessor handoff details so agents stay aware of prior work.
+### Notes
+- **Validation target**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` should pass for `1.0.6`.
+
 ## [1.0.5] — 2026-04-17
 ### Added
 - **Control Deck runtime view**: Replaced the passive Providers tab with a Control Deck that shows provider load, routing pressure, and a lane assignment ledger so idle, queued, blocked, and active lanes are easier to understand.

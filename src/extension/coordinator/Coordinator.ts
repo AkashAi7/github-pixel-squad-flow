@@ -213,7 +213,7 @@ export class Coordinator {
     return `${plan.summary} ${plan.providerDetail}`;
   }
 
-  async assignTask(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, source: TaskSource = 'factory', runIdOverride?: string): Promise<string> {
+  async assignTask(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken, source: TaskSource = 'factory', runIdOverride?: string, options?: { detail?: string; dependsOn?: string[]; title?: string }): Promise<string> {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task.';
@@ -237,13 +237,13 @@ export class Coordinator {
 
     const task: TaskCard = {
       id: this.makeId('task'),
-      title: normalizedPrompt.length > 60 ? normalizedPrompt.slice(0, 57) + '...' : normalizedPrompt,
+      title: options?.title?.trim() || (normalizedPrompt.length > 60 ? normalizedPrompt.slice(0, 57) + '...' : normalizedPrompt),
       status: initialStatus,
       assigneeId: agent.id,
       provider: agent.provider,
       source,
-      detail: normalizedPrompt,
-      dependsOn: [],
+      detail: options?.detail?.trim() || normalizedPrompt,
+      dependsOn: options?.dependsOn ?? [],
       requiredSkillIds: [],
       workspaceContext: lightContext,
       progress: this.progressForStatus(initialStatus, initialStatus === 'queued' ? 'Ready to start' : 'Preparing workspace'),
@@ -343,7 +343,15 @@ export class Coordinator {
     const activeRunId = this.snapshot.ui.activeBatchId && this.hasAgentInRun(this.snapshot.ui.activeBatchId, agentId)
       ? this.snapshot.ui.activeBatchId
       : this.pickFocusTaskForAgent(agentId)?.batchId;
-    return this.assignTask(agentId, prompt, model, token, 'copilot-chat', activeRunId);
+    return this.assignTask(
+      agentId,
+      prompt,
+      model,
+      token,
+      'copilot-chat',
+      activeRunId,
+      { detail: this.buildContinuationTaskDetail(agentId, prompt, activeRunId) },
+    );
   }
 
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
@@ -420,6 +428,7 @@ export class Coordinator {
     });
 
     const adapter = this.providers[task.provider] ?? this.copilot;
+    const pendingTaskRoutes: Array<{ personaId: string; title: string; detail: string }> = [];
 
     // ── Multi-turn mailbox execution loop ──
     let lastResult: import('../providers/types.js').ExecutionResult = { output: '', success: false };
@@ -488,6 +497,10 @@ export class Coordinator {
             provider: task.provider,
           });
         }
+      }
+
+      if (result.outgoingTaskRoutes && result.outgoingTaskRoutes.length > 0) {
+        pendingTaskRoutes.push(...result.outgoingTaskRoutes);
       }
 
       // If the agent says it's done (or didn't set done=false), stop the loop
@@ -593,6 +606,13 @@ export class Coordinator {
           agentId: agent.id,
           provider: task.provider,
         });
+      }
+
+      const completedTask = this.snapshot.tasks.find((candidate) => candidate.id === taskId) ?? task;
+      if (pendingTaskRoutes.length > 0) {
+        for (const route of pendingTaskRoutes) {
+          this.queueFollowupTaskRoute(completedTask, agent, route);
+        }
       }
 
       // Broadcast task completion to room peers so they can pick up context
@@ -1089,6 +1109,28 @@ export class Coordinator {
       ?? tasks[0];
   }
 
+  private buildContinuationTaskDetail(agentId: string, prompt: string, runId?: string): string {
+    const focusTask = this.pickFocusTaskForAgent(agentId);
+    const session = runId ? this.snapshot.agentSessions.find((entry) => entry.runId === runId && entry.agentId === agentId) : undefined;
+    const recentMessages = session?.messageLog.slice(-4).map((message) => {
+      const role = message.role === 'user' ? 'User' : message.role === 'agent' ? 'Agent' : 'System';
+      return `${role}: ${message.content}`;
+    }) ?? [];
+    const changedFiles = focusTask?.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? [];
+    const handoffSummaries = focusTask?.handoffPackets?.map((packet) => packet.summary) ?? [];
+
+    return [
+      prompt.trim(),
+      focusTask ? `\nCurrent lane focus: ${focusTask.title}` : '',
+      focusTask?.detail ? `Focus detail: ${focusTask.detail}` : '',
+      focusTask?.output ? `Latest lane output: ${focusTask.output.slice(0, 500)}` : '',
+      changedFiles.length > 0 ? `Relevant changed files: ${changedFiles.slice(0, 4).join(', ')}` : '',
+      handoffSummaries.length > 0 ? `Predecessor handoff: ${handoffSummaries.slice(0, 2).join(' | ')}` : '',
+      recentMessages.length > 0 ? `Recent lane transcript:\n${recentMessages.join('\n')}` : '',
+      'Treat this as a continuation of the same lane and build directly on the existing run context.',
+    ].filter(Boolean).join('\n');
+  }
+
   private getProviderHealths(): ProviderHealth[] {
     return [this.copilot.getHealth(), this.claude.getHealth()];
   }
@@ -1293,6 +1335,88 @@ export class Coordinator {
     return this.snapshot.tasks.filter((task) =>
       task.assigneeId === agentId && task.status !== 'done' && task.status !== 'failed',
     ).length;
+  }
+
+  private queueFollowupTaskRoute(
+    sourceTask: TaskCard,
+    sourceAgent: SquadAgent,
+    route: { personaId: string; title: string; detail: string },
+  ): void {
+    const persona = this.snapshot.personas.find((entry) => entry.id === route.personaId);
+    if (!persona) {
+      this.appendActivity(`Skipped downstream route from ${sourceAgent.name}: unknown persona "${route.personaId}".`, {
+        category: 'task',
+        taskId: sourceTask.id,
+        agentId: sourceAgent.id,
+        provider: sourceTask.provider,
+      });
+      return;
+    }
+
+    const existingFollowup = this.snapshot.tasks.find((task) =>
+      task.batchId === sourceTask.batchId
+      && task.assigneeId !== sourceAgent.id
+      && this.snapshot.agents.find((agent) => agent.id === task.assigneeId)?.personaId === route.personaId
+      && task.title.trim().toLowerCase() === route.title.trim().toLowerCase()
+      && task.status !== 'failed',
+    );
+    if (existingFollowup) {
+      return;
+    }
+
+    let targetAgent = this.snapshot.agents
+      .filter((agent) => agent.personaId === route.personaId)
+      .sort((left, right) => this.openTaskCountForAgent(left.id) - this.openTaskCountForAgent(right.id))[0];
+
+    if (!targetAgent) {
+      const targetRoom = this.pickRoomForPersona(route.personaId);
+      const spawnedAgent = this.spawnAgent(targetRoom.id, '', route.personaId, sourceAgent.provider, undefined, '', 'chat');
+      if (!spawnedAgent) {
+        return;
+      }
+      targetAgent = spawnedAgent;
+    }
+
+    const queuedTask: TaskCard = {
+      id: this.makeId('task'),
+      title: route.title.trim(),
+      status: 'queued',
+      assigneeId: targetAgent.id,
+      provider: targetAgent.provider,
+      source: sourceTask.source,
+      detail: `${route.detail.trim()}\n\nAuto-routed from ${sourceAgent.name} after completing "${sourceTask.title}".`,
+      dependsOn: [sourceTask.id],
+      requiredSkillIds: [],
+      workspaceContext: sourceTask.workspaceContext,
+      handoffPackets: this.collectHandoffPackets(sourceTask).concat({
+        fromTaskId: sourceTask.id,
+        fromAgentName: sourceAgent.name,
+        summary: sourceTask.executionPlan?.summary ?? sourceTask.detail,
+        filesChanged: sourceTask.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? [],
+        commandsRun: sourceTask.executionPlan?.terminalCommands.map((command) => command.command) ?? [],
+        testsRun: sourceTask.executionPlan?.tests ?? [],
+        openIssues: sourceTask.executionPlan?.notes ?? [],
+        output: sourceTask.output ?? '',
+      }),
+      progress: this.progressForStatus('queued', 'Waiting for predecessor handoff', 1, 5),
+      batchId: sourceTask.batchId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    this.snapshot = {
+      ...this.snapshot,
+      tasks: [queuedTask, ...this.snapshot.tasks].slice(0, 60),
+    };
+    this.reconcileAgentStatuses([targetAgent.id]);
+    this.appendActivity(`Auto-routed "${queuedTask.title}" to ${targetAgent.name} (${persona.title}) after ${sourceAgent.name} completed "${sourceTask.title}".`, {
+      category: 'task',
+      taskId: queuedTask.id,
+      agentId: targetAgent.id,
+      roomId: targetAgent.roomId,
+      provider: targetAgent.provider,
+    });
+    this.scheduleSave();
   }
 
   private pickRoomForPersona(personaId: string): Room {

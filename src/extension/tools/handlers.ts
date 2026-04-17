@@ -48,6 +48,7 @@ export async function handleToolCall(
       case 'getDiagnostics': return await getDiagnostics(input, rootPath);
       case 'runCommand': return await runCommand(input, rootPath);
       case 'sendAgentMessage': return sendAgentMessage(input);
+      case 'routeTask': return routeTask(input);
       default: return { content: `Unknown tool: ${name}`, isError: true };
     }
   } catch (err) {
@@ -260,4 +261,14 @@ function sendAgentMessage(input: Record<string, unknown>): ToolResult {
     return { content: 'Missing toAgentId or content.', isError: true };
   }
   return { content: `Message queued for agent ${toAgentId}.` };
+}
+
+function routeTask(input: Record<string, unknown>): ToolResult {
+  const personaId = String(input.personaId ?? '');
+  const title = String(input.title ?? '');
+  const detail = String(input.detail ?? '');
+  if (!personaId || !title || !detail) {
+    return { content: 'Missing personaId, title, or detail.', isError: true };
+  }
+  return { content: `Follow-up task queued for persona ${personaId}: ${title}` };
 }

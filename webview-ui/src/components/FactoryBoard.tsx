@@ -182,6 +182,48 @@ interface RoomStageProps {
   onTalkToAgent: (agentId: string) => void;
 }
 
+function focusTaskForAgent(tasks: TaskCard[], agentId: string): TaskCard | undefined {
+  const agentTasks = tasks
+    .filter((task) => task.assigneeId === agentId)
+    .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0));
+
+  return agentTasks.find((task) => task.status === 'active')
+    ?? agentTasks.find((task) => task.status === 'review')
+    ?? agentTasks.find((task) => task.status === 'queued')
+    ?? agentTasks.find((task) => task.status === 'failed')
+    ?? agentTasks[0];
+}
+
+function laneStateSummary(agent: SquadAgent, tasks: TaskCard[]): { label: string; detail: string } {
+  const focusTask = focusTaskForAgent(tasks, agent.id);
+  if (!focusTask) {
+    return { label: 'Idle', detail: 'No stage assigned in the current queue.' };
+  }
+
+  if (focusTask.status === 'active') {
+    return { label: 'Active', detail: focusTask.title };
+  }
+
+  if (focusTask.status === 'review') {
+    return { label: 'Review', detail: 'Awaiting review or approval.' };
+  }
+
+  if (focusTask.status === 'queued') {
+    const blockingDeps = (focusTask.dependsOn ?? []).filter((dependencyId) => {
+      const dependency = tasks.find((task) => task.id === dependencyId);
+      return dependency && dependency.status !== 'done';
+    });
+
+    if (blockingDeps.length > 0) {
+      return { label: 'Blocked', detail: `Waiting on ${blockingDeps.length} dependency${blockingDeps.length === 1 ? '' : 'ies'}.` };
+    }
+
+    return { label: 'Queued', detail: 'Queued and ready to start.' };
+  }
+
+  return { label: 'Blocked', detail: 'Last assigned stage failed.' };
+}
+
 function RoomStage({
   room,
   roomAgents,
@@ -364,6 +406,47 @@ export function FactoryBoard({
                 onSelectAgent={onSelectAgent}
                 onTalkToAgent={onTalkToAgent}
               />
+              <div className="factory-room__roster" role="list" aria-label={`${room.name} lane roster`}>
+                {roomAgents.map((agent) => {
+                  const persona = personaMap.get(agent.personaId);
+                  const laneState = laneStateSummary(agent, tasks);
+                  const isSelected = agent.id === selectedAgentId;
+                  return (
+                    <article
+                      key={`${room.id}-${agent.id}-roster`}
+                      className={`factory-lane-card factory-lane-card--${agent.status}${isSelected ? ' factory-lane-card--selected' : ''}`}
+                      role="listitem"
+                    >
+                      <button
+                        type="button"
+                        className="factory-lane-card__main"
+                        onClick={() => onSelectAgent(agent.id)}
+                        aria-label={`${agent.name}, ${persona?.title ?? agent.personaId}, ${laneState.label}`}
+                      >
+                        <span className="factory-lane-card__avatar">
+                          <AgentSprite personaId={agent.personaId} status={agent.status} size="card" />
+                        </span>
+                        <span className="factory-lane-card__body">
+                          <strong>{agent.name}</strong>
+                          <span className="factory-lane-card__meta">{persona?.title ?? agent.personaId} · {agent.provider}</span>
+                          <span className="factory-lane-card__detail">{laneState.detail}</span>
+                        </span>
+                      </button>
+                      <div className="factory-lane-card__footer">
+                        <span className={`factory-lane-card__badge factory-lane-card__badge--${laneState.label.toLowerCase()}`}>{laneState.label}</span>
+                        <button
+                          type="button"
+                          className="factory-lane-card__ping"
+                          onClick={() => onTalkToAgent(agent.id)}
+                          aria-label={`Ping ${agent.name}`}
+                        >
+                          Ping
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </article>
           );
         })}

@@ -101,4 +101,17 @@ export const WORKSPACE_TOOLS: vscode.LanguageModelChatTool[] = [
       required: ['toAgentId', 'content'],
     },
   },
+  {
+    name: 'routeTask',
+    description: 'Create a concrete follow-up task for another owning persona in the current run. Use this when work should automatically hand off from one agent to another.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        personaId: { type: 'string', description: 'Target persona id, such as frontend, backend, tester, devops, lead, or designer' },
+        title: { type: 'string', description: 'Short follow-up task title' },
+        detail: { type: 'string', description: 'Specific implementation detail for the receiving persona' },
+      },
+      required: ['personaId', 'title', 'detail'],
+    },
+  },
 ];

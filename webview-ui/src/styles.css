@@ -53,6 +53,179 @@ summary:focus-visible {
   justify-content: center;
 }
 
+/* ── Mission Shell ──────────────────────────────── */
+.mission-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 224, 102, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(36, 123, 160, 0.18), transparent 26%),
+    linear-gradient(180deg, rgba(18, 27, 38, 0.98), rgba(12, 20, 30, 0.94));
+}
+
+.mission-topbar__title {
+  display: grid;
+  gap: 8px;
+}
+
+.mission-topbar__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mission-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mission-signal {
+  padding: 8px 12px;
+  border: 1px solid rgba(245, 239, 225, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ps-muted);
+  font-size: 0.82rem;
+}
+
+.mission-signal strong {
+  color: var(--ps-text);
+}
+
+.mission-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(14, 22, 33, 0.96), rgba(10, 17, 27, 0.94));
+}
+
+.mission-board__main,
+.mission-board__side {
+  display: grid;
+  gap: 14px;
+}
+
+.mission-run-card,
+.mission-queue-card,
+.mission-lane-card,
+.mission-activity-card {
+  padding: 18px;
+  border: 1px solid rgba(245, 239, 225, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mission-run-card__header,
+.mission-queue-card__header,
+.mission-lane-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.mission-run-card__copy,
+.mission-lane-card__copy {
+  margin-top: 10px;
+  color: var(--ps-muted);
+  line-height: 1.5;
+}
+
+.mission-progress-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mission-progress-node {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mission-progress-node span {
+  color: var(--ps-muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mission-progress-node strong {
+  font-size: 1.35rem;
+}
+
+.mission-progress-node--live {
+  border-color: rgba(255, 224, 102, 0.24);
+  background: linear-gradient(180deg, rgba(255, 224, 102, 0.14), rgba(255, 224, 102, 0.05));
+}
+
+.mission-stats-bar {
+  margin-top: 14px;
+}
+
+.mission-queue-list,
+.mission-activity-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mission-queue-row,
+.mission-activity-row {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mission-queue-row p,
+.mission-activity-row p {
+  color: var(--ps-muted);
+}
+
+.mission-queue-row--active {
+  border-color: rgba(255, 224, 102, 0.24);
+}
+
+.mission-queue-row--queued {
+  border-color: rgba(125, 140, 255, 0.24);
+}
+
+.mission-queue-row--review {
+  border-color: rgba(206, 147, 216, 0.24);
+}
+
+.mission-queue-row--failed {
+  border-color: rgba(242, 95, 92, 0.24);
+}
+
+.mission-actions {
+  margin-top: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+}
+
+.provider-strip--mission {
+  margin-top: 0;
+}
+
 /* ── Hero Panel ──────────────────────────────────── */
 .hero-panel {
   display: grid;
@@ -687,15 +860,15 @@ summary:focus-visible {
 
 /* ── Factory Room ────────────────────────────────── */
 .factory-room {
-  padding: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid rgba(245, 239, 225, 0.12);
+  border-radius: 18px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, color-mix(in srgb, var(--room-color) 10%, transparent), transparent 58%),
     rgba(13, 18, 26, 0.95);
-  background-size: 18px 18px;
-  border-left: 3px solid var(--room-color, #7d8cff);
-  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.24);
 }
 .factory-room--selected {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--room-color) 65%, transparent), 0 14px 28px rgba(0, 0, 0, 0.18);
@@ -753,7 +926,7 @@ summary:focus-visible {
 .factory-room__actions { display: flex; gap: 6px; }
 .factory-room__stage {
   position: relative;
-  min-height: 192px;
+  min-height: 164px;
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(245, 239, 225, 0.1);
@@ -812,6 +985,115 @@ summary:focus-visible {
   cursor: pointer; background: transparent;
 }
 .factory-room__empty:hover { border-color: #ffe066; color: #ffe066; }
+
+.factory-room__roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.factory-lane-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  background: rgba(7, 13, 19, 0.62);
+}
+
+.factory-lane-card--selected {
+  border-color: color-mix(in srgb, var(--ps-accent) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ps-accent) 35%, transparent);
+}
+
+.factory-lane-card__main {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.factory-lane-card__avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.factory-lane-card__body {
+  display: grid;
+  gap: 3px;
+}
+
+.factory-lane-card__meta,
+.factory-lane-card__detail {
+  color: var(--ps-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.factory-lane-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.factory-lane-card__badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 239, 225, 0.08);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.factory-lane-card__badge--active {
+  color: #ffe066;
+  border-color: rgba(255, 224, 102, 0.28);
+  background: rgba(255, 224, 102, 0.1);
+}
+
+.factory-lane-card__badge--queued {
+  color: #ccd3ff;
+  border-color: rgba(125, 140, 255, 0.25);
+  background: rgba(125, 140, 255, 0.1);
+}
+
+.factory-lane-card__badge--review {
+  color: #f0d6ff;
+  border-color: rgba(206, 147, 216, 0.25);
+  background: rgba(206, 147, 216, 0.1);
+}
+
+.factory-lane-card__badge--blocked {
+  color: #ffc8c8;
+  border-color: rgba(242, 95, 92, 0.25);
+  background: rgba(242, 95, 92, 0.1);
+}
+
+.factory-lane-card__badge--idle {
+  color: var(--ps-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.factory-lane-card__ping {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(112, 193, 179, 0.38);
+  background: rgba(112, 193, 179, 0.12);
+  color: #d9fff6;
+  cursor: pointer;
+}
 
 /* ── Icon Buttons ────────────────────────────────── */
 .icon-btn {
@@ -2244,6 +2526,17 @@ summary:focus-visible {
   gap: 14px;
 }
 
+.workspace-stack--mission {
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  align-items: start;
+}
+
+.workspace-stack__main,
+.workspace-stack__side {
+  display: grid;
+  gap: 14px;
+}
+
 .column--stacked {
   grid-template-columns: 1fr;
 }
@@ -3181,11 +3474,13 @@ summary:focus-visible {
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 980px) {
-  .hero-panel, .layout { grid-template-columns: 1fr; }
+  .hero-panel, .layout, .mission-topbar, .mission-board, .workspace-stack--mission { grid-template-columns: 1fr; }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
   .task-filters { grid-template-columns: 1fr; }
   .task-card__footer { grid-template-columns: 1fr; display: grid; }
   .provider-strip { grid-template-columns: 1fr 1fr; }
+  .mission-progress-rail,
+  .mission-actions { grid-template-columns: 1fr; }
   .control-deck__metrics,
   .control-deck__providers,
   .control-ledger__row { grid-template-columns: 1fr; }
@@ -3194,6 +3489,7 @@ summary:focus-visible {
 }
 @media (max-width: 600px) {
   .factory-board__grid { grid-template-columns: 1fr; }
+  .factory-room__roster { grid-template-columns: 1fr; }
   .persona-grid { grid-template-columns: 1fr; }
   .task-wall__header { grid-template-columns: 1fr; display: grid; }
   .control-deck__metrics,

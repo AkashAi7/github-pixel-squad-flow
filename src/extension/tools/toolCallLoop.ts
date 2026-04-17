@@ -233,6 +233,7 @@ export function buildPlanFromToolCalls(
         break;
 
       case 'sendAgentMessage':
+      case 'routeTask':
         // Handled separately by the adapter for outgoing messages
         break;
 

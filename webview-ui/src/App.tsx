@@ -540,6 +540,18 @@ function App() {
     failed: selectedRun?.stages.filter((stage) => stage.status === 'failed').length ?? activeBatchTasks.filter((task) => task.status === 'failed').length,
   };
   const laneReadyLabel = selectedAgentFocusTask?.id ? `${selectedAgentFocusTask.id} ready` : 'Lane ready';
+  const queuedTasks = snapshot.tasks.filter((task) => task.status === 'queued').length;
+  const reviewTasks = snapshot.tasks.filter((task) => task.status === 'review').length;
+  const blockedTasks = snapshot.tasks.filter((task) => task.status === 'failed').length;
+  const routedAgents = displayAgents.filter((agent) => snapshot.tasks.some((task) => task.assigneeId === agent.id && task.status !== 'done')).length;
+  const routingConfidence = snapshot.agents.length > 0 ? Math.round((routedAgents / snapshot.agents.length) * 100) : 0;
+  const providerReadyCount = snapshot.providers.filter((provider) => provider.state === 'ready').length;
+  const selectedAgentMood = selectedAgent ? AGENT_MOOD[selectedAgent.status] : null;
+  const latestActivity = filteredActivity.slice(0, 3);
+  const nextAttentionTasks = snapshot.tasks
+    .filter((task) => task.status === 'active' || task.status === 'queued' || task.status === 'review' || task.status === 'failed')
+    .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0))
+    .slice(0, 3);
 
   const handleSelectAgent = (agentId: string) => {
     setActiveView('factory');
@@ -554,15 +566,9 @@ function App() {
     setTaskPersonaFilter('all');
 
     const focusTask = pickFocusTask(snapshot.tasks, agentId);
-    if (focusTask) {
-      setExpandedTaskId(focusTask.id);
-      setInspectorTab('work');
-      setActiveView('tasks');
-    } else {
-      setExpandedTaskId(null);
-      setInspectorTab('overview');
-      setActiveView('factory');
-    }
+    setExpandedTaskId(focusTask?.id ?? null);
+    setInspectorTab(focusTask ? 'work' : 'overview');
+    setActiveView('factory');
 
     vscode.postMessage({ type: 'showAgent', agentId });
   };
@@ -579,21 +585,179 @@ function App() {
       )}
 
       {/* ─── Hero ─── */}
-      <section className="hero-panel hero-panel--activitybar">
-        <div className="hero-panel__header">
-          <div className="hero-panel__titleblock">
-            <p className="eyebrow">Agent Factory · Copilot + Claude</p>
-            <h1>{snapshot.projectName}</h1>
-            <p className="hero-copy">
-              GitHub Copilot Chat is now the control plane. This panel tracks the active agent lane, live run status, and pipeline progress.
-            </p>
-          </div>
-          <div className="hero-panel__summary">
-            <span className="hero-summary-pill">{snapshot.rooms.length} rooms</span>
-            <span className="hero-summary-pill">{snapshot.agents.length} agents</span>
-            <span className="hero-summary-pill">{stats.active} running</span>
+      <section className="mission-topbar panel">
+        <div className="mission-topbar__title">
+          <p className="eyebrow">Pixel Squad Flow · Mission Control</p>
+          <h1>{snapshot.projectName}</h1>
+          <p className="hero-copy">
+            GitHub Copilot Chat stays the control plane, while this runtime becomes the mission board for lane pressure, room status, and active follow-up work.
+          </p>
+          <div className="mission-signals" role="list" aria-label="Runtime highlights">
+            <span className="mission-signal" role="listitem"><strong>{routingConfidence}%</strong> routing confidence</span>
+            <span className="mission-signal" role="listitem"><strong>{providerReadyCount}/{snapshot.providers.length}</strong> providers ready</span>
+            <span className="mission-signal" role="listitem"><strong>{queuedTasks}</strong> queued stages</span>
+            <span className="mission-signal" role="listitem"><strong>{reviewTasks}</strong> review signals</span>
           </div>
         </div>
+        <div className="mission-topbar__summary">
+          <span className="hero-summary-pill">{snapshot.rooms.length} rooms</span>
+          <span className="hero-summary-pill">{snapshot.agents.length} agents</span>
+          <span className="hero-summary-pill">{stats.active} active lanes</span>
+          <span className="hero-summary-pill">{stats.done} done</span>
+        </div>
+      </section>
+
+      <section className="mission-board panel">
+        <div className="mission-board__main">
+          <div className="mission-run-card">
+            <div className="mission-run-card__header">
+              <div>
+                <p className="eyebrow">Active Run</p>
+                <h2>{selectedRun ? selectedRun.title : 'Waiting for the next routed run'}</h2>
+              </div>
+              <span className={`status-badge status-badge--${selectedRun?.status ?? 'idle'}`}>{selectedRun?.status ?? 'idle'}</span>
+            </div>
+            <p className="mission-run-card__copy">
+              {selectedRun?.summary ?? 'Start a Copilot Chat run with @pixel-squad to populate the mission board with routed stages and lane activity.'}
+            </p>
+            <div className="mission-progress-rail" role="list" aria-label="Run stage metrics">
+              <article className="mission-progress-node mission-progress-node--live" role="listitem">
+                <strong>{activeRunCounts.active}</strong>
+                <span>active lanes</span>
+              </article>
+              <article className="mission-progress-node" role="listitem">
+                <strong>{activeRunCounts.queued}</strong>
+                <span>queued stages</span>
+              </article>
+              <article className="mission-progress-node" role="listitem">
+                <strong>{activeRunCounts.review}</strong>
+                <span>review checks</span>
+              </article>
+              <article className="mission-progress-node" role="listitem">
+                <strong>{blockedTasks}</strong>
+                <span>blocked or failed</span>
+              </article>
+            </div>
+            <div className="stats-bar mission-stats-bar">
+              <span className="stat">{stats.total} tasks</span>
+              <span className="stat stat--active">{stats.active} active</span>
+              <span className="stat stat--done">{stats.done} done</span>
+              <span className="stat stat--copilot">{stats.copilot} copilot</span>
+              <span className="stat stat--claude">{stats.claude} claude</span>
+              <button
+                type="button"
+                className={`stat-toggle${snapshot.settings.autoExecute ? ' stat-toggle--on' : ''}`}
+                onClick={() => vscode.postMessage({ type: 'toggleAutoExecute' })}
+                title="Toggle automatic task execution and auto-apply behavior"
+              >
+                Auto-execute: {snapshot.settings.autoExecute ? 'On' : 'Off'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mission-queue-card">
+            <div className="mission-queue-card__header">
+              <div>
+                <p className="eyebrow">Attention Queue</p>
+                <h3>What needs attention now</h3>
+              </div>
+              <span className="hero-summary-pill">{nextAttentionTasks.length} signals</span>
+            </div>
+            <div className="mission-queue-list">
+              {nextAttentionTasks.length > 0 ? nextAttentionTasks.map((task) => (
+                <article key={task.id} className={`mission-queue-row mission-queue-row--${task.status}`}>
+                  <strong>{task.title}</strong>
+                  <p>{task.detail}</p>
+                </article>
+              )) : (
+                <article className="mission-queue-row">
+                  <strong>No open attention items</strong>
+                  <p>The queue will populate when Pixel Squad routes the next run.</p>
+                </article>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mission-board__side">
+          <div className="mission-lane-card">
+            <div className="mission-lane-card__header">
+              <div>
+                <p className="eyebrow">Live Lane</p>
+                <h3>{selectedAgent ? `${selectedAgent.name} · ${personaTitle}` : 'No lane selected'}</h3>
+              </div>
+              {selectedAgentMood ? <span className="hero-summary-pill">{selectedAgentMood.label}</span> : null}
+            </div>
+            <p className="mission-lane-card__copy">
+              {selectedAgent
+                ? `Continue ${selectedAgent.name} from Copilot Chat, inspect the current lane context, and keep follow-up work inside the active run.`
+                : 'Pick an agent from the factory floor to inspect live lane context and continue that lane directly.'}
+            </p>
+            {selectedAgent ? (
+              <>
+                <div className="chat-launchpad__command">@pixel-squad /{selectedAgent.personaId} continue {selectedAgent.name} on {selectedAgentFocusTask?.id ?? 'current lane'}</div>
+                <div className="chat-launchpad__lane-row">
+                  <span className="chat-launchpad__lane-pill">{laneReadyLabel}</span>
+                  <button
+                    type="button"
+                    className="composer-button composer-button--lane"
+                    onClick={() => handleSelectAgent(selectedAgent.id)}
+                  >
+                    Continue lane
+                  </button>
+                </div>
+              </>
+            ) : null}
+            <div className="composer-actions mission-actions">
+              <button
+                type="button"
+                className="composer-button composer-button--ghost"
+                onClick={() => vscode.postMessage({ type: 'openCreateRoom' })}
+              >
+                Create Room
+              </button>
+              <button
+                type="button"
+                className="composer-button composer-button--ghost"
+                onClick={() => vscode.postMessage({ type: 'openProvisionAgent' })}
+              >
+                Provision Agent
+              </button>
+              <button
+                type="button"
+                className="composer-button composer-button--ghost"
+                onClick={() => vscode.postMessage({ type: 'resetWorkspace' })}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <div className="mission-activity-card">
+            <div className="mission-queue-card__header">
+              <div>
+                <p className="eyebrow">Recent Activity</p>
+                <h3>Latest runtime signals</h3>
+              </div>
+            </div>
+            <div className="mission-activity-list">
+              {latestActivity.length > 0 ? latestActivity.map((entry) => (
+                <article key={entry.id} className={`mission-activity-row mission-activity-row--${entry.category}`}>
+                  <strong>{entry.category}</strong>
+                  <p>{entry.message}</p>
+                </article>
+              )) : (
+                <article className="mission-activity-row mission-activity-row--system">
+                  <strong>system</strong>
+                  <p>No activity yet. The feed will populate when the next run starts.</p>
+                </article>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="hero-panel hero-panel--activitybar">
         <div className="hero-panel__body">
           {/* ─── First Run Banner ─── */}
           {showFirstRun && snapshot.rooms.length === 0 && snapshot.agents.length === 0 && (
@@ -623,23 +787,7 @@ function App() {
               </ol>
             </div>
           )}
-          <div className="stats-bar">
-            <span className="stat">{stats.total} tasks</span>
-            <span className="stat stat--active">{stats.active} active</span>
-            <span className="stat stat--done">{stats.done} done</span>
-            {stats.failed > 0 && <span className="stat stat--failed">{stats.failed} failed</span>}
-            <span className="stat stat--copilot">⚡ {stats.copilot} copilot</span>
-            <span className="stat stat--claude">🧠 {stats.claude} claude</span>
-            <button
-              type="button"
-              className={`stat-toggle${snapshot.settings.autoExecute ? ' stat-toggle--on' : ''}`}
-              onClick={() => vscode.postMessage({ type: 'toggleAutoExecute' })}
-              title="Toggle automatic task execution and auto-apply behavior"
-            >
-              Auto-execute: {snapshot.settings.autoExecute ? 'On' : 'Off'}
-            </button>
-          </div>
-          <div className="provider-strip provider-strip--compact">
+          <div className="provider-strip provider-strip--compact provider-strip--mission">
             {snapshot.providers.map((provider) => (
               <article key={provider.provider} className={`provider-chip provider-chip--compact provider-chip--${provider.state}`}>
                 <span className="provider-chip__icon">
@@ -652,72 +800,6 @@ function App() {
                 <span className="provider-chip__state">{provider.state}</span>
               </article>
             ))}
-          </div>
-          <div className="chat-launchpad">
-            <div className="chat-launchpad__copy">
-              <p className="eyebrow">Chat-first Launchpad</p>
-              <h3>{selectedAgent ? `${selectedAgent.name} lane active` : 'Start from Copilot Chat'}</h3>
-              <p>
-                {selectedAgent
-                  ? `Use @pixel-squad /${selectedAgent.personaId} in Copilot Chat to continue directing ${selectedAgent.name}.`
-                  : 'Use @pixel-squad in Copilot Chat to start a run, or target a persona lane with /lead, /frontend, /backend, /tester, /devops, or /designer.'}
-              </p>
-              <div className="chat-launchpad__command">@pixel-squad /lead break this BRD into agent stages and track the pipeline</div>
-              {selectedAgent ? (
-                <div className="chat-launchpad__lane-row">
-                  <span className="chat-launchpad__lane-pill">{laneReadyLabel}</span>
-                  <button
-                    type="button"
-                    className="composer-button composer-button--lane"
-                    onClick={() => handleSelectAgent(selectedAgent.id)}
-                  >
-                    Continue lane
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            <div className="chat-launchpad__status">
-              <p className="eyebrow">Active Run</p>
-              {activeRunCounts.total > 0 ? (
-                <>
-                  <strong>{selectedRun ? `${selectedRun.title} · ${activeRunCounts.total} stage${activeRunCounts.total === 1 ? '' : 's'}` : `${activeRunCounts.total} stage${activeRunCounts.total === 1 ? '' : 's'}`}</strong>
-                  {selectedRun ? <p>{selectedRun.summary}</p> : null}
-                  <div className="task-meta">
-                    {selectedRun ? <span className={`task-chip task-chip--status-${selectedRun.status}`}>{selectedRun.status}</span> : null}
-                    <span className="task-chip">{activeRunCounts.done} done</span>
-                    <span className="task-chip">{activeRunCounts.active} active</span>
-                    <span className="task-chip">{activeRunCounts.queued} queued</span>
-                    {activeRunCounts.review > 0 ? <span className="task-chip">{activeRunCounts.review} review</span> : null}
-                    {activeRunCounts.failed > 0 ? <span className="task-chip">{activeRunCounts.failed} failed</span> : null}
-                  </div>
-                </>
-              ) : (
-                <p>No active pipeline selected yet. The next chat-run will appear here automatically.</p>
-              )}
-              <div className="composer-actions">
-                <button
-                  type="button"
-                  className="composer-button composer-button--ghost"
-                  onClick={() => vscode.postMessage({ type: 'openCreateRoom' })}
-                >
-                  Create Room
-                </button>
-                <button
-                  type="button"
-                  className="composer-button composer-button--ghost"
-                  onClick={() => vscode.postMessage({ type: 'openProvisionAgent' })}
-                >
-                  Provision Agent
-                </button>
-                <button
-                  type="button"
-                  className="composer-button composer-button--ghost"
-                  onClick={() => vscode.postMessage({ type: 'resetWorkspace' })}
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -776,37 +858,41 @@ function App() {
       </section>
 
       {activeView === 'factory' ? (
-        <section className="workspace-stack">
-          <FactoryBoard
-            rooms={snapshot.rooms}
-            agents={displayAgents}
-            personas={snapshot.personas}
-            tasks={snapshot.tasks}
-            selectedAgentId={selectedAgentId}
-            onSelectAgent={handleRevealAgentTask}
-            onTalkToAgent={handleSelectAgent}
-          />
+        <section className="workspace-stack workspace-stack--mission">
+          <div className="workspace-stack__main">
+            <FactoryBoard
+              rooms={snapshot.rooms}
+              agents={displayAgents}
+              personas={snapshot.personas}
+              tasks={snapshot.tasks}
+              selectedAgentId={selectedAgentId}
+              onSelectAgent={handleRevealAgentTask}
+              onTalkToAgent={handleSelectAgent}
+            />
+          </div>
 
-          <InspectorPanelComponent
-            selectedAgent={selectedAgent}
-            selectedAgentTasks={selectedAgentTasks}
-            selectedAgentFocusTask={selectedAgentFocusTask}
-            personas={personas}
-            rooms={snapshot.rooms}
-            selectedRun={selectedRun}
-            selectedSession={selectedSession}
-            inspectorTab={inspectorTab}
-            setInspectorTab={setInspectorTab}
-            expandedTaskId={expandedTaskId}
-            setExpandedTaskId={setExpandedTaskId}
-            showFilePicker={showFilePicker}
-            setShowFilePicker={setShowFilePicker}
-            fileSearchQuery={fileSearchQuery}
-            setFileSearchQuery={setFileSearchQuery}
-            workspaceFiles={workspaceFiles}
-            streamingOutputs={streamingOutputs}
-            vscode={vscode}
-          />
+          <div className="workspace-stack__side">
+            <InspectorPanelComponent
+              selectedAgent={selectedAgent}
+              selectedAgentTasks={selectedAgentTasks}
+              selectedAgentFocusTask={selectedAgentFocusTask}
+              personas={personas}
+              rooms={snapshot.rooms}
+              selectedRun={selectedRun}
+              selectedSession={selectedSession}
+              inspectorTab={inspectorTab}
+              setInspectorTab={setInspectorTab}
+              expandedTaskId={expandedTaskId}
+              setExpandedTaskId={setExpandedTaskId}
+              showFilePicker={showFilePicker}
+              setShowFilePicker={setShowFilePicker}
+              fileSearchQuery={fileSearchQuery}
+              setFileSearchQuery={setFileSearchQuery}
+              workspaceFiles={workspaceFiles}
+              streamingOutputs={streamingOutputs}
+              vscode={vscode}
+            />
+          </div>
         </section>
       ) : null}
 

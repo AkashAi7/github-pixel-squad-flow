@@ -130,6 +130,15 @@ export class ClaudeAdapter implements ProviderAdapter {
         }))
         .filter((m) => m.toAgentId && m.content);
 
+      const outgoingTaskRoutes = toolCalls
+        .filter((c) => c.name === 'routeTask')
+        .map((c) => ({
+          personaId: String(c.input.personaId ?? ''),
+          title: String(c.input.title ?? ''),
+          detail: String(c.input.detail ?? ''),
+        }))
+        .filter((route) => route.personaId && route.title && route.detail);
+
       const plan = buildPlanFromToolCalls(
         text.slice(0, 400) || 'Task execution completed.',
         toolCalls,
@@ -140,6 +149,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         success: true,
         plan,
         outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
+        outgoingTaskRoutes: outgoingTaskRoutes.length > 0 ? outgoingTaskRoutes : undefined,
         done: true,
         toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'editFile' || c.name === 'runCommand'),
       };
@@ -243,7 +253,8 @@ export class ClaudeAdapter implements ProviderAdapter {
       `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
       `Your role: ${persona.title}.`,
       '',
-      'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage.',
+      'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage, routeTask.',
+      'Use routeTask whenever your completed work should automatically hand off to another owning persona in the current run.',
       'You also have access to any MCP or extension-provided tools surfaced by VS Code for this session. Use them when they are the best tool for the job.',
       'Use editFile for targeted changes to existing files (preferred over writeFile for modifications).',
       'If the task names a file path or asks to update an existing doc/spec/plan, modify that file directly instead of replying with only a prose plan.',
