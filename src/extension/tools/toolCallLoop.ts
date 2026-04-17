@@ -9,7 +9,7 @@ const MAX_TOOL_ROUNDS = 12;
 /* ── MCP / external tool discovery ──────────────────────── */
 
 /** Discover tools registered by MCP servers or other extensions. */
-function discoverExternalTools(): vscode.LanguageModelChatTool[] {
+export function discoverExternalTools(): vscode.LanguageModelChatTool[] {
   try {
     const lm = vscode.lm as typeof vscode.lm & { tools?: readonly { name: string; description: string; inputSchema?: object }[] };
     if (lm.tools && Array.isArray(lm.tools)) {

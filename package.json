@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -187,6 +187,22 @@
           {
             "name": "route",
             "description": "Route a task through the squad and update the factory."
+          },
+          {
+            "name": "provision",
+            "description": "Provision a new agent. Usage: /provision <persona> [in <roomName>] [as <agentName>]."
+          },
+          {
+            "name": "room",
+            "description": "Create a room for a theme. Usage: /room <theme> [name]."
+          },
+          {
+            "name": "status",
+            "description": "Show the current squad status: rooms, agents, and active lanes."
+          },
+          {
+            "name": "mcp",
+            "description": "List MCP and extension tools available to Pixel Squad agents."
           },
           {
             "name": "lead",

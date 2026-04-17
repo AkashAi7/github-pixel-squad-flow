@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.7] — 2026-04-17
+### Added
+- **Chat-first agent & room provisioning**: New `@pixel-squad /provision <persona> [in <roomName>] [as <agentName>]` and `/room <theme> [name]` commands so the squad can be staffed entirely from GitHub Copilot Chat without opening the Command Palette.
+- **Chat visibility commands**: `/status` prints current rooms, agents, and lanes, and `/mcp` lists every MCP or extension tool surfaced to agents during runs.
+### Changed
+- **Automatic split-task allocation**: When a plan splits into multiple persona stages, the coordinator now load-balances across matching persona agents and auto-provisions a fresh agent if no lane exists yet, so a single prompt can staff and execute the full run.
+### Fixed
+- **Blank runtime panel**: Resolved the mission lane card render crash caused by the undefined `personaTitle` identifier so the webview no longer blanks out.
+### Notes
+- **MCP surface**: MCP and extension tools remain available to every agent's tool-calling loop, now also discoverable via `/mcp`.
+- **Validation target**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` should pass for `1.0.7`.
+
 ## [1.0.6] — 2026-04-17
 ### Added
 - **Autonomous downstream routing**: Agents can now create follow-up work for the next owning persona during execution, so completed lead or implementation stages can hand off automatically inside the same run.

@@ -9,7 +9,45 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const chatParticipant = vscode.chat.createChatParticipant('pixelSquad.orchestrator', async (request, chatContext, stream, token) => {
     void chatContext;
-    const selectedPersona = request.command && personaCommandMap.has(request.command) ? request.command : undefined;
+    const command = request.command;
+
+    if (command === 'provision') {
+      const words = request.prompt.trim().split(/\s+/);
+      const personaInput = words[0] ?? '';
+      if (!personaInput) {
+        stream.markdown('Usage: `@pixel-squad /provision <persona> [in <roomName>] [as <agentName>]`. Personas: lead, frontend, backend, tester, devops, designer.');
+        return;
+      }
+      const remainder = words.slice(1).join(' ');
+      const summary = provider.provisionAgentFromChat(personaInput, remainder);
+      stream.markdown(summary);
+      return;
+    }
+
+    if (command === 'room') {
+      const words = request.prompt.trim().split(/\s+/);
+      const themeInput = words[0] ?? '';
+      const name = words.slice(1).join(' ');
+      if (!themeInput) {
+        stream.markdown('Usage: `@pixel-squad /room <theme> [name]`. Themes: frontend, backend, testing, devops, design, general.');
+        return;
+      }
+      const summary = provider.createRoomFromChat(themeInput, name);
+      stream.markdown(summary);
+      return;
+    }
+
+    if (command === 'status') {
+      stream.markdown(provider.renderStatusForChat());
+      return;
+    }
+
+    if (command === 'mcp') {
+      stream.markdown(provider.renderMcpToolsForChat());
+      return;
+    }
+
+    const selectedPersona = command && personaCommandMap.has(command) ? command : undefined;
     const summary = selectedPersona
       ? await provider.assignTaskToPersona(selectedPersona, request.prompt, 'copilot', request.model, token)
       : await provider.createTaskFromPrompt(request.prompt, request.model, token);
@@ -28,6 +66,16 @@ export function activate(context: vscode.ExtensionContext): void {
   chatParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'assets', 'icon.svg');
   chatParticipant.followupProvider = {
     provideFollowups: () => [
+      {
+        label: 'Show factory status',
+        prompt: '/status',
+        command: 'status',
+      },
+      {
+        label: 'List MCP tools available to agents',
+        prompt: '/mcp',
+        command: 'mcp',
+      },
       {
         label: 'Break this into frontend and backend tasks',
         prompt: 'Break this into frontend and backend tasks for Pixel Squad Flow.',

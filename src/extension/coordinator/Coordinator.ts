@@ -117,8 +117,32 @@ export class Coordinator {
     const autoExecute = this.getSettings().autoExecute;
 
     for (const [index, assignment] of plan.assignments.entries()) {
-      const agent = updatedAgents.find((item) => item.personaId === assignment.personaId)
-        ?? updatedAgents.find((item) => item.personaId === 'lead');
+      // Load-balance across agents that share this persona so a split task
+      // spreads work rather than piling on a single lane. Fall back to
+      // auto-provisioning a fresh persona agent when the roster is missing it.
+      const matchingAgents = updatedAgents
+        .filter((item) => item.personaId === assignment.personaId)
+        .sort((leftAgent, rightAgent) => this.openTaskCountForAgent(leftAgent.id) - this.openTaskCountForAgent(rightAgent.id));
+      let agent: SquadAgent | undefined = matchingAgents[0];
+      if (!agent) {
+        const targetRoom = this.pickRoomForPersona(assignment.personaId);
+        if (targetRoom) {
+          const spawned = this.spawnAgent(targetRoom.id, '', assignment.personaId, selectedProvider, undefined, '', 'chat');
+          if (spawned) {
+            updatedAgents.push(spawned);
+            agent = spawned;
+            this.appendActivity(`Auto-provisioned ${spawned.name} for the ${assignment.personaId} lane to cover split stage "${assignment.title}".`, {
+              category: 'agent',
+              agentId: spawned.id,
+              roomId: spawned.roomId,
+              provider: spawned.provider,
+            });
+          }
+        }
+      }
+      if (!agent) {
+        agent = updatedAgents.find((item) => item.personaId === 'lead');
+      }
       if (!agent) {
         continue;
       }

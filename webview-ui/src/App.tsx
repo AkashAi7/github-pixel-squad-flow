@@ -547,6 +547,7 @@ function App() {
   const routingConfidence = snapshot.agents.length > 0 ? Math.round((routedAgents / snapshot.agents.length) * 100) : 0;
   const providerReadyCount = snapshot.providers.filter((provider) => provider.state === 'ready').length;
   const selectedAgentMood = selectedAgent ? AGENT_MOOD[selectedAgent.status] : null;
+  const selectedPersonaTitle = selectedAgent ? personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId : '';
   const latestActivity = filteredActivity.slice(0, 3);
   const nextAttentionTasks = snapshot.tasks
     .filter((task) => task.status === 'active' || task.status === 'queued' || task.status === 'review' || task.status === 'failed')
@@ -684,7 +685,7 @@ function App() {
             <div className="mission-lane-card__header">
               <div>
                 <p className="eyebrow">Live Lane</p>
-                <h3>{selectedAgent ? `${selectedAgent.name} · ${personaTitle}` : 'No lane selected'}</h3>
+                <h3>{selectedAgent ? `${selectedAgent.name} · ${selectedPersonaTitle}` : 'No lane selected'}</h3>
               </div>
               {selectedAgentMood ? <span className="hero-summary-pill">{selectedAgentMood.label}</span> : null}
             </div>

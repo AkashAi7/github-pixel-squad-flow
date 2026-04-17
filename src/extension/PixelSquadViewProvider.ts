@@ -3,6 +3,8 @@ import * as vscode from 'vscode';
 
 import { Coordinator } from './coordinator/Coordinator.js';
 import type { AgentSession, Provider, RoomTheme, RunRecord, SquadAgent, TaskCard } from '../shared/model/index.js';
+import { ROOM_THEME_META } from '../shared/model/index.js';
+import { discoverExternalTools } from './tools/toolCallLoop.js';
 import type { ExtensionMessage, WebviewMessage } from '../shared/protocol/messages.js';
 
 export const VIEW_ID = 'pixelSquad.factoryView';
@@ -265,6 +267,137 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     return agent
       ? `Provisioned ${agent.name} in room ${roomId}.`
       : 'Unable to provision agent.';
+  }
+
+  /**
+   * Chat-side agent provisioning: parse a free-form prompt like
+   * `frontend in landing-room as Atlas` and spawn the requested persona.
+   * Auto-creates a target room when none exists so the chat flow stays
+   * terminal-free for the user.
+   */
+  provisionAgentFromChat(personaInput: string, prompt: string, provider?: Provider): string {
+    const personas = this.coordinator.getSnapshot().personas;
+    const normalizedPersona = personaInput.trim().toLowerCase();
+    const persona = personas.find((entry) => entry.id.toLowerCase() === normalizedPersona)
+      ?? personas.find((entry) => entry.title.toLowerCase() === normalizedPersona);
+    if (!persona) {
+      const available = personas.map((entry) => entry.id).join(', ');
+      return `Could not resolve persona "${personaInput}". Available personas: ${available}.`;
+    }
+
+    const promptText = prompt.trim();
+    const inMatch = promptText.match(/(?:\bin\s+)([^,\n]+?)(?:$|,|\s+as\s+|\s+named\s+)/i);
+    const nameMatch = promptText.match(/(?:\bas\s+|\bnamed\s+)([^,\n]+?)(?:$|,)/i);
+    const roomHint = inMatch?.[1]?.trim();
+    const agentName = nameMatch?.[1]?.trim() ?? '';
+
+    let room = roomHint
+      ? this.coordinator.getSnapshot().rooms.find((entry) => entry.name.toLowerCase() === roomHint.toLowerCase())
+      : undefined;
+    if (!room) {
+      const snapshot = this.coordinator.getSnapshot();
+      const preferredThemeByPersona: Partial<Record<string, RoomTheme>> = {
+        lead: 'general',
+        frontend: 'frontend',
+        backend: 'backend',
+        tester: 'testing',
+        devops: 'devops',
+        designer: 'design',
+      };
+      const preferredTheme = preferredThemeByPersona[persona.id] ?? 'general';
+      room = snapshot.rooms.find((entry) => entry.theme === preferredTheme)
+        ?? snapshot.rooms.find((entry) => entry.theme === 'general')
+        ?? snapshot.rooms[0];
+      if (!room) {
+        const themeMeta = ROOM_THEME_META[preferredTheme];
+        room = this.coordinator.createRoom(themeMeta.label, preferredTheme, `Chat-provisioned ${themeMeta.label} for ${persona.title} work.`);
+      }
+    }
+
+    if (!room) {
+      return `Unable to find or create a room for ${persona.title}.`;
+    }
+
+    const selectedProvider = provider ?? (vscode.workspace.getConfiguration('pixelSquad').get<string>('modelFamily', 'copilot') as Provider);
+    const agent = this.coordinator.spawnAgent(room.id, agentName, persona.id, selectedProvider, undefined, '', 'chat');
+    this.syncSnapshot();
+    if (!agent) {
+      return `Unable to provision a ${persona.title} agent.`;
+    }
+    return `Provisioned ${agent.name} (${persona.title}, ${selectedProvider}) in room "${room.name}". They will pick up queued ${persona.title.toLowerCase()} work automatically.`;
+  }
+
+  createRoomFromChat(themeInput: string, nameInput: string, purpose?: string): string {
+    const normalizedTheme = themeInput.trim().toLowerCase() as RoomTheme;
+    const themeKeys = Object.keys(ROOM_THEME_META) as RoomTheme[];
+    const theme = themeKeys.includes(normalizedTheme) ? normalizedTheme : themeKeys.find((candidate) => candidate.startsWith(normalizedTheme));
+    if (!theme) {
+      return `Unknown room theme "${themeInput}". Available themes: ${themeKeys.join(', ')}.`;
+    }
+    const meta = ROOM_THEME_META[theme];
+    const name = nameInput.trim() || meta.label;
+    const resolvedPurpose = purpose?.trim() || `Chat-provisioned ${meta.label.toLowerCase()} for related work.`;
+    const room = this.coordinator.createRoom(name, theme, resolvedPurpose);
+    this.syncSnapshot();
+    return `Created room "${room.name}" (${theme}). Use \`/provision <persona> in ${room.name}\` to staff it.`;
+  }
+
+  renderStatusForChat(): string {
+    const snapshot = this.coordinator.getSnapshot();
+    const rooms = snapshot.rooms;
+    const agents = snapshot.agents;
+    const activeTasks = snapshot.tasks.filter((task) => task.status === 'active');
+    const queuedTasks = snapshot.tasks.filter((task) => task.status === 'queued');
+    const reviewTasks = snapshot.tasks.filter((task) => task.status === 'review');
+
+    const lines: string[] = [];
+    lines.push(`**Rooms (${rooms.length})**`);
+    if (rooms.length === 0) {
+      lines.push('- none yet. Run `/room general main` to create one.');
+    } else {
+      for (const room of rooms) {
+        lines.push(`- ${room.name} · ${room.theme} · ${room.agentIds.length} agent(s)`);
+      }
+    }
+
+    lines.push('');
+    lines.push(`**Agents (${agents.length})**`);
+    if (agents.length === 0) {
+      lines.push('- none yet. Run `/provision lead` to staff the squad.');
+    } else {
+      for (const agent of agents) {
+        const persona = snapshot.personas.find((entry) => entry.id === agent.personaId);
+        lines.push(`- ${agent.name} · ${persona?.title ?? agent.personaId} · ${agent.provider} · ${agent.status}`);
+      }
+    }
+
+    lines.push('');
+    lines.push(`**Active lanes (${activeTasks.length})** · queued ${queuedTasks.length} · review ${reviewTasks.length}`);
+    for (const task of activeTasks.slice(0, 5)) {
+      lines.push(`- ${task.title} → ${this.coordinator.getSnapshot().agents.find((agent) => agent.id === task.assigneeId)?.name ?? task.assigneeId}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  renderMcpToolsForChat(): string {
+    const external = discoverExternalTools();
+    const lines: string[] = [];
+    lines.push(`**MCP & extension tools available to Pixel Squad agents: ${external.length}**`);
+    if (external.length === 0) {
+      lines.push('');
+      lines.push('No external tools are currently surfaced by VS Code. Install or start an MCP server so agents can use them during runs.');
+    } else {
+      for (const tool of external.slice(0, 20)) {
+        lines.push(`- \`${tool.name}\` — ${tool.description ?? '(no description)'}`);
+      }
+      if (external.length > 20) {
+        lines.push(`- …and ${external.length - 20} more.`);
+      }
+    }
+    lines.push('');
+    lines.push('Agents automatically pick the best tool for the job during execution.');
+    return lines.join('\n');
   }
 
   refresh(): void {
