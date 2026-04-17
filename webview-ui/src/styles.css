@@ -5,22 +5,28 @@
 
 :root {
   color-scheme: dark;
-  font-family: 'Segoe UI', 'Aptos', system-ui, sans-serif;
-  --ps-bg: var(--vscode-editor-background, #10161f);
-  --ps-panel: var(--vscode-sideBar-background, rgba(16, 22, 31, 0.82));
-  --ps-panel-elevated: var(--vscode-editorWidget-background, rgba(20, 29, 41, 0.98));
-  --ps-border: var(--vscode-panel-border, rgba(245, 239, 225, 0.15));
-  --ps-text: var(--vscode-foreground, #f5efe1);
-  --ps-muted: var(--vscode-descriptionForeground, rgba(245, 239, 225, 0.72));
-  --ps-accent: var(--vscode-button-background, #ffe066);
-  --ps-accent-contrast: var(--vscode-button-foreground, #10161f);
-  --ps-accent-soft: color-mix(in srgb, var(--ps-accent) 18%, transparent);
-  --ps-input: var(--vscode-input-background, rgba(10, 15, 22, 0.9));
-  --ps-input-border: var(--vscode-input-border, rgba(245, 239, 225, 0.16));
+  font-family: Bahnschrift, 'Segoe UI Variable', 'Aptos', 'Segoe UI', system-ui, sans-serif;
+  --ps-bg: #081018;
+  --ps-panel: rgba(12, 21, 31, 0.84);
+  --ps-panel-elevated: rgba(14, 25, 37, 0.96);
+  --ps-border: rgba(255, 255, 255, 0.1);
+  --ps-text: #f3efe7;
+  --ps-muted: #9ca7b4;
+  --ps-accent: #73d7ff;
+  --ps-accent-contrast: #07131f;
+  --ps-accent-soft: rgba(115, 215, 255, 0.18);
+  --ps-amber: #ffbf47;
+  --ps-amber-soft: rgba(255, 191, 71, 0.18);
+  --ps-green: #7be0a0;
+  --ps-rose: #ff7a7a;
+  --ps-violet: #bcaeff;
+  --ps-input: rgba(8, 16, 24, 0.92);
+  --ps-input-border: rgba(115, 215, 255, 0.18);
   background:
-    radial-gradient(circle at top left, rgba(242, 95, 92, 0.22), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(36, 123, 160, 0.28), transparent 34%),
-    #10161f;
+    radial-gradient(circle at top left, rgba(115, 215, 255, 0.22), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(36, 90, 170, 0.26), transparent 34%),
+    radial-gradient(circle at 50% 120%, rgba(124, 80, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, #071019 0%, #09131d 100%);
   color: var(--ps-text);
 }
 
@@ -4000,3 +4006,78 @@ summary:focus-visible {
   }
 }
 
+
+/* ── v1.0.8 · blue prototype overrides & compact shell ─── */
+.eyebrow { color: var(--ps-accent); }
+
+.mission-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(115, 215, 255, 0.14), transparent 30%),
+    radial-gradient(circle at top right, rgba(36, 90, 170, 0.2), transparent 28%),
+    linear-gradient(180deg, rgba(14, 24, 35, 0.96), rgba(9, 17, 26, 0.92));
+}
+
+.mission-progress-node--live {
+  border-color: rgba(115, 215, 255, 0.32);
+  background: linear-gradient(180deg, rgba(115, 215, 255, 0.18), rgba(115, 215, 255, 0.05));
+}
+
+.mission-board {
+  background: linear-gradient(180deg, rgba(14, 25, 37, 0.96), rgba(9, 17, 26, 0.92));
+}
+
+.hero-summary-pill,
+.mission-signal {
+  border-color: rgba(115, 215, 255, 0.18);
+}
+
+.hero-panel--compact { margin-bottom: 10px; padding: 0; background: transparent; border: 0; box-shadow: none; }
+.hero-panel--compact .hero-panel__body { padding: 0; gap: 8px; }
+.first-run-banner--compact {
+  padding: 12px 14px;
+  border: 1px solid rgba(115, 215, 255, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(115, 215, 255, 0.12), rgba(115, 215, 255, 0.03));
+}
+.first-run-banner__subtitle {
+  margin-top: 4px;
+  color: var(--ps-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.workspace-nav--compact { margin-bottom: 12px; padding: 6px; }
+.workspace-nav--compact .workspace-nav__tabs { gap: 6px; }
+.workspace-nav--compact .workspace-nav__tab {
+  padding: 8px 14px;
+  border-radius: 12px;
+}
+.workspace-nav--compact .workspace-nav__tab--active {
+  border-color: rgba(115, 215, 255, 0.45);
+  background: linear-gradient(180deg, rgba(115, 215, 255, 0.2), rgba(115, 215, 255, 0.05));
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 1px solid var(--ps-accent);
+  outline-offset: 2px;
+}
+
+.composer-button--lane,
+.composer-button:not(.composer-button--ghost) {
+  background: linear-gradient(180deg, rgba(115, 215, 255, 0.32), rgba(115, 215, 255, 0.14));
+  border-color: rgba(115, 215, 255, 0.4);
+  color: #eaf6ff;
+}
+.composer-button:not(.composer-button--ghost):hover {
+  background: linear-gradient(180deg, rgba(115, 215, 255, 0.42), rgba(115, 215, 255, 0.2));
+}
+
+.stat-toggle--on {
+  border-color: rgba(115, 215, 255, 0.4);
+  background: rgba(115, 215, 255, 0.16);
+  color: #eaf6ff;
+}

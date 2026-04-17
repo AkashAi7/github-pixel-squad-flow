@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -92,8 +92,8 @@
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
-          "default": false,
-          "description": "Automatically execute tasks after routing them through the squad. Enable for Copilot-agent-style behaviour (execute and apply changes immediately). Disable to keep review in the loop."
+          "default": true,
+          "description": "Automatically execute tasks and auto-apply produced file edits to the workspace. Keep this on for the one-person-army experience. Disable only if you want a manual review step before every change."
         },
         "pixelSquad.modelFamily": {
           "type": "string",

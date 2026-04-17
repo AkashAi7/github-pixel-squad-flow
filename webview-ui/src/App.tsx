@@ -758,11 +758,10 @@ function App() {
         </div>
       </section>
 
-      <section className="hero-panel hero-panel--activitybar">
+      <section className="hero-panel hero-panel--activitybar hero-panel--compact">
         <div className="hero-panel__body">
-          {/* ─── First Run Banner ─── */}
           {showFirstRun && snapshot.rooms.length === 0 && snapshot.agents.length === 0 && (
-            <div className="first-run-banner">
+            <div className="first-run-banner first-run-banner--compact">
               <div className="first-run-banner__header">
                 <span className="first-run-banner__title">Welcome to Pixel Squad</span>
                 <button
@@ -772,44 +771,15 @@ function App() {
                   onClick={() => setShowFirstRun(false)}
                 >✕</button>
               </div>
-              <ol className="first-run-banner__steps">
-                <li className="first-run-banner__step">
-                  <span className="first-run-banner__step-num">1</span>
-                  <span>Open <strong>GitHub Copilot Chat</strong> and start a run with <strong>@pixel-squad</strong>.</span>
-                </li>
-                <li className="first-run-banner__step">
-                  <span className="first-run-banner__step-num">2</span>
-                  <span>Target a persona lane with commands like <strong>/lead</strong>, <strong>/frontend</strong>, or <strong>/tester</strong>.</span>
-                </li>
-                <li className="first-run-banner__step">
-                  <span className="first-run-banner__step-num">3</span>
-                  <span>Return here to inspect the active run, pipeline state, files changed, and agent execution progress.</span>
-                </li>
-              </ol>
+              <p className="first-run-banner__subtitle">
+                Start a run with <strong>@pixel-squad</strong> in Copilot Chat. Use <strong>/provision</strong>, <strong>/room</strong>, <strong>/status</strong>, or <strong>/mcp</strong> to orchestrate the squad from chat.
+              </p>
             </div>
           )}
-          <div className="provider-strip provider-strip--compact provider-strip--mission">
-            {snapshot.providers.map((provider) => (
-              <article key={provider.provider} className={`provider-chip provider-chip--compact provider-chip--${provider.state}`}>
-                <span className="provider-chip__icon">
-                  {provider.provider === 'copilot' ? '⚡' : '🧠'}
-                </span>
-                <div className="provider-chip__content">
-                  <strong>{provider.provider}</strong>
-                  <p>{provider.detail}</p>
-                </div>
-                <span className="provider-chip__state">{provider.state}</span>
-              </article>
-            ))}
-          </div>
         </div>
       </section>
 
-      <section className="workspace-nav panel">
-        <div className="workspace-nav__header">
-          <p className="eyebrow">Workspace Views</p>
-          <span className="workspace-nav__hint">Runtime floor, pipeline queue, control deck, and activity feed.</span>
-        </div>
+      <section className="workspace-nav panel workspace-nav--compact">
         <div className="workspace-nav__tabs" role="tablist" onKeyDown={handleWorkspaceNavKeyDown}>
           <button
             type="button"
@@ -819,7 +789,7 @@ function App() {
             className={`workspace-nav__tab${activeView === 'factory' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('factory')}
           >
-            <span>Agent Factory</span>
+            <span>Factory</span>
             <strong>{snapshot.agents.length}</strong>
           </button>
           <button
@@ -836,23 +806,12 @@ function App() {
           <button
             type="button"
             role="tab"
-            aria-selected={activeView === 'providers'}
-            tabIndex={activeView === 'providers' ? 0 : -1}
-            className={`workspace-nav__tab${activeView === 'providers' ? ' workspace-nav__tab--active' : ''}`}
-            onClick={() => setActiveView('providers')}
-          >
-            <span>Control Deck</span>
-            <strong>{snapshot.providers.length}</strong>
-          </button>
-          <button
-            type="button"
-            role="tab"
             aria-selected={activeView === 'activity'}
             tabIndex={activeView === 'activity' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'activity' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('activity')}
           >
-            <span>Activity Feed</span>
+            <span>Activity</span>
             <strong>{filteredActivity.length}</strong>
           </button>
         </div>

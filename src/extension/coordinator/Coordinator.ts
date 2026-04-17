@@ -16,11 +16,11 @@ import { ProjectStateStore } from '../persistence/ProjectStateStore.js';
 import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js';
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
-const MAX_MAILBOX_TURNS = 3;
-/** Per-turn execution timeout in milliseconds (60 seconds). */
-const EXECUTION_TIMEOUT_MS = 60_000;
-/** Planning-call timeout in milliseconds (30 seconds). */
-const PLAN_TIMEOUT_MS = 30_000;
+const MAX_MAILBOX_TURNS = 2;
+/** Per-turn execution timeout in milliseconds (45 seconds). */
+const EXECUTION_TIMEOUT_MS = 45_000;
+/** Planning-call timeout in milliseconds (20 seconds). */
+const PLAN_TIMEOUT_MS = 20_000;
 /** Tasks active/queued longer than this (ms) are considered stale and auto-failed. */
 const STALE_TASK_THRESHOLD_MS = 5 * 60_000;
 /** Debounce interval for coalescing disk writes (ms). */
@@ -64,7 +64,7 @@ export class Coordinator {
   getSettings() {
     const config = vscode.workspace.getConfiguration('pixelSquad');
     return {
-      autoExecute: config.get<boolean>('autoExecute', false),
+      autoExecute: config.get<boolean>('autoExecute', true),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),

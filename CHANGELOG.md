@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.8] — 2026-04-17
+### Added
+- **Blue mission-control theme**: Retuned the runtime palette to match the prototype's deep blue shell with cyan accents across cards, progress rails, pills, buttons, and focus rings.
+### Changed
+- **Declutter runtime panel**: Removed the duplicate provider strip and verbose workspace-nav header, trimmed the welcome banner to one line, and dropped the redundant Control Deck tab so the shell stays focused on Factory, Tasks, and Activity.
+- **Files actually land on the workspace**: `pixelSquad.autoExecute` now defaults to `true`, so produced file edits are applied to the workspace automatically after an agent finishes a run.
+- **Faster task coordination**: Capped the mailbox loop to 2 turns, shortened per-turn execution timeout to 45s and plan timeout to 20s, so tasks no longer stall waiting on empty inboxes or long planning calls.
+### Notes
+- **Validation target**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` should pass for `1.0.8`.
+
 ## [1.0.7] — 2026-04-17
 ### Added
 - **Chat-first agent & room provisioning**: New `@pixel-squad /provision <persona> [in <roomName>] [as <agentName>]` and `/room <theme> [name]` commands so the squad can be staffed entirely from GitHub Copilot Chat without opening the Command Palette.
