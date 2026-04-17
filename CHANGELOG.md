@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.0] — 2026-04-17
+### Added
+- **Independent release baseline**: GitHub Pixel Squad Flow now starts its own clean release line at `v1.0.0`, separate from the original Pixel Squad tag history.
+- **GitHub release helper**: Added a repo-local release script that reads the matching changelog section and publishes a GitHub release with proper markdown notes.
+### Changed
+- **Release identity cleanup**: Release docs, package metadata, and publishing guidance now treat GitHub Pixel Squad Flow as its own product and release stream.
+### Notes
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.0`.
+
 ## [0.1.34] — 2026-04-16
 ### Fixed
 - **Editor-panel allocation sync**: Chat-driven task allocation now broadcasts fresh snapshot state to every connected Pixel Squad surface, so the editor panel immediately reflects the focused agent, room activity, and queued/active work instead of leaving agents visually idle.

@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "GitHub Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "0.1.34",
+  "version": "1.0.0",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -214,6 +214,7 @@
     "build:webview": "npm --prefix webview-ui run build",
     "demo:e2e:record": "npm run build && node ./test/e2e/recordHostDemo.mjs",
     "package:vsix": "npm run build && npx @vscode/vsce package --out github-pixel-squad-flow.vsix",
+    "release:github": "node ./scripts/create-github-release.mjs",
     "test:e2e": "npm run build && node ./test/e2e/runTest.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "watch:webview": "npm --prefix webview-ui run dev"

@@ -2,12 +2,11 @@
 
 GitHub Pixel Squad Flow is a VS Code extension for chat-first multi-agent orchestration that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v0.1.27
+## What's New in v1.0.0
 
-- **Astronaut persona refresh** — Factory-floor agents and roster cards now use brighter persona-coded astronaut sprites, giving each role a clearer visual identity.
-- **Inline agent assignment** — Quick-assign controls are now embedded directly in the inspector and composer, reducing friction when routing work to a specific agent.
-- **Tool-driven execution loop** — Copilot and Claude can read files, edit targeted regions, run commands, and self-correct after command failures before returning control.
-- **Faster, safer defaults** — Auto-execute is back to opt-in by default, workspace context capture stays bounded, and the extension remains review-friendly on first launch.
+- **Independent release line** — GitHub Pixel Squad Flow now publishes from its own clean release stream starting at `v1.0.0`.
+- **Chat-first runtime orchestration** — GitHub Copilot Chat drives task routing while the extension visualizes active runs, agent lanes, transcripts, and pipeline progress.
+- **Safer release workflow** — The repo now includes release guidance and a GitHub release helper that preserve proper markdown notes and avoid pushing unrelated legacy tags.
 
 ## Commands
 
@@ -91,7 +90,16 @@ Use `PIXEL_SQUAD_RECORD_STEP_DELAY_MS=2500 npm run demo:e2e:record` if you want 
 
 - Repository: https://github.com/AkashAi7/github-pixel-squad-flow
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.1.34` runs the `Release VSIX` workflow.
+- Pushing a tag like `v1.0.0` runs the `Release VSIX` workflow.
 - The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.
 - Publish tags with `git push origin main --follow-tags` so only the current release tag is sent.
 - When editing GitHub release notes manually, use a markdown file or real multiline input instead of escaped `\n` sequences.
+
+## Release Helper
+
+Use the built-in helper after packaging a release artifact:
+
+```powershell
+npm run package:vsix
+npm run release:github -- 1.0.0 github-pixel-squad-flow.vsix
+```
