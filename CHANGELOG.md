@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.5] — 2026-04-17
+### Added
+- **Control Deck runtime view**: Replaced the passive Providers tab with a Control Deck that shows provider load, routing pressure, and a lane assignment ledger so idle, queued, blocked, and active lanes are easier to understand.
+- **Sharper astronaut lane visuals**: Refined the live factory characters into more explicit astronaut-style sprites with clearer helmet, antenna, collar, and boot details.
+### Changed
+- **Professional runtime shell**: Tightened the launchpad hierarchy, reduced the prominence of the global lane-chat CTA, and shifted the runtime toward a more polished mission-control layout.
+### Fixed
+- **Lane handoff token usage**: Shortened the Copilot Chat continuation prompt so lane follow-ups carry less repeated context while still preserving task and file focus.
+### Notes
+- **Validation target**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` should pass for `1.0.5`.
+
 ## [1.0.4] — 2026-04-17
 ### Added
 - **Easy talk-to-agent controls**: Added visible `Talk` buttons directly on factory agent cards and a `Talk to <agent>` action in the launchpad so continuing a runtime lane no longer depends on finding the inspector first.

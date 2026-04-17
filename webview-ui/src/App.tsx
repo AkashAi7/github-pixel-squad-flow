@@ -539,6 +539,7 @@ function App() {
     review: selectedRun?.stages.filter((stage) => stage.status === 'review').length ?? activeBatchTasks.filter((task) => task.status === 'review').length,
     failed: selectedRun?.stages.filter((stage) => stage.status === 'failed').length ?? activeBatchTasks.filter((task) => task.status === 'failed').length,
   };
+  const laneReadyLabel = selectedAgentFocusTask?.id ? `${selectedAgentFocusTask.id} ready` : 'Lane ready';
 
   const handleSelectAgent = (agentId: string) => {
     setActiveView('factory');
@@ -655,7 +656,7 @@ function App() {
           <div className="chat-launchpad">
             <div className="chat-launchpad__copy">
               <p className="eyebrow">Chat-first Launchpad</p>
-              <h3>{selectedAgent ? `${selectedAgent.name} is the active lane` : 'Start from Copilot Chat'}</h3>
+              <h3>{selectedAgent ? `${selectedAgent.name} lane active` : 'Start from Copilot Chat'}</h3>
               <p>
                 {selectedAgent
                   ? `Use @pixel-squad /${selectedAgent.personaId} in Copilot Chat to continue directing ${selectedAgent.name}.`
@@ -663,13 +664,14 @@ function App() {
               </p>
               <div className="chat-launchpad__command">@pixel-squad /lead break this BRD into agent stages and track the pipeline</div>
               {selectedAgent ? (
-                <div className="composer-actions">
+                <div className="chat-launchpad__lane-row">
+                  <span className="chat-launchpad__lane-pill">{laneReadyLabel}</span>
                   <button
                     type="button"
-                    className="composer-button composer-button--accent"
+                    className="composer-button composer-button--lane"
                     onClick={() => handleSelectAgent(selectedAgent.id)}
                   >
-                    Talk to {selectedAgent.name}
+                    Continue lane
                   </button>
                 </div>
               ) : null}
@@ -723,7 +725,7 @@ function App() {
       <section className="workspace-nav panel">
         <div className="workspace-nav__header">
           <p className="eyebrow">Workspace Views</p>
-          <span className="workspace-nav__hint">Runtime floor, pipeline queue, provider health, and activity feed.</span>
+          <span className="workspace-nav__hint">Runtime floor, pipeline queue, control deck, and activity feed.</span>
         </div>
         <div className="workspace-nav__tabs" role="tablist" onKeyDown={handleWorkspaceNavKeyDown}>
           <button
@@ -756,7 +758,7 @@ function App() {
             className={`workspace-nav__tab${activeView === 'providers' ? ' workspace-nav__tab--active' : ''}`}
             onClick={() => setActiveView('providers')}
           >
-            <span>Providers</span>
+            <span>Control Deck</span>
             <strong>{snapshot.providers.length}</strong>
           </button>
           <button
@@ -833,6 +835,8 @@ function App() {
       {activeView === 'providers' ? (
         <ProvidersViewComponent
           providers={snapshot.providers}
+          agents={displayAgents}
+          tasks={snapshot.tasks}
           stats={stats}
           totalAgents={snapshot.agents.length}
         />

@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Squad Flow - Runtime Prototype v2</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #081018;
+        --panel: rgba(12, 21, 31, 0.84);
+        --panel-strong: rgba(14, 25, 37, 0.96);
+        --panel-soft: rgba(255, 255, 255, 0.04);
+        --text: #f3efe7;
+        --muted: #9ca7b4;
+        --line: rgba(255, 255, 255, 0.1);
+        --amber: #ffbf47;
+        --amber-soft: rgba(255, 191, 71, 0.16);
+        --cyan: #73d7ff;
+        --cyan-soft: rgba(115, 215, 255, 0.16);
+        --rose: #ff7a7a;
+        --rose-soft: rgba(255, 122, 122, 0.16);
+        --green: #7be0a0;
+        --green-soft: rgba(123, 224, 160, 0.16);
+        --violet: #bcaeff;
+        --shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+        --radius-xl: 28px;
+        --radius-lg: 22px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(255, 191, 71, 0.18), transparent 26%),
+          radial-gradient(circle at 85% 12%, rgba(115, 215, 255, 0.2), transparent 24%),
+          radial-gradient(circle at 50% 100%, rgba(124, 80, 255, 0.12), transparent 34%),
+          linear-gradient(180deg, #071019 0%, #09131d 100%);
+        color: var(--text);
+        font-family: Bahnschrift, "Segoe UI Variable", "Aptos", "Segoe UI", sans-serif;
+      }
+
+      body {
+        padding: 24px;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .prototype-shell {
+        max-width: 1520px;
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1.2fr auto;
+        gap: 16px;
+        align-items: center;
+        padding: 20px 24px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(180deg, rgba(14, 24, 35, 0.95), rgba(9, 17, 26, 0.92));
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .topbar__title {
+        display: grid;
+        gap: 6px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--amber);
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.74rem;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(1.9rem, 2.6vw, 3rem);
+        letter-spacing: 0.03em;
+      }
+
+      .lede {
+        max-width: 76ch;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .signal-strip,
+      .mini-tabs,
+      .chip-row,
+      .quick-actions,
+      .legend,
+      .status-grid,
+      .lane-actions,
+      .metric-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .signal-pill,
+      .mini-tab,
+      .chip,
+      .legend__item,
+      .lane-action,
+      .quick-action {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel-soft);
+      }
+
+      .signal-pill,
+      .chip,
+      .legend__item {
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .signal-pill strong,
+      .legend__item strong,
+      .metric strong {
+        color: var(--text);
+      }
+
+      .mini-tabs {
+        justify-content: flex-end;
+      }
+
+      .mini-tab {
+        padding: 10px 14px;
+        min-width: 126px;
+        text-align: left;
+        transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+      }
+
+      .mini-tab span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .mini-tab strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1rem;
+      }
+
+      .mini-tab.is-active {
+        border-color: rgba(255, 191, 71, 0.5);
+        background: linear-gradient(180deg, rgba(255, 191, 71, 0.2), rgba(255, 191, 71, 0.08));
+        transform: translateY(-1px);
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: minmax(0, 1.8fr) minmax(360px, 0.92fr);
+        gap: 18px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 22px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.95fr);
+        gap: 16px;
+      }
+
+      .run-card,
+      .queue-card,
+      .section-card,
+      .inspector,
+      .ledger-card,
+      .token-card,
+      .provider-card,
+      .activity-card,
+      .room-card,
+      .lane-card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .run-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .run-card__header,
+      .section-card__header,
+      .lane-card__header,
+      .row-between {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .progress-rail {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .progress-node {
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .progress-node strong {
+        display: block;
+        font-size: 1.15rem;
+      }
+
+      .progress-node span {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .progress-node.is-live {
+        border-color: rgba(115, 215, 255, 0.42);
+        background: linear-gradient(180deg, rgba(115, 215, 255, 0.14), rgba(115, 215, 255, 0.05));
+      }
+
+      .room-stack,
+      .lane-stack,
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .rooms-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .room-card {
+        display: grid;
+        gap: 14px;
+        min-height: 292px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .room-stage {
+        position: relative;
+        min-height: 122px;
+        padding: 14px 12px 10px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+          radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 40%),
+          rgba(5, 11, 17, 0.42);
+        overflow: hidden;
+      }
+
+      .room-stage::after {
+        content: "";
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 10px;
+        height: 16px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(255, 191, 71, 0.12), rgba(115, 215, 255, 0.12));
+        filter: blur(3px);
+      }
+
+      .room-stage__actors {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-around;
+        gap: 10px;
+        min-height: 96px;
+      }
+
+      .actor {
+        display: grid;
+        justify-items: center;
+        gap: 6px;
+      }
+
+      .actor__figure {
+        position: relative;
+        width: 38px;
+        height: 64px;
+        display: grid;
+        justify-items: center;
+        filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.36));
+      }
+
+      .actor__halo {
+        position: absolute;
+        top: 6px;
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        background: radial-gradient(circle, color-mix(in srgb, var(--actor-accent, var(--amber)) 28%, transparent), transparent 72%);
+      }
+
+      .actor__head {
+        position: relative;
+        z-index: 1;
+        width: 20px;
+        height: 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(180deg, color-mix(in srgb, var(--actor-accent, var(--amber)) 90%, white 10%), color-mix(in srgb, var(--actor-accent, var(--amber)) 60%, #111 40%));
+      }
+
+      .actor__body {
+        margin-top: 4px;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px 10px 8px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), color-mix(in srgb, var(--actor-accent, var(--amber)) 34%, #09131d 66%));
+      }
+
+      .actor__legs {
+        display: flex;
+        gap: 6px;
+        margin-top: 3px;
+      }
+
+      .actor__legs span {
+        width: 7px;
+        height: 13px;
+        border-radius: 5px;
+        background: color-mix(in srgb, var(--actor-accent, var(--amber)) 22%, #1a2430 78%);
+      }
+
+      .actor__label {
+        font-size: 0.74rem;
+        letter-spacing: 0.03em;
+        color: #dce4ee;
+      }
+
+      .actor--working {
+        transform: translateY(-4px);
+      }
+
+      .actor--working .actor__figure {
+        animation: actor-bob 1.8s ease-in-out infinite;
+      }
+
+      .actor--blocked .actor__body {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(188, 174, 255, 0.22));
+      }
+
+      .actor--idle {
+        opacity: 0.82;
+      }
+
+      .agent-card__presence {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+      }
+
+      .agent-avatar {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+        overflow: hidden;
+      }
+
+      .agent-avatar::before {
+        content: "";
+        position: absolute;
+        inset: 7px 14px 25px;
+        border-radius: 8px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--avatar-accent, var(--amber)) 90%, white 10%), color-mix(in srgb, var(--avatar-accent, var(--amber)) 55%, #111 45%));
+      }
+
+      .agent-avatar::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 8px;
+        height: 19px;
+        border-radius: 10px 10px 12px 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), color-mix(in srgb, var(--avatar-accent, var(--amber)) 32%, #0b1219 68%));
+      }
+
+      .room-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -10% -38% auto;
+        width: 200px;
+        height: 200px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%);
+        pointer-events: none;
+      }
+
+      .room-card--frontend {
+        background: linear-gradient(180deg, rgba(255, 122, 122, 0.12), rgba(255, 122, 122, 0.03));
+      }
+
+      .room-card--backend {
+        background: linear-gradient(180deg, rgba(115, 215, 255, 0.14), rgba(115, 215, 255, 0.03));
+      }
+
+      .room-card--testing {
+        background: linear-gradient(180deg, rgba(123, 224, 160, 0.14), rgba(123, 224, 160, 0.03));
+      }
+
+      .agents-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .agent-card {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(7, 13, 19, 0.58);
+        display: grid;
+        gap: 10px;
+      }
+
+      .agent-card.is-working {
+        border-color: rgba(255, 191, 71, 0.4);
+        box-shadow: inset 0 0 0 1px rgba(255, 191, 71, 0.16);
+      }
+
+      .agent-card.is-blocked {
+        border-color: rgba(188, 174, 255, 0.36);
+      }
+
+      .agent-card__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .agent-name {
+        display: grid;
+        gap: 4px;
+      }
+
+      .agent-name small,
+      .muted,
+      .metric span,
+      .list li,
+      .queue-row p,
+      .activity-row p,
+      .token-card p,
+      .provider-card p,
+      .inspector p,
+      .lane-card p {
+        color: var(--muted);
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 0 6px rgba(123, 224, 160, 0.1);
+      }
+
+      .status-dot.is-amber {
+        background: var(--amber);
+        box-shadow: 0 0 0 6px rgba(255, 191, 71, 0.12);
+      }
+
+      .status-dot.is-violet {
+        background: var(--violet);
+        box-shadow: 0 0 0 6px rgba(188, 174, 255, 0.1);
+      }
+
+      .agent-task {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 0.9rem;
+      }
+
+      .lane-actions {
+        gap: 8px;
+      }
+
+      .lane-action {
+        padding: 7px 11px;
+        font-size: 0.82rem;
+      }
+
+      .lane-action--primary {
+        border-color: rgba(255, 191, 71, 0.45);
+        background: var(--amber-soft);
+        color: #ffe7b4;
+      }
+
+      .lane-action--ghost {
+        color: var(--muted);
+      }
+
+      .lane-action--tiny {
+        padding: 6px 10px;
+        opacity: 0.88;
+      }
+
+      .queue-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .queue-row,
+      .activity-row {
+        display: grid;
+        gap: 4px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .queue-row.is-blocked {
+        border-color: rgba(188, 174, 255, 0.34);
+        background: rgba(188, 174, 255, 0.08);
+      }
+
+      .queue-row.is-live {
+        border-color: rgba(255, 191, 71, 0.42);
+        background: rgba(255, 191, 71, 0.08);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 1.5rem;
+      }
+
+      .section-card {
+        display: none;
+      }
+
+      .section-card.is-active {
+        display: grid;
+        gap: 14px;
+      }
+
+      .ledger-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.93rem;
+      }
+
+      .ledger-table th,
+      .ledger-table td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        vertical-align: top;
+      }
+
+      .ledger-table th {
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.74rem;
+      }
+
+      .routing-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--line);
+        white-space: nowrap;
+      }
+
+      .routing-tag--ok {
+        color: #d2ffe2;
+        border-color: rgba(123, 224, 160, 0.34);
+        background: var(--green-soft);
+      }
+
+      .routing-tag--watch {
+        color: #ffe7b4;
+        border-color: rgba(255, 191, 71, 0.34);
+        background: var(--amber-soft);
+      }
+
+      .routing-tag--blocked {
+        color: #e8dcff;
+        border-color: rgba(188, 174, 255, 0.34);
+        background: rgba(188, 174, 255, 0.14);
+      }
+
+      .provider-grid,
+      .right-rail {
+        display: grid;
+        gap: 16px;
+      }
+
+      .provider-card__score {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .provider-card__score strong {
+        font-size: 1.6rem;
+      }
+
+      .bars {
+        display: grid;
+        gap: 10px;
+      }
+
+      .bar {
+        display: grid;
+        grid-template-columns: 100px minmax(0, 1fr) 38px;
+        gap: 10px;
+        align-items: center;
+        font-size: 0.88rem;
+      }
+
+      .bar__track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+      }
+
+      .bar__fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--cyan), var(--amber));
+      }
+
+      .inspector {
+        display: grid;
+        gap: 12px;
+      }
+
+      .inspector .command {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 191, 71, 0.24);
+        background: rgba(255, 191, 71, 0.07);
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 0.88rem;
+        line-height: 1.55;
+      }
+
+      .token-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .token-box {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .token-box pre {
+        margin: 10px 0 0;
+        white-space: pre-wrap;
+        color: #d8dde6;
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+
+      .token-box.is-verbose {
+        border-color: rgba(255, 122, 122, 0.3);
+        background: var(--rose-soft);
+      }
+
+      .token-box.is-compact {
+        border-color: rgba(123, 224, 160, 0.3);
+        background: var(--green-soft);
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .activity-card {
+        display: grid;
+        gap: 12px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+      }
+
+      .badge--amber {
+        border-color: rgba(255, 191, 71, 0.34);
+        background: var(--amber-soft);
+        color: #ffe3ab;
+      }
+
+      .badge--cyan {
+        border-color: rgba(115, 215, 255, 0.34);
+        background: var(--cyan-soft);
+        color: #dcf5ff;
+      }
+
+      .badge--green {
+        border-color: rgba(123, 224, 160, 0.34);
+        background: var(--green-soft);
+        color: #e0ffec;
+      }
+
+      .footer-note {
+        padding: 16px 20px;
+        border-radius: var(--radius-lg);
+        border: 1px dashed rgba(255, 191, 71, 0.32);
+        color: var(--muted);
+        background: rgba(255, 191, 71, 0.05);
+      }
+
+      @keyframes actor-bob {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-4px);
+        }
+      }
+
+      @media (max-width: 1180px) {
+        .board,
+        .hero__grid,
+        .topbar {
+          grid-template-columns: 1fr;
+        }
+
+        .mini-tabs {
+          justify-content: flex-start;
+        }
+
+        .rooms-grid,
+        .metrics,
+        .token-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        body {
+          padding: 14px;
+        }
+
+        .agents-grid,
+        .progress-rail {
+          grid-template-columns: 1fr;
+        }
+
+        .bar {
+          grid-template-columns: 1fr;
+        }
+
+        .ledger-table,
+        .ledger-table thead,
+        .ledger-table tbody,
+        .ledger-table tr,
+        .ledger-table td,
+        .ledger-table th {
+          display: block;
+          width: 100%;
+        }
+
+        .ledger-table thead {
+          display: none;
+        }
+
+        .ledger-table tr {
+          padding: 14px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .ledger-table td {
+          padding: 6px 0;
+          border: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="prototype-shell">
+      <header class="topbar">
+        <div class="topbar__title">
+          <p class="eyebrow">Pixel Squad Flow · Mission Control Prototype</p>
+          <h1>Professional runtime shell with clearer routing, calmer actions, and useful provider intel</h1>
+          <p class="lede">
+            This direction turns the current dashboard into a control deck. The weak Providers tab becomes a real operating surface,
+            assignment state becomes visible instead of implied, and lane chat actions shrink into contextual quick controls rather than a giant global button.
+          </p>
+          <div class="signal-strip">
+            <div class="signal-pill"><strong>Issue 1</strong> Providers becomes Control Deck</div>
+            <div class="signal-pill"><strong>Issue 2</strong> Assignment ledger shows why agents are idle, blocked, or active</div>
+            <div class="signal-pill"><strong>Issue 3</strong> Talk action becomes compact and prompt payload becomes smaller</div>
+          </div>
+        </div>
+
+        <nav class="mini-tabs" aria-label="Prototype sections">
+          <button class="mini-tab is-active" data-target="factory">
+            <span>Primary</span>
+            <strong>Factory + Inspector</strong>
+          </button>
+          <button class="mini-tab" data-target="workboard">
+            <span>Fixes</span>
+            <strong>Assignment Ledger</strong>
+          </button>
+          <button class="mini-tab" data-target="control-deck">
+            <span>Replace Tab</span>
+            <strong>Control Deck</strong>
+          </button>
+          <button class="mini-tab" data-target="token-policy">
+            <span>Efficiency</span>
+            <strong>Token Policy</strong>
+          </button>
+        </nav>
+      </header>
+
+      <section class="board">
+        <div class="stack">
+          <section class="panel hero section-card is-active" id="factory">
+            <div class="hero__grid">
+              <div class="run-card">
+                <div class="run-card__header">
+                  <div>
+                    <p class="eyebrow">Active Run</p>
+                    <h2>Refine runtime shell and ship v1.0.5</h2>
+                  </div>
+                  <span class="badge badge--amber">Auto execute on</span>
+                </div>
+                <p class="muted">
+                  The hero becomes a concise run command center instead of a verbose intro block. It shows real stage health and current pressure without wasting vertical space.
+                </p>
+                <div class="progress-rail">
+                  <div class="progress-node is-live">
+                    <strong>2</strong>
+                    <span>active lanes</span>
+                  </div>
+                  <div class="progress-node">
+                    <strong>3</strong>
+                    <span>queued stages</span>
+                  </div>
+                  <div class="progress-node">
+                    <strong>1</strong>
+                    <span>dependency blocked</span>
+                  </div>
+                  <div class="progress-node">
+                    <strong>84%</strong>
+                    <span>routing confidence</span>
+                  </div>
+                </div>
+                <div class="chip-row">
+                  <span class="chip">Lead decomposed task into 6 stages</span>
+                  <span class="chip">Frontend holds 1 active + 1 queued</span>
+                  <span class="chip">Backend blocked on API contract handoff</span>
+                  <span class="chip">Tester waiting for first file batch</span>
+                </div>
+              </div>
+
+              <div class="queue-card">
+                <div class="row-between">
+                  <div>
+                    <p class="eyebrow">Run Queue</p>
+                    <h3>What needs attention now</h3>
+                  </div>
+                  <span class="badge badge--cyan">3 review signals</span>
+                </div>
+                <div class="queue-row is-live">
+                  <strong>Frontend lane executing</strong>
+                  <p>App shell refresh and compact talk affordance in progress.</p>
+                </div>
+                <div class="queue-row is-blocked">
+                  <strong>Backend lane blocked by dependency</strong>
+                  <p>Waiting on shared assignment metadata before coordinator patch starts.</p>
+                </div>
+                <div class="queue-row">
+                  <strong>Tester lane preloaded</strong>
+                  <p>Validation checklist ready and pinned to the release run.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="rooms-grid">
+              <article class="room-card room-card--frontend">
+                <div class="row-between">
+                  <div>
+                    <p class="eyebrow">Frontend Lab</p>
+                    <h3>Visible work, lighter controls</h3>
+                  </div>
+                  <span class="badge badge--amber">Live room</span>
+                </div>
+                <div class="room-stage">
+                  <div class="room-stage__actors">
+                    <div class="actor actor--working" style="--actor-accent: #ffbf47;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Atlas</div>
+                    </div>
+                    <div class="actor actor--idle" style="--actor-accent: #ff7a7a;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Muse</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="agents-grid">
+                  <div class="agent-card is-working">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Atlas</strong>
+                        <small>frontend-1 · Copilot</small>
+                      </div>
+                      <span class="status-dot is-amber" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #ffbf47;"></div>
+                      <div class="agent-task">Refreshing App shell, nav hierarchy, and compact lane affordances.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--primary">Ping lane</button>
+                      <button class="lane-action lane-action--ghost">Inspect</button>
+                      <button class="lane-action lane-action--ghost">Focus task</button>
+                    </div>
+                  </div>
+                  <div class="agent-card">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Muse</strong>
+                        <small>designer-1 · Claude</small>
+                      </div>
+                      <span class="status-dot" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #ff7a7a;"></div>
+                      <div class="agent-task">Idle by design. No design-specific stage assigned in current run.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--tiny">Why idle?</button>
+                      <button class="lane-action lane-action--ghost">Assign</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="room-card room-card--backend">
+                <div class="row-between">
+                  <div>
+                    <p class="eyebrow">Backend Engine</p>
+                    <h3>Assignment visibility instead of mystery</h3>
+                  </div>
+                  <span class="badge badge--cyan">Blocked dependency</span>
+                </div>
+                <div class="room-stage">
+                  <div class="room-stage__actors">
+                    <div class="actor actor--blocked" style="--actor-accent: #73d7ff;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Forge</div>
+                    </div>
+                    <div class="actor actor--idle" style="--actor-accent: #bcaeff;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Relay</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="agents-grid">
+                  <div class="agent-card is-blocked">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Forge</strong>
+                        <small>backend-1 · Copilot</small>
+                      </div>
+                      <span class="status-dot is-violet" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #73d7ff;"></div>
+                      <div class="agent-task">Queued for coordinator patch. Waiting on frontend assignment schema.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--tiny">Blocked by task-184</button>
+                      <button class="lane-action lane-action--ghost">Open handoff</button>
+                    </div>
+                  </div>
+                  <div class="agent-card">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Relay</strong>
+                        <small>devops-1 · Claude</small>
+                      </div>
+                      <span class="status-dot" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #bcaeff;"></div>
+                      <div class="agent-task">Queued release checks loaded. Will wake once feature lane is done.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--tiny">Wake on release stage</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="room-card room-card--testing">
+                <div class="row-between">
+                  <div>
+                    <p class="eyebrow">QA Chamber</p>
+                    <h3>Review path stays present but calmer</h3>
+                  </div>
+                  <span class="badge badge--green">Ready</span>
+                </div>
+                <div class="room-stage">
+                  <div class="room-stage__actors">
+                    <div class="actor actor--idle" style="--actor-accent: #7be0a0;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Pulse</div>
+                    </div>
+                    <div class="actor actor--working" style="--actor-accent: #ffbf47;">
+                      <div class="actor__figure">
+                        <div class="actor__halo"></div>
+                        <div class="actor__head"></div>
+                        <div class="actor__body"></div>
+                        <div class="actor__legs"><span></span><span></span></div>
+                      </div>
+                      <div class="actor__label">Prime</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="agents-grid">
+                  <div class="agent-card">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Pulse</strong>
+                        <small>tester-1 · Copilot</small>
+                      </div>
+                      <span class="status-dot" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #7be0a0;"></div>
+                      <div class="agent-task">No active failure. Validation plan preloaded and waiting for changed files.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--tiny">Open checklist</button>
+                    </div>
+                  </div>
+                  <div class="agent-card">
+                    <div class="agent-card__header">
+                      <div class="agent-name">
+                        <strong>Prime</strong>
+                        <small>lead-1 · Copilot</small>
+                      </div>
+                      <span class="status-dot is-amber" aria-hidden="true"></span>
+                    </div>
+                    <div class="agent-card__presence">
+                      <div class="agent-avatar" style="--avatar-accent: #ffbf47;"></div>
+                      <div class="agent-task">Coordinating lane load, updating dependency map, and trimming chat context.</div>
+                    </div>
+                    <div class="lane-actions">
+                      <button class="lane-action lane-action--primary">Open lane brief</button>
+                      <button class="lane-action lane-action--ghost">Reassign</button>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="inspector">
+                <div class="row-between">
+                  <div>
+                    <p class="eyebrow">Lane Inspector</p>
+                    <h3>Atlas · active frontend lane</h3>
+                  </div>
+                  <span class="badge badge--amber">Compact handoff</span>
+                </div>
+                <p>
+                  The selected lane gets one focused quick action. The oversized global CTA disappears. On cards, the action becomes “Ping lane”, which is smaller and more contextual than “Talk to &lt;agent&gt;”.
+                </p>
+                <div class="command">@pixel-squad /frontend continue Atlas on task-184. Focus: webview-ui/src/App.tsx, styles.css. Goal: compact talk affordance and clearer assignment state.</div>
+                <div class="quick-actions">
+                  <button class="quick-action lane-action lane-action--primary">Ping lane</button>
+                  <button class="quick-action lane-action lane-action--ghost">Open run map</button>
+                  <button class="quick-action lane-action lane-action--ghost">Pin files</button>
+                </div>
+                <div class="legend">
+                  <div class="legend__item"><strong>Idle</strong> no stage in current run</div>
+                  <div class="legend__item"><strong>Blocked</strong> waiting on dependency or missing handoff</div>
+                  <div class="legend__item"><strong>Queued</strong> assigned but not yet unblocked</div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel section-card" id="workboard">
+            <div class="section-card__header">
+              <div>
+                <p class="eyebrow">Issue 2 · Assignment Ledger</p>
+                <h2>Make assignment state explicit</h2>
+              </div>
+              <span class="badge badge--cyan">Shows why an agent looks idle</span>
+            </div>
+            <p class="muted">
+              Instead of only saying work was assigned, the runtime should expose assignment confidence, current blocker, and wake condition. This prevents the frontend/backend lanes from looking like they are chilling with no explanation.
+            </p>
+            <table class="ledger-table">
+              <thead>
+                <tr>
+                  <th>Lane</th>
+                  <th>Stage</th>
+                  <th>Status</th>
+                  <th>Why not moving?</th>
+                  <th>Next wake condition</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Atlas</strong><br /><span class="muted">frontend-1</span></td>
+                  <td>Refresh runtime shell</td>
+                  <td><span class="routing-tag routing-tag--ok">Active · routed with 91% confidence</span></td>
+                  <td>Working now</td>
+                  <td>Finish current file batch</td>
+                </tr>
+                <tr>
+                  <td><strong>Forge</strong><br /><span class="muted">backend-1</span></td>
+                  <td>Patch coordinator assignment summaries</td>
+                  <td><span class="routing-tag routing-tag--blocked">Blocked · dependency on frontend schema</span></td>
+                  <td>No handoff packet yet</td>
+                  <td>Frontend lane completes task-184</td>
+                </tr>
+                <tr>
+                  <td><strong>Pulse</strong><br /><span class="muted">tester-1</span></td>
+                  <td>Run release validation</td>
+                  <td><span class="routing-tag routing-tag--watch">Queued · preloaded for release</span></td>
+                  <td>No changed files yet</td>
+                  <td>At least 1 code edit lands</td>
+                </tr>
+                <tr>
+                  <td><strong>Muse</strong><br /><span class="muted">designer-1</span></td>
+                  <td>No stage assigned</td>
+                  <td><span class="routing-tag">Idle · intentionally unused this run</span></td>
+                  <td>Prompt matched frontend/backend only</td>
+                  <td>User asks for visual/copy work</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="panel section-card" id="control-deck">
+            <div class="section-card__header">
+              <div>
+                <p class="eyebrow">Issue 1 · Replace Providers Tab</p>
+                <h2>Control Deck instead of passive provider badges</h2>
+              </div>
+              <span class="badge badge--green">Useful enough to deserve its own tab</span>
+            </div>
+            <div class="metrics">
+              <div class="metric">
+                <strong>84%</strong>
+                <span>routing confidence</span>
+              </div>
+              <div class="metric">
+                <strong>31%</strong>
+                <span>fast-routed runs</span>
+              </div>
+              <div class="metric">
+                <strong>1.8k</strong>
+                <span>avg lane prompt chars</span>
+              </div>
+              <div class="metric">
+                <strong>2</strong>
+                <span>blocked dependencies</span>
+              </div>
+            </div>
+            <div class="provider-grid">
+              <div class="provider-card">
+                <div class="provider-card__score">
+                  <div>
+                    <p class="eyebrow">Copilot</p>
+                    <strong>Healthy</strong>
+                  </div>
+                  <span class="badge badge--cyan">Primary execution</span>
+                </div>
+                <p>Better for execution-heavy lanes. Control Deck shows where Copilot is overloaded or carrying most active stages.</p>
+                <div class="bars">
+                  <div class="bar"><span>Active lanes</span><div class="bar__track"><div class="bar__fill" style="width:72%"></div></div><strong>4</strong></div>
+                  <div class="bar"><span>Queued load</span><div class="bar__track"><div class="bar__fill" style="width:46%"></div></div><strong>3</strong></div>
+                  <div class="bar"><span>Review debt</span><div class="bar__track"><div class="bar__fill" style="width:26%"></div></div><strong>1</strong></div>
+                </div>
+              </div>
+              <div class="provider-card">
+                <div class="provider-card__score">
+                  <div>
+                    <p class="eyebrow">Claude</p>
+                    <strong>Healthy</strong>
+                  </div>
+                  <span class="badge badge--amber">Secondary planner</span>
+                </div>
+                <p>Better for design and reasoning passes. Deck exposes whether provider spread is real or only nominal.</p>
+                <div class="bars">
+                  <div class="bar"><span>Active lanes</span><div class="bar__track"><div class="bar__fill" style="width:38%"></div></div><strong>2</strong></div>
+                  <div class="bar"><span>Queued load</span><div class="bar__track"><div class="bar__fill" style="width:22%"></div></div><strong>1</strong></div>
+                  <div class="bar"><span>Design/QA share</span><div class="bar__track"><div class="bar__fill" style="width:57%"></div></div><strong>57%</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="ledger-card">
+              <div class="section-card__header">
+                <h3>What this tab should answer</h3>
+              </div>
+              <ul class="list">
+                <li>Which provider is carrying execution versus planning load right now?</li>
+                <li>Are some personas always routing to one provider even when another exists?</li>
+                <li>Which runs are oversized because the lane prompt is too verbose?</li>
+                <li>Which blocked stages are provider-related versus dependency-related?</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel section-card" id="token-policy">
+            <div class="section-card__header">
+              <div>
+                <p class="eyebrow">Issue 3 · Token Efficiency</p>
+                <h2>Trim the lane handoff prompt and tone down the chat controls</h2>
+              </div>
+              <span class="badge badge--amber">Smaller payload, same intent</span>
+            </div>
+            <div class="token-grid">
+              <div class="token-box is-verbose">
+                <strong>Current pattern</strong>
+                <p>Too much context copied every time the user hits talk. Repeats run title, task detail, files, previous reply, and policy text.</p>
+                <pre>@pixel-squad /frontend Continue Atlas's current runtime.
+Run: Refine runtime shell and ship v1.0.5
+Current task: Refresh runtime shell
+Task details: Rework App shell, nav hierarchy, assignment state...
+Focus files: webview-ui/src/App.tsx, webview-ui/src/styles.css, ...
+Latest lane output: I updated the selected agent...
+Stay in the Frontend lane.
+If a named file already exists, update it directly instead of replying with only a plan.</pre>
+              </div>
+              <div class="token-box is-compact">
+                <strong>Proposed pattern</strong>
+                <p>Use the active lane, one task reference, and up to two file targets. Let the extension keep the rest in session state instead of pasting it into chat every time.</p>
+                <pre>@pixel-squad /frontend continue Atlas on task-184.
+Focus: App.tsx, styles.css.
+Goal: compact talk affordance + clearer assignment state.</pre>
+              </div>
+            </div>
+            <div class="token-card">
+              <div class="section-card__header">
+                <h3>UI control changes</h3>
+              </div>
+              <ul class="list">
+                <li>Remove the large top-level “Talk to &lt;agent&gt;” button from the hero.</li>
+                <li>Keep one subtle “Ping lane” action in the inspector for the selected agent.</li>
+                <li>On agent cards, make the action secondary-sized and visible on hover or selection.</li>
+                <li>Prefer “Ping lane” or “Continue lane” over a loud global talk CTA.</li>
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <aside class="right-rail">
+          <section class="panel lane-card">
+            <div class="lane-card__header">
+              <div>
+                <p class="eyebrow">Design Direction</p>
+                <h3>Industrial mission control</h3>
+              </div>
+              <span class="badge badge--cyan">Professional, not playful-basic</span>
+            </div>
+            <p>
+              Dark glass panels, amber/cyan signal colors, dense but readable metrics, and restrained motion. The UI should feel like an operations console, not a generic SaaS dashboard.
+            </p>
+          </section>
+
+          <section class="panel activity-card">
+            <div class="section-card__header">
+              <div>
+                <p class="eyebrow">Prototype Notes</p>
+                <h3>What would change in the real extension</h3>
+              </div>
+            </div>
+            <div class="activity-row">
+              <strong>App shell</strong>
+              <p>Condense hero copy, surface real run pressure, demote chat CTA.</p>
+            </div>
+            <div class="activity-row">
+              <strong>Providers view</strong>
+              <p>Replace passive chips with routing load, health, and token telemetry.</p>
+            </div>
+            <div class="activity-row">
+              <strong>Factory board</strong>
+              <p>Add clearer idle/blocked reasons on agent cards and smaller lane actions.</p>
+            </div>
+            <div class="activity-row">
+              <strong>Host handoff</strong>
+              <p>Shorten the lane prompt copied to Copilot Chat and rely more on existing session state.</p>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <div class="footer-note">
+        Prototype only. If this direction looks right, the real implementation should update the webview shell, replace the Providers tab with a Control Deck, expose assignment reasons in the factory/task views, and shorten the lane-chat prompt generation in the extension host.
+      </div>
+    </div>
+
+    <script>
+      const tabs = Array.from(document.querySelectorAll('.mini-tab'));
+      const sections = Array.from(document.querySelectorAll('.section-card'));
+
+      for (const tab of tabs) {
+        tab.addEventListener('click', () => {
+          const target = tab.getAttribute('data-target');
+          for (const other of tabs) {
+            other.classList.toggle('is-active', other === tab);
+          }
+          for (const section of sections) {
+            section.classList.toggle('is-active', section.id === target);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

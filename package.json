@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {

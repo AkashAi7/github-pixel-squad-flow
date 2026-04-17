@@ -289,7 +289,7 @@ function RoomStage({
               title={`Talk to ${agent.name} in Copilot Chat`}
               aria-label={`Talk to ${agent.name} in Copilot Chat`}
             >
-              Talk
+              Ping
             </button>
           </div>
         );

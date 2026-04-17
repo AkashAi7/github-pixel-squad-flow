@@ -30,10 +30,13 @@ export function AgentSprite({ personaId, status, size = 'stage' }: AgentSpritePr
       aria-hidden="true"
     >
       {size === 'stage' ? <span className="astronaut-sprite__label">{meta.label}</span> : null}
+      <span className="astronaut-sprite__antenna astronaut-sprite__antenna--left" />
+      <span className="astronaut-sprite__antenna astronaut-sprite__antenna--right" />
       <span className="astronaut-sprite__backpack" />
       <span className="astronaut-sprite__helmet">
         <span className="astronaut-sprite__visor" />
       </span>
+      <span className="astronaut-sprite__collar" />
       <span className="astronaut-sprite__torso">
         <span className="astronaut-sprite__panel">{meta.panel}</span>
       </span>
@@ -41,6 +44,8 @@ export function AgentSprite({ personaId, status, size = 'stage' }: AgentSpritePr
       <span className="astronaut-sprite__arm astronaut-sprite__arm--right" />
       <span className="astronaut-sprite__leg astronaut-sprite__leg--left" />
       <span className="astronaut-sprite__leg astronaut-sprite__leg--right" />
+      <span className="astronaut-sprite__boot astronaut-sprite__boot--left" />
+      <span className="astronaut-sprite__boot astronaut-sprite__boot--right" />
       <span className="astronaut-sprite__shadow" />
     </span>
   );

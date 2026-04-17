@@ -329,18 +329,18 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       ...(focusTask?.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? []),
       ...(agent.pinnedFiles ?? []),
       ...(focusTask?.workspaceContext?.activeFile ? [focusTask.workspaceContext.activeFile] : []),
-    ])).slice(0, 6);
+    ])).slice(0, 2);
     const persona = snapshot.personas.find((item) => item.id === agent.personaId);
+    const laneRef = focusTask?.id ?? run?.id ?? 'current lane';
+    const goal = focusTask?.title ?? run?.title ?? `${agent.name}'s current runtime`;
+    const latestSummary = !focusTask && latestAgentReply ? latestAgentReply.slice(0, 140) : undefined;
 
     return [
-      `@pixel-squad /${agent.personaId} Continue ${agent.name}'s current runtime.`,
-      run ? `Run: ${run.title}` : '',
-      focusTask ? `Current task: ${focusTask.title}` : '',
-      focusTask?.detail ? `Task details: ${focusTask.detail}` : '',
-      fileTargets.length > 0 ? `Focus files: ${fileTargets.join(', ')}` : '',
-      latestAgentReply ? `Latest lane output: ${latestAgentReply.slice(0, 500)}` : '',
-      persona ? `Stay in the ${persona.title} lane.` : '',
-      'If a named file already exists, update it directly instead of replying with only a plan.',
+      `@pixel-squad /${agent.personaId} continue ${agent.name} on ${laneRef}.`,
+      `Goal: ${goal}.`,
+      fileTargets.length > 0 ? `Focus: ${fileTargets.join(', ')}.` : '',
+      latestSummary ? `Context: ${latestSummary}` : '',
+      persona ? `Stay in ${persona.title} lane. Update named files directly.` : 'Update named files directly.',
     ].filter(Boolean).join('\n');
   }
 
