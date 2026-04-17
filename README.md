@@ -91,5 +91,7 @@ Use `PIXEL_SQUAD_RECORD_STEP_DELAY_MS=2500 npm run demo:e2e:record` if you want 
 
 - Repository: https://github.com/AkashAi7/github-pixel-squad-flow
 - Pushes to `main` run the CI workflow.
-- Pushing a tag like `v0.1.27` runs the `Release VSIX` workflow.
+- Pushing a tag like `v0.1.34` runs the `Release VSIX` workflow.
 - The release workflow builds the extension, packages a `.vsix`, and attaches it to the GitHub Release.
+- Publish tags with `git push origin main --follow-tags` so only the current release tag is sent.
+- When editing GitHub release notes manually, use a markdown file or real multiline input instead of escaped `\n` sequences.
