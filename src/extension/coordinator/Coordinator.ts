@@ -339,6 +339,13 @@ export class Coordinator {
     return this.assignTask(targetAgent.id, prompt, model, token, source, activeRunId);
   }
 
+  async continueAgentSession(agentId: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const activeRunId = this.snapshot.ui.activeBatchId && this.hasAgentInRun(this.snapshot.ui.activeBatchId, agentId)
+      ? this.snapshot.ui.activeBatchId
+      : this.pickFocusTaskForAgent(agentId)?.batchId;
+    return this.assignTask(agentId, prompt, model, token, 'copilot-chat', activeRunId);
+  }
+
   async executeTask(taskId: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
     const task = this.snapshot.tasks.find((t) => t.id === taskId);
     if (!task) {

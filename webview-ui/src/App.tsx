@@ -74,6 +74,20 @@ function pickFocusTask(tasks: TaskCard[], agentId: string): TaskCard | null {
     ?? null;
 }
 
+function deriveAgentDisplayStatus(agent: SquadAgent, tasks: TaskCard[]): SquadAgent['status'] {
+  const openTasks = tasks.filter((task) => task.assigneeId === agent.id && task.status !== 'done' && task.status !== 'failed');
+  if (openTasks.some((task) => task.status === 'active')) {
+    return 'executing';
+  }
+  if (openTasks.some((task) => task.status === 'review')) {
+    return 'waiting';
+  }
+  if (openTasks.some((task) => task.status === 'queued')) {
+    return 'planning';
+  }
+  return agent.status;
+}
+
 function isCardActivation(event: React.KeyboardEvent<HTMLElement>): boolean {
   return event.key === 'Enter' || event.key === ' ';
 }
@@ -366,15 +380,20 @@ function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const selectedAgent = useMemo<SquadAgent | null>(() => {
-    if (!snapshot || !selectedAgentId) return null;
-    return snapshot.agents.find((a) => a.id === selectedAgentId) ?? null;
-  }, [selectedAgentId, snapshot]);
-
   const personas = useMemo(
     () => new Map(snapshot?.personas.map((p) => [p.id, p]) ?? []),
     [snapshot],
   );
+
+  const displayAgents = useMemo(
+    () => snapshot?.agents.map((agent) => ({ ...agent, status: deriveAgentDisplayStatus(agent, snapshot.tasks) })) ?? [],
+    [snapshot],
+  );
+
+  const selectedAgent = useMemo<SquadAgent | null>(() => {
+    if (!snapshot || !selectedAgentId) return null;
+    return displayAgents.find((agent) => agent.id === selectedAgentId) ?? null;
+  }, [displayAgents, selectedAgentId, snapshot]);
 
   const agentsById = useMemo(
     () => new Map(snapshot?.agents.map((agent) => [agent.id, agent]) ?? []),
@@ -732,7 +751,7 @@ function App() {
         <section className="workspace-stack">
           <FactoryBoard
             rooms={snapshot.rooms}
-            agents={snapshot.agents}
+            agents={displayAgents}
             personas={snapshot.personas}
             tasks={snapshot.tasks}
             selectedAgentId={selectedAgentId}

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import type {
   AgentSession,
   PersonaTemplate,
@@ -221,8 +223,21 @@ export function InspectorPanelComponent({
   streamingOutputs,
   vscode,
 }: InspectorPanelProps) {
+  const [lanePrompt, setLanePrompt] = useState('');
+  const [sendingLanePrompt, setSendingLanePrompt] = useState(false);
   const focusChangedFiles = selectedAgentFocusTask ? changedFilesForTask(selectedAgentFocusTask) : [];
   const personaTitle = selectedAgent ? personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId : '';
+
+  const submitLanePrompt = () => {
+    if (!selectedAgent || !lanePrompt.trim() || sendingLanePrompt) {
+      return;
+    }
+    setSendingLanePrompt(true);
+    vscode.postMessage({ type: 'sendAgentPrompt', agentId: selectedAgent.id, prompt: lanePrompt.trim() });
+    setLanePrompt('');
+    window.setTimeout(() => setSendingLanePrompt(false), 350);
+  };
+
   return (
     <section className="panel inspector-panel">
       <p className="eyebrow">Selected Agent</p>
@@ -462,11 +477,34 @@ export function InspectorPanelComponent({
             <div className="inspector-tab-content">
               <div className="chat-channel-card">
                 <p className="eyebrow">Chat-first Control</p>
-                <h3>Talk to {selectedAgent.name} from Copilot Chat</h3>
+                <h3>Continue {selectedAgent.name}'s lane</h3>
                 <p className="inspector-copy">
-                  Use <strong>@pixel-squad /{selectedAgent.personaId}</strong> in GitHub Copilot Chat to keep directing the {personaTitle} lane.
-                  Pixel Squad now treats chat as the control plane and keeps this inspector focused on the active agent session.
+                  Use the inline lane composer for quick follow-ups, or continue from <strong>@pixel-squad /{selectedAgent.personaId}</strong> in GitHub Copilot Chat.
+                  Pixel Squad keeps this inspector focused on the selected runtime lane and reuses the active run when possible.
                 </p>
+                <div className="inspector-quick-assign">
+                  <textarea
+                    className="inspector-quick-assign__input"
+                    rows={3}
+                    placeholder={`Tell ${selectedAgent.name} what to do next...`}
+                    value={lanePrompt}
+                    onChange={(event) => setLanePrompt(event.target.value)}
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                        event.preventDefault();
+                        submitLanePrompt();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="inspector-quick-assign__btn"
+                    onClick={submitLanePrompt}
+                    disabled={!lanePrompt.trim() || sendingLanePrompt}
+                  >
+                    {sendingLanePrompt ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
                 <div className="chat-channel-card__command">
                   <code>@pixel-squad /{selectedAgent.personaId} continue with the next step and report blockers</code>
                 </div>

@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import { Coordinator } from './coordinator/Coordinator.js';
-import type { Provider } from '../shared/model/index.js';
+import type { Provider, RoomTheme } from '../shared/model/index.js';
 import type { ExtensionMessage, WebviewMessage } from '../shared/protocol/messages.js';
 
 export const VIEW_ID = 'pixelSquad.factoryView';
@@ -170,6 +170,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       syncSnapshot();
     }
 
+    if (message.type === 'sendAgentPrompt') {
+      await this.coordinator.continueAgentSession(message.agentId, message.prompt);
+      syncSnapshot();
+    }
+
   }
 
   private postMessage(message: ExtensionMessage): void {
@@ -210,6 +215,40 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       const persona = snap.personas.find((p) => p.id === a.personaId);
       return { id: a.id, name: a.name, status: a.status, provider: a.provider, persona: persona?.title ?? a.personaId };
     });
+  }
+
+  getRooms(): Array<{ id: string; name: string; theme: string; purpose: string; agentCount: number }> {
+    const snap = this.coordinator.getSnapshot();
+    return snap.rooms.map((room) => ({
+      id: room.id,
+      name: room.name,
+      theme: room.theme,
+      purpose: room.purpose,
+      agentCount: room.agentIds.length,
+    }));
+  }
+
+  getPersonas(): Array<{ id: string; title: string; specialty: string }> {
+    const snap = this.coordinator.getSnapshot();
+    return snap.personas.map((persona) => ({
+      id: persona.id,
+      title: persona.title,
+      specialty: persona.specialty,
+    }));
+  }
+
+  createRoom(name: string, theme: RoomTheme, purpose: string): string {
+    const room = this.coordinator.createRoom(name, theme, purpose);
+    this.syncSnapshot();
+    return `Room created: ${room.name} (${room.theme}).`;
+  }
+
+  spawnAgent(roomId: string, name: string, personaId: string, provider: Provider): string {
+    const agent = this.coordinator.spawnAgent(roomId, name, personaId, provider);
+    this.syncSnapshot();
+    return agent
+      ? `Provisioned ${agent.name} in room ${roomId}.`
+      : 'Unable to provision agent.';
   }
 
   refresh(): void {

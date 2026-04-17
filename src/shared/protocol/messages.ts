@@ -44,6 +44,12 @@ export interface ToggleAutoExecuteMessage {
   type: 'toggleAutoExecute';
 }
 
+export interface SendAgentPromptMessage {
+  type: 'sendAgentPrompt';
+  agentId: string;
+  prompt: string;
+}
+
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
@@ -53,7 +59,8 @@ export type WebviewMessage =
   | PinFilesMessage
   | PinActiveFileMessage
   | RequestWorkspaceFilesMessage
-  | ToggleAutoExecuteMessage;
+  | ToggleAutoExecuteMessage
+  | SendAgentPromptMessage;
 
 export interface BootstrapStateMessage {
   type: 'bootstrapState';

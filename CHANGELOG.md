@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.2] — 2026-04-17
+### Added
+- **Provisioning commands**: Added command-palette flows to create a new room and provision a new agent into an existing room, so room and lane growth is no longer limited to internal coordinator paths.
+- **Lane follow-up composer**: The inspector Chat Channel tab now lets you send a follow-up prompt directly to the selected agent lane while preserving the active run when possible.
+### Fixed
+- **Document creation execution**: Requests that ask to create BRDs, specs, or other documentation artifacts are no longer misclassified as planning-only, so agents can now write those files into the workspace.
+- **Assigned-agent mood drift**: The factory floor now derives displayed agent status from live open tasks, which prevents assigned or active lanes from incorrectly appearing idle/chilling.
+### Changed
+- **Provisioning model clarity**: Generic routed requests still distribute work from the planner across multiple personas, while explicit `/backend` or other lane-targeted requests remain direct to that lane unless you intentionally route a broader multi-agent plan.
+### Notes
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.2`.
+
 ## [1.0.1] — 2026-04-17
 ### Fixed
 - **Chat-assigned task startup latency**: Direct persona and agent-lane assignments now start execution immediately when auto-execute is enabled instead of waiting for a full workspace-context capture first, which reduces perceived slowness for follow-up work routed from Copilot Chat.

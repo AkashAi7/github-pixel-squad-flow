@@ -215,7 +215,9 @@ export class CopilotAdapter implements ProviderAdapter {
     const text = `${task.title}\n${task.detail}`.toLowerCase();
     const planningIntent = /\b(plan|strategy|roadmap|proposal|architecture|approach|business plan|deployment plan|migration plan|design doc|outline)\b/.test(text);
     const implementationIntent = /\b(write|implement|fix|edit|modify|change|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
-    return planningIntent && !implementationIntent;
+    const artifactIntent = /\b(create|generate|draft|author|produce|save)\b[\s\S]{0,80}\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b/.test(text)
+      || /\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b[\s\S]{0,80}\b(create|generate|draft|author|produce|save)\b/.test(text);
+    return planningIntent && !implementationIntent && !artifactIntent;
   }
 
   private async executePlanningTask(

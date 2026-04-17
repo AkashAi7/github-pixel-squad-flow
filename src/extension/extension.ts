@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { PixelSquadViewProvider, VIEW_ID } from './PixelSquadViewProvider.js';
+import { ROOM_THEME_META, type Provider, type RoomTheme } from '../shared/model/index.js';
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new PixelSquadViewProvider(context.extensionUri);
@@ -92,6 +93,100 @@ export function activate(context: vscode.ExtensionContext): void {
 
       await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
       const summary = await provider.assignTaskToAgent(pick.agentId, prompt);
+      void vscode.window.showInformationMessage(summary);
+    }),
+    vscode.commands.registerCommand('pixelSquad.createRoom', async () => {
+      const themePick = await vscode.window.showQuickPick(
+        (Object.entries(ROOM_THEME_META) as Array<[RoomTheme, { label: string; color: string; icon: string }]>).map(([theme, meta]) => ({
+          label: `${meta.icon} ${meta.label}`,
+          description: theme,
+          theme,
+        })),
+        { placeHolder: 'Pick the room theme', matchOnDescription: true },
+      );
+      if (!themePick) {
+        return;
+      }
+
+      const defaultName = ROOM_THEME_META[themePick.theme].label;
+      const name = await vscode.window.showInputBox({
+        prompt: 'Name the new room',
+        value: defaultName,
+        ignoreFocusOut: true,
+      });
+      if (name === undefined) {
+        return;
+      }
+
+      const purpose = await vscode.window.showInputBox({
+        prompt: 'Describe the room purpose',
+        value: `A ${ROOM_THEME_META[themePick.theme].label.toLowerCase()} for related work.`,
+        ignoreFocusOut: true,
+      });
+      if (purpose === undefined) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = provider.createRoom(name, themePick.theme, purpose);
+      void vscode.window.showInformationMessage(summary);
+    }),
+    vscode.commands.registerCommand('pixelSquad.spawnAgent', async () => {
+      const rooms = provider.getRooms();
+      if (rooms.length === 0) {
+        void vscode.window.showWarningMessage('No rooms exist yet. Create a room first.');
+        return;
+      }
+
+      const roomPick = await vscode.window.showQuickPick(
+        rooms.map((room) => ({
+          label: room.name,
+          description: `${room.theme} · ${room.agentCount} agents`,
+          detail: room.purpose,
+          roomId: room.id,
+        })),
+        { placeHolder: 'Pick the room for the new agent', matchOnDescription: true },
+      );
+      if (!roomPick) {
+        return;
+      }
+
+      const personas = provider.getPersonas();
+      const personaPick = await vscode.window.showQuickPick(
+        personas.map((persona) => ({
+          label: persona.title,
+          description: persona.id,
+          detail: persona.specialty,
+          personaId: persona.id,
+        })),
+        { placeHolder: 'Pick the persona lane to provision', matchOnDescription: true },
+      );
+      if (!personaPick) {
+        return;
+      }
+
+      const providerPick = await vscode.window.showQuickPick(
+        [
+          { label: 'Copilot', provider: 'copilot' as Provider },
+          { label: 'Claude', provider: 'claude' as Provider },
+        ],
+        { placeHolder: 'Pick the provider for the new agent' },
+      );
+      if (!providerPick) {
+        return;
+      }
+
+      const name = await vscode.window.showInputBox({
+        prompt: 'Optional agent name',
+        placeHolder: `${personaPick.label}-${roomPick.label}`,
+        ignoreFocusOut: true,
+      });
+      if (name === undefined) {
+        return;
+      }
+
+      await vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+      const summary = provider.spawnAgent(roomPick.roomId, name, personaPick.personaId, providerPick.provider);
       void vscode.window.showInformationMessage(summary);
     }),
     vscode.commands.registerCommand('pixelSquad.listAgents', async () => {

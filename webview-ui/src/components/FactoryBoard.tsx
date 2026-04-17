@@ -190,33 +190,46 @@ function RoomStage({
 }: RoomStageProps) {
   const [motions, setMotions] = useState<Record<string, AgentMotion>>({});
   const tickRef = useRef(0);
-  const agentSignature = roomAgents.map((agent) => `${agent.id}:${agent.status}`).join('|');
+  const displayAgents = useMemo(() => roomAgents.map((agent) => {
+    const openTasks = tasks.filter((task) => task.assigneeId === agent.id && task.status !== 'done' && task.status !== 'failed');
+    if (openTasks.some((task) => task.status === 'active')) {
+      return { ...agent, status: 'executing' as const };
+    }
+    if (openTasks.some((task) => task.status === 'review')) {
+      return { ...agent, status: 'waiting' as const };
+    }
+    if (openTasks.some((task) => task.status === 'queued')) {
+      return { ...agent, status: 'planning' as const };
+    }
+    return agent;
+  }), [roomAgents, tasks]);
+  const agentSignature = displayAgents.map((agent) => `${agent.id}:${agent.status}`).join('|');
   const taskMap = useMemo(
     () => new Map(tasks.filter((task) => task.status === 'active' || task.status === 'queued').map((task) => [task.assigneeId, task])),
     [tasks],
   );
 
   useEffect(() => {
-    setMotions((current) => layoutAgentMotions(room.id, roomAgents, tickRef.current, current));
-  }, [room.id, roomAgents, agentSignature]);
+    setMotions((current) => layoutAgentMotions(room.id, displayAgents, tickRef.current, current));
+  }, [agentSignature, displayAgents, room.id]);
 
   useEffect(() => {
-    if (roomAgents.length === 0) {
+    if (displayAgents.length === 0) {
       setMotions({});
       return undefined;
     }
 
     const interval = window.setInterval(() => {
       tickRef.current += 1;
-      setMotions((current) => layoutAgentMotions(room.id, roomAgents, tickRef.current, current));
+      setMotions((current) => layoutAgentMotions(room.id, displayAgents, tickRef.current, current));
     }, 3600);
 
     return () => window.clearInterval(interval);
-  }, [room.id, roomAgents, agentSignature]);
+  }, [agentSignature, displayAgents, room.id]);
 
   return (
     <div className="factory-room__stage" data-room-theme={room.theme} role="list" aria-label={`${room.name} stage`}>
-      {roomAgents.map((agent, index) => {
+      {displayAgents.map((agent, index) => {
         const persona = personaMap.get(agent.personaId);
         const mood = AGENT_MOOD[agent.status];
         const agentTask = taskMap.get(agent.id);
@@ -266,7 +279,7 @@ function RoomStage({
           </div>
         );
       })}
-      {roomAgents.length === 0 && (
+      {displayAgents.length === 0 && (
         <div className="factory-room__empty">
           Waiting for Copilot Chat to engage an agent lane.
         </div>
