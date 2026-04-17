@@ -15,8 +15,8 @@ export function activate(context: vscode.ExtensionContext): void {
       : await provider.createTaskFromPrompt(request.prompt, request.model, token);
     stream.markdown([
       selectedPersona
-        ? `GitHub Pixel Squad Flow synced your chat request to the ${selectedPersona} agent lane and updated the runtime panel.`
-        : 'GitHub Pixel Squad Flow routed your chat request and updated the runtime panel.',
+        ? `Pixel Squad Flow synced your chat request to the ${selectedPersona} agent lane and updated the runtime panel.`
+        : 'Pixel Squad Flow routed your chat request and updated the runtime panel.',
       '',
       summary,
       '',
@@ -30,11 +30,11 @@ export function activate(context: vscode.ExtensionContext): void {
     provideFollowups: () => [
       {
         label: 'Break this into frontend and backend tasks',
-        prompt: 'Break this into frontend and backend tasks for GitHub Pixel Squad Flow.',
+        prompt: 'Break this into frontend and backend tasks for Pixel Squad Flow.',
       },
       {
         label: 'Add a tester pass',
-        prompt: 'Add a tester validation pass and update the GitHub Pixel Squad Flow task wall.',
+        prompt: 'Add a tester validation pass and update the Pixel Squad Flow task wall.',
       },
     ]
   };
@@ -47,7 +47,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('pixelSquad.createTask', async () => {
       const prompt = await vscode.window.showInputBox({
-        prompt: 'Describe the task you want GitHub Pixel Squad Flow to route',
+        prompt: 'Describe the task you want Pixel Squad Flow to route',
         placeHolder: 'Break this feature into agent stages and track the pipeline',
         ignoreFocusOut: true,
       });
@@ -203,7 +203,7 @@ export function activate(context: vscode.ExtensionContext): void {
           detail: agent.persona,
           agentId: agent.id,
         })),
-        { placeHolder: 'Active GitHub Pixel Squad Flow agent lanes', matchOnDescription: true },
+        { placeHolder: 'Active Pixel Squad Flow agent lanes', matchOnDescription: true },
       );
       if (!pick) {
         return;
@@ -240,7 +240,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const current = config.get<boolean>('autoExecute', false);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       provider.refresh();
-      void vscode.window.showInformationMessage(`GitHub Pixel Squad Flow auto-execute: ${!current ? 'ON' : 'OFF'}`);
+      void vscode.window.showInformationMessage(`Pixel Squad Flow auto-execute: ${!current ? 'ON' : 'OFF'}`);
     }),
 
     /* ── Cleanup ──────────────────────────────────── */

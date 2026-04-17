@@ -9,6 +9,19 @@ export interface ShowAgentMessage {
   agentId: string;
 }
 
+export interface FocusAgentChatMessage {
+  type: 'focusAgentChat';
+  agentId: string;
+}
+
+export interface OpenCreateRoomMessage {
+  type: 'openCreateRoom';
+}
+
+export interface OpenProvisionAgentMessage {
+  type: 'openProvisionAgent';
+}
+
 export interface ResetWorkspaceMessage {
   type: 'resetWorkspace';
 }
@@ -53,6 +66,9 @@ export interface SendAgentPromptMessage {
 export type WebviewMessage =
   | WebviewReadyMessage
   | ShowAgentMessage
+  | FocusAgentChatMessage
+  | OpenCreateRoomMessage
+  | OpenProvisionAgentMessage
   | ResetWorkspaceMessage
   | AgentActionMessage
   | TaskActionMessage

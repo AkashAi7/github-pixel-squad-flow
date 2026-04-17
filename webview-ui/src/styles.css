@@ -195,6 +195,83 @@ summary:focus-visible {
   color: var(--ps-muted);
 }
 
+.run-visualization-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--ps-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ps-input) 82%, transparent);
+}
+
+.run-visualization-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.run-visualization-card__header span {
+  color: var(--ps-muted);
+  text-transform: capitalize;
+}
+
+.run-visualization {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.run-visualization__step-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
+}
+
+.run-visualization__step {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 12px;
+  border: 1px solid var(--ps-border);
+  border-radius: 12px;
+  background: rgba(16, 22, 31, 0.82);
+}
+
+.run-visualization__step-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.run-visualization__step p {
+  margin: 0;
+  color: var(--ps-muted);
+  line-height: 1.45;
+}
+
+.run-visualization__deps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.run-visualization__step--queued { border-color: rgba(255, 224, 102, 0.28); }
+.run-visualization__step--active { border-color: rgba(36, 123, 160, 0.45); }
+.run-visualization__step--review { border-color: rgba(206, 147, 216, 0.45); }
+.run-visualization__step--done { border-color: rgba(112, 193, 179, 0.45); }
+.run-visualization__step--failed { border-color: rgba(242, 95, 92, 0.45); }
+
+.run-visualization__arrow {
+  color: var(--ps-accent);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .channel-transcript__list {
   display: grid;
   gap: 10px;
@@ -253,6 +330,7 @@ summary:focus-visible {
   white-space: nowrap; align-self: stretch;
 }
 .inspector-quick-assign__btn:disabled { opacity: 0.5; cursor: wait; }
+.channel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .composer-button {
   padding: 10px 14px; border: 1px solid var(--ps-input-border);
   background: var(--ps-accent); color: var(--ps-accent-contrast); cursor: pointer; font-weight: 700;

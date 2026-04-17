@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import { Coordinator } from './coordinator/Coordinator.js';
-import type { Provider, RoomTheme } from '../shared/model/index.js';
+import type { AgentSession, Provider, RoomTheme, RunRecord, SquadAgent, TaskCard } from '../shared/model/index.js';
 import type { ExtensionMessage, WebviewMessage } from '../shared/protocol/messages.js';
 
 export const VIEW_ID = 'pixelSquad.factoryView';
@@ -64,11 +64,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /** Open GitHub Pixel Squad Flow as a full editor-area panel — more space, sits alongside Copilot Chat */
+  /** Open Pixel Squad Flow as a full editor-area panel — more space, sits alongside Copilot Chat */
   openAsEditorPanel(): void {
     const panel = vscode.window.createWebviewPanel(
       'pixelSquad.editorPanel',
-      'GitHub Pixel Squad Flow',
+      'Pixel Squad Flow',
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
@@ -117,6 +117,22 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
 
     if (message.type === 'showAgent') {
       this.coordinator.selectAgent(message.agentId);
+      syncSnapshot();
+    }
+
+    if (message.type === 'focusAgentChat') {
+      this.coordinator.selectAgent(message.agentId);
+      await this.openAgentChat(message.agentId);
+      syncSnapshot();
+    }
+
+    if (message.type === 'openCreateRoom') {
+      await vscode.commands.executeCommand('pixelSquad.createRoom');
+      syncSnapshot();
+    }
+
+    if (message.type === 'openProvisionAgent') {
+      await vscode.commands.executeCommand('pixelSquad.spawnAgent');
       syncSnapshot();
     }
 
@@ -205,7 +221,7 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       'Build a settings screen, persist the selected theme, and add a tester validation pass.',
     );
     this.syncSnapshot();
-    return `Smoke test passed through GitHub Pixel Squad Flow routing. ${summary}`;
+    return `Smoke test passed through Pixel Squad Flow routing. ${summary}`;
   }
 
   /** Return agents list for CLI QuickPick */
@@ -287,6 +303,83 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private pickFocusTask(tasks: TaskCard[], agentId: string): TaskCard | undefined {
+    const agentTasks = tasks
+      .filter((task) => task.assigneeId === agentId)
+      .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0));
+    return agentTasks.find((task) => task.status === 'active')
+      ?? agentTasks.find((task) => task.status === 'review')
+      ?? agentTasks.find((task) => task.status === 'queued')
+      ?? agentTasks[0];
+  }
+
+  private pickAgentSession(agentId: string, runId: string | undefined): AgentSession | undefined {
+    const sessions = this.coordinator.getSnapshot().agentSessions;
+    return sessions.find((session) => session.agentId === agentId && session.runId === runId)
+      ?? sessions.find((session) => session.agentId === agentId);
+  }
+
+  private buildAgentChatPrompt(agent: SquadAgent, focusTask: TaskCard | undefined, run: RunRecord | undefined): string {
+    const snapshot = this.coordinator.getSnapshot();
+    const session = this.pickAgentSession(agent.id, run?.id ?? focusTask?.batchId);
+    const latestAgentReply = session?.messageLog
+      .filter((message) => message.role === 'agent')
+      .at(-1)?.content;
+    const fileTargets = Array.from(new Set([
+      ...(focusTask?.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? []),
+      ...(agent.pinnedFiles ?? []),
+      ...(focusTask?.workspaceContext?.activeFile ? [focusTask.workspaceContext.activeFile] : []),
+    ])).slice(0, 6);
+    const persona = snapshot.personas.find((item) => item.id === agent.personaId);
+
+    return [
+      `@pixel-squad /${agent.personaId} Continue ${agent.name}'s current runtime.`,
+      run ? `Run: ${run.title}` : '',
+      focusTask ? `Current task: ${focusTask.title}` : '',
+      focusTask?.detail ? `Task details: ${focusTask.detail}` : '',
+      fileTargets.length > 0 ? `Focus files: ${fileTargets.join(', ')}` : '',
+      latestAgentReply ? `Latest lane output: ${latestAgentReply.slice(0, 500)}` : '',
+      persona ? `Stay in the ${persona.title} lane.` : '',
+      'If a named file already exists, update it directly instead of replying with only a plan.',
+    ].filter(Boolean).join('\n');
+  }
+
+  private async openAgentChat(agentId: string): Promise<void> {
+    const snapshot = this.coordinator.getSnapshot();
+    const agent = snapshot.agents.find((item) => item.id === agentId);
+    if (!agent) {
+      return;
+    }
+
+    const focusTask = this.pickFocusTask(snapshot.tasks, agentId);
+    const runId = snapshot.ui.activeBatchId && snapshot.runs.some((run) => run.id === snapshot.ui.activeBatchId && run.activeAgentIds.includes(agentId))
+      ? snapshot.ui.activeBatchId
+      : focusTask?.batchId;
+    const run = runId ? snapshot.runs.find((item) => item.id === runId) : undefined;
+    const prompt = this.buildAgentChatPrompt(agent, focusTask, run);
+
+    await vscode.env.clipboard.writeText(prompt);
+
+    const attempts: Array<() => Thenable<unknown>> = [
+      () => vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt, isPartialQuery: true }),
+      () => vscode.commands.executeCommand('workbench.action.chat.open', prompt),
+      () => vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus'),
+      () => vscode.commands.executeCommand('github.copilot.chat.focus'),
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        await attempt();
+        vscode.window.setStatusBarMessage('$(comment-discussion) Pixel Squad copied the lane prompt. If Copilot Chat did not prefill it, paste from clipboard.', 5000);
+        return;
+      } catch {
+        // Try the next chat-open path.
+      }
+    }
+
+    void vscode.window.showInformationMessage('Pixel Squad copied the lane prompt. Open GitHub Copilot Chat and paste to continue this runtime.');
+  }
+
   private getHtml(webview: vscode.Webview): string {
     const distPath = vscode.Uri.joinPath(vscode.Uri.file(this.extensionUri.fsPath), 'dist', 'webview');
     const htmlPath = vscode.Uri.joinPath(distPath, 'index.html').fsPath;
@@ -318,14 +411,14 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="${csp}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GitHub Pixel Squad Flow</title>
+    <title>Pixel Squad Flow</title>
     <style>
       body { font-family: sans-serif; padding: 24px; background: #101820; color: #f7f3e9; }
       strong { color: #ffe066; }
     </style>
   </head>
   <body>
-    <strong>GitHub Pixel Squad Flow webview has not been built yet.</strong>
+    <strong>Pixel Squad Flow webview has not been built yet.</strong>
     <p>Run the webview build to replace this fallback with the factory UI.</p>
   </body>
 </html>`;

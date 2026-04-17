@@ -160,9 +160,11 @@ export class ClaudeAdapter implements ProviderAdapter {
   private isPlanningOnlyTask(task: TaskCard): boolean {
     const text = `${task.title}\n${task.detail}`.toLowerCase();
     const planningIntent = /\b(plan|strategy|roadmap|proposal|architecture|approach|business plan|deployment plan|migration plan|design doc|outline)\b/.test(text);
-    const implementationIntent = /\b(write|implement|fix|edit|modify|change|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
-    const artifactIntent = /\b(create|generate|draft|author|produce|save)\b[\s\S]{0,80}\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b/.test(text)
-      || /\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b[\s\S]{0,80}\b(create|generate|draft|author|produce|save)\b/.test(text);
+    const implementationIntent = /\b(write|implement|fix|edit|modify|change|update|revise|append|populate|sync|save|replace|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
+    const artifactIntent = /\b(create|generate|draft|author|produce|save|update|updated|revise|append|fill|populate|sync|edit|modify|write)\b[\s\S]{0,120}\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b/.test(text)
+      || /\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b[\s\S]{0,120}\b(create|generate|draft|author|produce|save|update|updated|revise|append|fill|populate|sync|edit|modify|write)\b/.test(text)
+      || (/\b[\w./-]+\.(md|markdown|txt|json|ya?ml|toml|tsx?|jsx?|css|scss|html|py|java|go|rs|cs|sql)\b/.test(text)
+        && /\b(update|updated|edit|modify|change|revise|append|fill|populate|sync|save|write|create|generate)\b/.test(text));
     return planningIntent && !implementationIntent && !artifactIntent;
   }
 
@@ -244,6 +246,8 @@ export class ClaudeAdapter implements ProviderAdapter {
       'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage.',
       'You also have access to any MCP or extension-provided tools surfaced by VS Code for this session. Use them when they are the best tool for the job.',
       'Use editFile for targeted changes to existing files (preferred over writeFile for modifications).',
+      'If the task names a file path or asks to update an existing doc/spec/plan, modify that file directly instead of replying with only a prose plan.',
+      'Treat the active file and pinned files as likely edit targets when they match the request, even if the prompt does not explicitly say "create file".',
       'After making edits, use getDiagnostics to check for compile/lint errors and fix any issues before finishing.',
       'When you are finished, provide a concise summary of what you accomplished.',
     ];
@@ -314,6 +318,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         'Use only workspace-relative paths for fileEdits.',
         'fileEdits should contain at most 3 items and only when you are confident.',
         'If you are changing an existing file, return the full replacement content.',
+        'If the task mentions a named file or asks to update an existing plan/doc/spec, include that file in fileEdits instead of returning only notes.',
         'If no file change is appropriate, return an empty array.',
         'agentMessages: optional array of messages to send to other agents in your room. Use this to request help, share findings, or coordinate work. Set toAgentId to the target agent ID.',
         'done: set to true when your work is complete. Set to false if you need to wait for a reply from another agent.',

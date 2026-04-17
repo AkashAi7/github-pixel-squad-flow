@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3] — 2026-04-17
+### Added
+- **Panel room controls**: Added visible `Create Room` and `Provision Agent` buttons inside the runtime panel so room and agent growth no longer requires a command-palette detour.
+- **Direct Copilot Chat handoff**: The selected agent channel now has an explicit `Open in Copilot Chat` control in addition to the click-through lane handoff.
+- **Run visualization**: Added a `Visualize Run` action that shows the current run's related stages, status, provider, and dependency links from inside the selected agent channel.
+### Fixed
+- **File update intent detection**: Requests to update named files like `plan.md` now route through execution more reliably instead of collapsing into planning-only prose.
+### Notes
+- **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.3`.
+
 ## [1.0.2] — 2026-04-17
 ### Added
 - **Provisioning commands**: Added command-palette flows to create a new room and provision a new agent into an existing room, so room and lane growth is no longer limited to internal coordinator paths.
@@ -20,10 +30,10 @@
 
 ## [1.0.0] — 2026-04-17
 ### Added
-- **Independent release baseline**: GitHub Pixel Squad Flow now starts its own clean release line at `v1.0.0`, separate from the original Pixel Squad tag history.
+- **Independent release baseline**: Pixel Squad Flow now starts its own clean release line at `v1.0.0`, separate from the original Pixel Squad tag history.
 - **GitHub release helper**: Added a repo-local release script that reads the matching changelog section and publishes a GitHub release with proper markdown notes.
 ### Changed
-- **Release identity cleanup**: Release docs, package metadata, and publishing guidance now treat GitHub Pixel Squad Flow as its own product and release stream.
+- **Release identity cleanup**: Release docs, package metadata, and publishing guidance now treat Pixel Squad Flow as its own product and release stream.
 ### Notes
 - **Validation status**: `npm run typecheck`, `npm run build`, and `npm run package:vsix` pass for `1.0.0`.
 
@@ -37,7 +47,7 @@
 ### Fixed
 - **Command palette regression**: Restored the quick command-palette helpers for routing a task, assigning a task to an active agent, listing active agents, and fleet execution so the extension remains usable outside the chat entrypoint.
 ### Changed
-- **Chat-first with command fallback**: GitHub Pixel Squad Flow still treats chat as the primary control plane, but command-palette workflows are now available again as lightweight shortcuts.
+- **Chat-first with command fallback**: Pixel Squad Flow still treats chat as the primary control plane, but command-palette workflows are now available again as lightweight shortcuts.
 ### Notes
 - **Validation status**: `npm run typecheck` and `npm run build` pass for `0.1.33`.
 

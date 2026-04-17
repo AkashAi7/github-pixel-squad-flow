@@ -1,8 +1,8 @@
 {
   "name": "github-pixel-squad-flow",
-  "displayName": "GitHub Pixel Squad Flow",
+  "displayName": "Pixel Squad Flow",
   "description": "Chat-first multi-agent orchestration flow for GitHub Copilot and Claude inside VS Code.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -26,7 +26,7 @@
       "secondarySideBar": [
         {
           "id": "pixelSquad",
-          "title": "GitHub Pixel Squad Flow",
+          "title": "Pixel Squad Flow",
           "icon": "assets/icon-activitybar.svg"
         }
       ]
@@ -43,52 +43,52 @@
     "commands": [
       {
         "command": "pixelSquad.showFactory",
-        "title": "GitHub Pixel Squad Flow: Show Agent Factory"
+        "title": "Pixel Squad Flow: Show Agent Factory"
       },
       {
         "command": "pixelSquad.createTask",
-        "title": "GitHub Pixel Squad Flow: Route Task From Command Palette"
+        "title": "Pixel Squad Flow: Route Task From Command Palette"
       },
       {
         "command": "pixelSquad.openInEditor",
-        "title": "GitHub Pixel Squad Flow: Open in Editor Panel",
-        "category": "GitHub Pixel Squad Flow"
+        "title": "Pixel Squad Flow: Open in Editor Panel",
+        "category": "Pixel Squad Flow"
       },
       {
         "command": "pixelSquad.assignTask",
-        "title": "GitHub Pixel Squad Flow: Assign Task to Agent"
+        "title": "Pixel Squad Flow: Assign Task to Agent"
       },
       {
         "command": "pixelSquad.createRoom",
-        "title": "GitHub Pixel Squad Flow: Create Room"
+        "title": "Pixel Squad Flow: Create Room"
       },
       {
         "command": "pixelSquad.spawnAgent",
-        "title": "GitHub Pixel Squad Flow: Provision Agent"
+        "title": "Pixel Squad Flow: Provision Agent"
       },
       {
         "command": "pixelSquad.listAgents",
-        "title": "GitHub Pixel Squad Flow: List Agents"
+        "title": "Pixel Squad Flow: List Agents"
       },
       {
         "command": "pixelSquad.resetWorkspace",
-        "title": "GitHub Pixel Squad Flow: Reset Workspace State"
+        "title": "Pixel Squad Flow: Reset Workspace State"
       },
       {
         "command": "pixelSquad.runSmokeTest",
-        "title": "GitHub Pixel Squad Flow: Run Smoke Test"
+        "title": "Pixel Squad Flow: Run Smoke Test"
       },
       {
         "command": "pixelSquad.fleetExecute",
-        "title": "GitHub Pixel Squad Flow: Fleet Execute"
+        "title": "Pixel Squad Flow: Fleet Execute"
       },
       {
         "command": "pixelSquad.toggleAutoExecute",
-        "title": "GitHub Pixel Squad Flow: Toggle Auto-Execute"
+        "title": "Pixel Squad Flow: Toggle Auto-Execute"
       }
     ],
     "configuration": {
-      "title": "GitHub Pixel Squad Flow",
+      "title": "Pixel Squad Flow",
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
@@ -125,16 +125,16 @@
     "walkthroughs": [
       {
         "id": "pixelSquad.getStarted",
-        "title": "Get Started with GitHub Pixel Squad Flow",
+        "title": "Get Started with Pixel Squad Flow",
         "description": "Learn how to route tasks through your chat-first multi-agent factory powered by GitHub Copilot.",
         "steps": [
           {
             "id": "openFactory",
             "title": "Open the Agent Factory",
-            "description": "Open the GitHub Pixel Squad Flow panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
+            "description": "Open the Pixel Squad Flow panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
             "media": {
               "image": "assets/icon.svg",
-              "altText": "GitHub Pixel Squad Flow icon"
+              "altText": "Pixel Squad Flow icon"
             }
           },
           {
@@ -180,8 +180,8 @@
       {
         "id": "pixelSquad.orchestrator",
         "name": "pixel-squad",
-        "fullName": "GitHub Pixel Squad Flow Orchestrator",
-        "description": "Route a task through GitHub Pixel Squad Flow (Copilot + Claude) and update the Agent Factory.",
+        "fullName": "Pixel Squad Flow Orchestrator",
+        "description": "Route a task through Pixel Squad Flow (Copilot + Claude) and update the Agent Factory.",
         "isSticky": true,
         "commands": [
           {

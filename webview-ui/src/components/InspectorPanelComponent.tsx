@@ -225,8 +225,10 @@ export function InspectorPanelComponent({
 }: InspectorPanelProps) {
   const [lanePrompt, setLanePrompt] = useState('');
   const [sendingLanePrompt, setSendingLanePrompt] = useState(false);
+  const [showRunVisualization, setShowRunVisualization] = useState(false);
   const focusChangedFiles = selectedAgentFocusTask ? changedFilesForTask(selectedAgentFocusTask) : [];
   const personaTitle = selectedAgent ? personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId : '';
+  const stageTitleByTaskId = new Map((selectedRun?.stages ?? []).map((stage) => [stage.taskId, stage.title]));
 
   const submitLanePrompt = () => {
     if (!selectedAgent || !lanePrompt.trim() || sendingLanePrompt) {
@@ -505,6 +507,23 @@ export function InspectorPanelComponent({
                     {sendingLanePrompt ? 'Sending…' : 'Send'}
                   </button>
                 </div>
+                <div className="channel-actions">
+                  <button
+                    type="button"
+                    className="composer-button composer-button--ghost"
+                    onClick={() => vscode.postMessage({ type: 'focusAgentChat', agentId: selectedAgent.id })}
+                  >
+                    Open in Copilot Chat
+                  </button>
+                  <button
+                    type="button"
+                    className="composer-button composer-button--ghost"
+                    onClick={() => setShowRunVisualization((value) => !value)}
+                    disabled={!selectedRun}
+                  >
+                    {showRunVisualization ? 'Hide Visualization' : 'Visualize Run'}
+                  </button>
+                </div>
                 <div className="chat-channel-card__command">
                   <code>@pixel-squad /{selectedAgent.personaId} continue with the next step and report blockers</code>
                 </div>
@@ -525,6 +544,42 @@ export function InspectorPanelComponent({
                     <div className="task-meta">
                       {selectedRun.stages.map((stage) => (
                         <span key={stage.id} className={`task-chip task-chip--status-${stage.status}`} title={stage.detail}>{stage.title}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {selectedRun && showRunVisualization ? (
+                  <div className="run-visualization-card">
+                    <div className="run-visualization-card__header">
+                      <p className="eyebrow">Related Task Flow</p>
+                      <span>{selectedRun.status}</span>
+                    </div>
+                    <div className="run-visualization">
+                      {selectedRun.stages.map((stage, index) => (
+                        <div key={stage.id} className="run-visualization__step-wrap">
+                          <article className={`run-visualization__step run-visualization__step--${stage.status}`}>
+                            <div className="run-visualization__step-header">
+                              <strong>{stage.title}</strong>
+                              <span className={`task-chip task-chip--status-${stage.status}`}>{stage.status}</span>
+                            </div>
+                            <p>{stage.detail}</p>
+                            <div className="task-meta">
+                              <span className="task-chip">{stage.provider}</span>
+                              <span className="task-chip">agent {stage.agentId.slice(0, 8)}</span>
+                              {stage.dependsOnTaskIds.length > 0 ? <span className="task-chip">depends on {stage.dependsOnTaskIds.length}</span> : <span className="task-chip">parallel-ready</span>}
+                            </div>
+                            {stage.dependsOnTaskIds.length > 0 ? (
+                              <div className="run-visualization__deps">
+                                {stage.dependsOnTaskIds.map((taskId) => (
+                                  <span key={`${stage.id}-${taskId}`} className="task-chip">
+                                    from {stageTitleByTaskId.get(taskId) ?? taskId.slice(0, 8)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </article>
+                          {index < selectedRun.stages.length - 1 ? <span className="run-visualization__arrow" aria-hidden="true">→</span> : null}
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -542,8 +542,9 @@ function App() {
 
   const handleSelectAgent = (agentId: string) => {
     setActiveView('factory');
-    setInspectorTab('overview');
+    setInspectorTab('channel');
     vscode.postMessage({ type: 'showAgent', agentId });
+    vscode.postMessage({ type: 'focusAgentChat', agentId });
   };
 
   const handleRevealAgentTask = (agentId: string) => {
@@ -681,6 +682,20 @@ function App() {
                 <p>No active pipeline selected yet. The next chat-run will appear here automatically.</p>
               )}
               <div className="composer-actions">
+                <button
+                  type="button"
+                  className="composer-button composer-button--ghost"
+                  onClick={() => vscode.postMessage({ type: 'openCreateRoom' })}
+                >
+                  Create Room
+                </button>
+                <button
+                  type="button"
+                  className="composer-button composer-button--ghost"
+                  onClick={() => vscode.postMessage({ type: 'openProvisionAgent' })}
+                >
+                  Provision Agent
+                </button>
                 <button
                   type="button"
                   className="composer-button composer-button--ghost"

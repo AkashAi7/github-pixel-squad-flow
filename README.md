@@ -1,10 +1,10 @@
-# GitHub Pixel Squad Flow
+# Pixel Squad Flow
 
-GitHub Pixel Squad Flow is a VS Code extension for chat-first multi-agent orchestration that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
+Pixel Squad Flow is a VS Code extension for chat-first multi-agent orchestration that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
 ## What's New in v1.0.0
 
-- **Independent release line** — GitHub Pixel Squad Flow now publishes from its own clean release stream starting at `v1.0.0`.
+- **Independent release line** — Pixel Squad Flow now publishes from its own clean release stream starting at `v1.0.0`.
 - **Chat-first runtime orchestration** — GitHub Copilot Chat drives task routing while the extension visualizes active runs, agent lanes, transcripts, and pipeline progress.
 - **Safer release workflow** — The repo now includes release guidance and a GitHub release helper that preserve proper markdown notes and avoid pushing unrelated legacy tags.
 
@@ -20,9 +20,9 @@ npm run package:vsix
 npm run test:e2e
 ```
 
-## Using GitHub Pixel Squad Flow
+## Using Pixel Squad Flow
 
-1. Open the `Agent Factory` panel from the GitHub Pixel Squad Flow view in the secondary sidebar.
+1. Open the `Agent Factory` panel from the Pixel Squad Flow view in the secondary sidebar.
 2. Start a run from GitHub Copilot Chat with `@pixel-squad`.
 3. Target a persona lane like `/lead`, `/frontend`, `/backend`, `/tester`, `/devops`, or `/designer`.
 4. Watch the runtime panel update with the active run, engaged agents, and pipeline stages.
@@ -30,7 +30,7 @@ npm run test:e2e
 
 When both Copilot and Claude models are available, tasks are dispatched to the provider assigned to the executing agent. If a model is unavailable, the extension falls back to deterministic local routing.
 
-GitHub Pixel Squad Flow now auto-populates task context from the current workspace by default. New tasks capture:
+Pixel Squad Flow now auto-populates task context from the current workspace by default. New tasks capture:
 
 - the active file and current editor selection
 - open editor tabs
@@ -56,13 +56,13 @@ When a task suggests terminal commands, running them now captures stdout, stderr
 
 1. Press `F5` to launch the Extension Development Host.
 2. Open the `Agent Factory` panel.
-3. Run `GitHub Pixel Squad Flow: Run Smoke Test` from the Command Palette.
+3. Run `Pixel Squad Flow: Run Smoke Test` from the Command Palette.
 4. Verify rooms, agents, task routing, and pixel sprites render correctly.
 5. Optionally try `@pixel-squad` in Copilot Chat.
 
 ## Automated E2E Smoke Test
 
-Run `npm run test:e2e` to launch a real VS Code Extension Development Host with GitHub Pixel Squad Flow loaded into a temporary workspace.
+Run `npm run test:e2e` to launch a real VS Code Extension Development Host with Pixel Squad Flow loaded into a temporary workspace.
 
 The suite verifies:
 
@@ -74,12 +74,12 @@ The suite verifies:
 
 ## Recordable Host E2E Demo
 
-Run `npm run demo:e2e:record` to launch the real VS Code Extension Development Host visibly and drive GitHub Pixel Squad Flow through actual in-session commands.
+Run `npm run demo:e2e:record` to launch the real VS Code Extension Development Host visibly and drive Pixel Squad Flow through actual in-session commands.
 
 The recordable flow:
 
 - opens the real Extension Development Host
-- runs `GitHub Pixel Squad Flow: Show Agent Factory`
+- runs `Pixel Squad Flow: Show Agent Factory`
 - runs the smoke-test and chat-first runtime flow inside the real extension host
 - verifies the persisted `.pixel-squad/project.json` state mutated correctly
 
