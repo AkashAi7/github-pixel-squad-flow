@@ -282,6 +282,7 @@ export interface WorkspaceSnapshot {
   agentSessions: AgentSession[];
   providers: ProviderHealth[];
   activityFeed: ActivityEntry[];
+  roomFeeds: Record<string, AgentMessage[]>;
   settings: SquadSettings;
   ui: WorkspaceUiState;
 }

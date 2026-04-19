@@ -848,6 +848,8 @@ function App() {
               rooms={snapshot.rooms}
               selectedRun={selectedRun}
               selectedSession={selectedSession}
+              roomFeeds={snapshot.roomFeeds ?? {}}
+              agentsById={agentsById}
               inspectorTab={inspectorTab}
               setInspectorTab={setInspectorTab}
               expandedTaskId={expandedTaskId}

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1] — 2026-04-19
+### Added
+- **Room Chat feed**: The inspector Channel tab now shows a live room-scoped feed of inter-agent messages (who said what to whom), so you can actually watch teammates coordinate instead of guessing.
+- **File Timeline per agent**: The Work tab lists every file each teammate has created, edited, or deleted across their tasks, with the originating task title — an instant "what did they actually touch" view.
+- **Persistent room feeds**: `AgentMailbox` keeps the last 200 messages per room so the UI can replay squad chatter across reloads.
+### Notes
+- **Validation**: `npm run typecheck` and `npm run build` both pass.
+
 ## [1.1.0] — 2026-04-19
 ### Added
 - **Talk to a specific teammate**: New `@pixel-squad /ask <agent or persona> <question>` chat command routes your message straight to a named teammate (e.g. `/ask Nova refactor the auth hook`) or to a persona lane if no agent name matches.

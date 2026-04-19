@@ -59,6 +59,7 @@ export class Coordinator {
     return {
       ...this.snapshot,
       settings: this.getSettings(),
+      roomFeeds: this.mailbox.getAllRoomFeeds(),
     };
   }
 
@@ -1118,6 +1119,7 @@ export class Coordinator {
       providers: this.getProviderHealths(),
       settings: snapshot.settings ?? this.getSettings(),
       ui: snapshot.ui ?? {},
+      roomFeeds: snapshot.roomFeeds ?? {},
     };
     this.syncRuntimeProjection();
     return this.snapshot;

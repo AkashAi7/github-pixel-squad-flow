@@ -78,6 +78,7 @@ export class ProjectStateStore {
       agentSessions: snapshot.agentSessions ?? fallback.agentSessions,
       providers: snapshot.providers ?? fallback.providers,
       activityFeed: this.normalizeActivityFeed(snapshot.activityFeed ?? fallback.activityFeed),
+      roomFeeds: snapshot.roomFeeds ?? fallback.roomFeeds ?? {},
       settings: {
         ...fallback.settings,
         ...snapshot.settings,

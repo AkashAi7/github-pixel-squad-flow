@@ -9,12 +9,23 @@ import type { AgentMessage, AgentMessageType } from '../../shared/model/index.js
  */
 export class AgentMailbox {
   private readonly inboxes = new Map<string, AgentMessage[]>();
+  /** Persistent per-room feed of every message sent (for UI Room Chat). */
+  private readonly roomFeeds = new Map<string, AgentMessage[]>();
+  private static readonly MAX_FEED_PER_ROOM = 200;
 
-  /** Append a message to the target agent's inbox. */
+  /** Append a message to the target agent's inbox and to the room feed. */
   send(message: AgentMessage): void {
     const queue = this.inboxes.get(message.toAgentId) ?? [];
     queue.push(message);
     this.inboxes.set(message.toAgentId, queue);
+    if (message.roomId) {
+      const feed = this.roomFeeds.get(message.roomId) ?? [];
+      feed.push(message);
+      if (feed.length > AgentMailbox.MAX_FEED_PER_ROOM) {
+        feed.splice(0, feed.length - AgentMailbox.MAX_FEED_PER_ROOM);
+      }
+      this.roomFeeds.set(message.roomId, feed);
+    }
   }
 
   /** Drain (consume) all unread messages for an agent. Returns them and clears the inbox. */
@@ -68,5 +79,15 @@ export class AgentMailbox {
   /** Clear all inboxes (used on workspace reset). */
   clear(): void {
     this.inboxes.clear();
+    this.roomFeeds.clear();
+  }
+
+  /** Return a snapshot of every room feed keyed by roomId. */
+  getAllRoomFeeds(): Record<string, AgentMessage[]> {
+    const out: Record<string, AgentMessage[]> = {};
+    for (const [roomId, messages] of this.roomFeeds.entries()) {
+      out[roomId] = messages.slice();
+    }
+    return out;
   }
 }

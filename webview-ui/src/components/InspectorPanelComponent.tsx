@@ -10,6 +10,7 @@ import type {
   TaskCard,
   TaskExecutionPlan,
   CommandExecutionResult,
+  AgentMessage,
 } from '../../../src/shared/model/index.js';
 import { AGENT_MOOD } from '../../../src/shared/model/index.js';
 
@@ -21,6 +22,8 @@ export interface InspectorPanelProps {
   rooms: Room[];
   selectedRun: RunRecord | null;
   selectedSession: AgentSession | null;
+  roomFeeds: Record<string, AgentMessage[]>;
+  agentsById: Map<string, SquadAgent>;
   inspectorTab: 'overview' | 'channel' | 'work';
   setInspectorTab: (tab: 'overview' | 'channel' | 'work') => void;
   expandedTaskId: string | null;
@@ -211,6 +214,8 @@ export function InspectorPanelComponent({
   rooms,
   selectedRun,
   selectedSession,
+  roomFeeds,
+  agentsById,
   inspectorTab,
   setInspectorTab,
   expandedTaskId,
@@ -605,6 +610,34 @@ export function InspectorPanelComponent({
                     <p className="inspector-copy">No chat transcript captured for this lane yet. Start or continue the run from Copilot Chat and the transcript will accumulate here.</p>
                   )}
                 </div>
+                {(() => {
+                  const roomId = selectedAgent.roomId;
+                  const feed = (roomFeeds[roomId] ?? []).slice(-30).reverse();
+                  const nameFor = (id: string) => agentsById.get(id)?.name ?? id;
+                  return (
+                    <div className="room-chat">
+                      <div className="channel-transcript__header">
+                        <p className="eyebrow">Room Chat</p>
+                        <span>{feed.length} recent</span>
+                      </div>
+                      {feed.length === 0 ? (
+                        <p className="inspector-copy">No inter-agent chatter yet. When teammates send updates or handoffs, they show up here.</p>
+                      ) : (
+                        <div className="channel-transcript__list">
+                          {feed.map((message) => (
+                            <article key={message.id} className={`channel-message channel-message--${message.type}`}>
+                              <div className="channel-message__meta">
+                                <strong>{nameFor(message.fromAgentId)} → {nameFor(message.toAgentId)}</strong>
+                                <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              <p>{message.content}</p>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -629,6 +662,31 @@ export function InspectorPanelComponent({
                       <span className="task-chip task-chip--worklog">Files touched {files.size}</span>
                       <span className="task-chip task-chip--worklog">Commands run {commandCount}</span>
                     </div>
+                  </section>
+                );
+              })()}
+              {(() => {
+                type FileEvent = { file: string; action: string; taskTitle: string; taskId: string };
+                const events: FileEvent[] = [];
+                for (const task of selectedAgentTasks) {
+                  for (const edit of task.executionPlan?.fileEdits ?? []) {
+                    events.push({ file: edit.filePath, action: edit.action, taskTitle: task.title, taskId: task.id });
+                  }
+                }
+                if (events.length === 0) { return null; }
+                const recent = events.slice(-12).reverse();
+                return (
+                  <section className="agent-file-timeline">
+                    <p className="eyebrow">File Timeline</p>
+                    <ul className="file-timeline-list">
+                      {recent.map((event, index) => (
+                        <li key={`${event.taskId}-${event.file}-${index}`} className={`file-timeline-list__item file-timeline-list__item--${event.action}`}>
+                          <span className={`file-timeline-list__action file-timeline-list__action--${event.action}`}>{event.action.toUpperCase()}</span>
+                          <span className="file-timeline-list__path" title={event.file}>{event.file}</span>
+                          <span className="file-timeline-list__task" title={event.taskTitle}>{event.taskTitle}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </section>
                 );
               })()}

@@ -3162,6 +3162,67 @@ summary:focus-visible {
   margin: 4px 0 10px;
 }
 
+.agent-file-timeline {
+  margin: 4px 0 14px;
+}
+
+.file-timeline-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-timeline-list__item {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(115, 215, 255, 0.05);
+  border: 1px solid rgba(115, 215, 255, 0.12);
+  font-size: 11px;
+}
+
+.file-timeline-list__action {
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 3px;
+  background: rgba(115, 215, 255, 0.15);
+  color: var(--ps-accent);
+}
+
+.file-timeline-list__action--create { background: rgba(80, 200, 120, 0.18); color: #7cd89a; }
+.file-timeline-list__action--edit   { background: rgba(115, 215, 255, 0.18); color: var(--ps-accent); }
+.file-timeline-list__action--delete { background: rgba(255, 99, 99, 0.18); color: #ff9a9a; }
+
+.file-timeline-list__path {
+  font-family: var(--vscode-editor-font-family, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-foreground);
+}
+
+.file-timeline-list__task {
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-chat {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(115, 215, 255, 0.14);
+}
+
 .task-card__footer {
   display: flex;
   justify-content: space-between;

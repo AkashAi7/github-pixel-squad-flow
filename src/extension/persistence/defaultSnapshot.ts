@@ -190,6 +190,7 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       createActivityEntry('Dual-provider mode: Copilot + Claude.', 'provider', { provider: 'copilot' }),
       createActivityEntry('Factory ready — create rooms and spawn agents to begin.', 'system'),
     ],
+    roomFeeds: {},
     settings: {
       autoExecute: false,
       forceMcpForAllTasks: false,
