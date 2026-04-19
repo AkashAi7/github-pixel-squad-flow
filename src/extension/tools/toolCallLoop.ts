@@ -58,6 +58,10 @@ export interface ToolCallLoopResult {
   toolCalls: ToolCallRecord[];
 }
 
+export interface ToolCallLoopOptions {
+  preferExternalTools?: boolean;
+}
+
 /**
  * Run the agentic tool-calling loop:
  * send prompt → stream response → handle tool calls → feed results back → repeat.
@@ -71,9 +75,13 @@ export async function runToolCallLoop(
   rootPath: string,
   token?: vscode.CancellationToken,
   onChunk?: (chunk: string) => void,
+  options?: ToolCallLoopOptions,
 ): Promise<ToolCallLoopResult> {
   const externalTools = discoverExternalTools();
-  const allTools = [...WORKSPACE_TOOLS, ...externalTools];
+  const prefersExternalTools = options?.preferExternalTools ?? taskLikelyNeedsExternalAccess(prompt);
+  const allTools = prefersExternalTools
+    ? [...externalTools, ...WORKSPACE_TOOLS]
+    : [...WORKSPACE_TOOLS, ...externalTools];
   const ownToolNames = new Set(WORKSPACE_TOOLS.map((t) => t.name));
   const externalToolNames = externalTools.map((tool) => tool.name);
 
@@ -84,7 +92,7 @@ export async function runToolCallLoop(
       + '2. Use editFile for targeted changes to existing files (prefer over writeFile).\n'
       + '3. After making edits or running commands, use getDiagnostics to check for errors.\n'
       + '4. If diagnostics reveal errors, fix them before moving on.\n'
-      + `5. External MCP/extension tools are available when surfaced by VS Code${externalToolNames.length > 0 ? `: ${externalToolNames.join(', ')}` : ''}. Use them whenever they help complete the task.\n`
+      + `5. If task requires external system access, hosted knowledge, repo metadata, cloud operations, API calls, or data not present in workspace, first use a surfaced MCP/extension tool when one matches need${externalToolNames.length > 0 ? `: ${externalToolNames.join(', ')}` : ''}. Only fall back to workspace tools or prose when no suitable external tool exists.\n`
       + '6. When finished, provide a concise summary of what was accomplished.',
     ),
     vscode.LanguageModelChatMessage.User(prompt),
@@ -259,4 +267,8 @@ export function buildPlanFromToolCalls(
 function summarizeInput(input: object): string {
   const raw = JSON.stringify(input);
   return raw.length > 60 ? raw.slice(0, 57) + '...' : raw;
+}
+
+export function taskLikelyNeedsExternalAccess(prompt: string): boolean {
+  return /\b(mcp|external|github|gitlab|repo metadata|pull request|issue|cloud|azure|aws|gcp|search|knowledge|documentation|docs|api|service|deployment|resource|subscription|tenant|database|postgres|mysql|sql|redis|cosmos|storage|kubernetes|aks)\b/i.test(prompt);
 }

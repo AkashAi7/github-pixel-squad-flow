@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0] — 2026-04-19
+### Added
+- **Talk to a specific teammate**: New `@pixel-squad /ask <agent or persona> <question>` chat command routes your message straight to a named teammate (e.g. `/ask Nova refactor the auth hook`) or to a persona lane if no agent name matches.
+- **Rally a whole team**: New `@pixel-squad /team <theme> <task>` fans the same prompt across every agent staffed in that theme's room, so the frontend or backend squad moves together on one brief.
+- **Squad work log from chat**: New `@pixel-squad /worklog [agent or team]` prints a per-teammate rollup — tasks complete, files touched, commands run — without leaving chat.
+- **Per-agent Work Log chips**: The inspector Work tab now shows a summary row (tasks done, files touched, commands run) at a glance, turning each agent card into a real resume.
+### Changed
+- **Rebrand tagline**: Displayed as **"Pixel Crew — Your Dev Teammates (Pixel Squad Flow)"** in the Marketplace to match the one-person-army vision. Internal extension id stays `github-pixel-squad-flow`, so existing installs upgrade in place.
+- **Followup suggestions**: The chat participant now suggests `/worklog`, `/ask`, `/team` as first-class followups alongside `/status` and `/mcp`.
+### Notes
+- **Validation**: `npm run typecheck` and `npm run build` both pass.
+
 ## [1.0.8] — 2026-04-17
 ### Added
 - **Blue mission-control theme**: Retuned the runtime palette to match the prototype's deep blue shell with cyan accents across cards, progress rails, pills, buttons, and focus rings.

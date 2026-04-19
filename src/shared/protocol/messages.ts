@@ -57,6 +57,10 @@ export interface ToggleAutoExecuteMessage {
   type: 'toggleAutoExecute';
 }
 
+export interface ToggleForceMcpForAllTasksMessage {
+  type: 'toggleForceMcpForAllTasks';
+}
+
 export interface SendAgentPromptMessage {
   type: 'sendAgentPrompt';
   agentId: string;
@@ -76,6 +80,7 @@ export type WebviewMessage =
   | PinActiveFileMessage
   | RequestWorkspaceFilesMessage
   | ToggleAutoExecuteMessage
+  | ToggleForceMcpForAllTasksMessage
   | SendAgentPromptMessage;
 
 export interface BootstrapStateMessage {

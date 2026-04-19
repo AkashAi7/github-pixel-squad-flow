@@ -13,6 +13,8 @@ export type CommandExecutionStatus = 'pending' | 'running' | 'succeeded' | 'fail
 export type RunStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
 export type AgentSessionStatus = 'queued' | 'active' | 'review' | 'done' | 'failed';
 export type AgentSessionMessageRole = 'user' | 'agent' | 'system';
+export type ToolPreference = 'workspace-first' | 'mcp-first';
+export type ToolPreferenceReason = 'forced' | 'external-access';
 
 /* ── Room theme palette ────────────────────────────────── */
 
@@ -129,6 +131,8 @@ export interface TaskCard {
   executionPlan?: TaskExecutionPlan;
   approvalState?: ApprovalState;
   handoffPackets?: HandoffPacket[];
+  toolPreference?: ToolPreference;
+  toolPreferenceReason?: ToolPreferenceReason;
   /** Groups tasks created in the same planning call so completion can be batched. */
   batchId?: string;
   createdAt?: number;
@@ -200,6 +204,7 @@ export interface ProviderHealth {
 
 export interface SquadSettings {
   autoExecute: boolean;
+  forceMcpForAllTasks: boolean;
   modelFamily: string;
   autoPopulateWorkspaceContext: boolean;
   workspaceContextMaxFiles: number;

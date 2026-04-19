@@ -612,6 +612,26 @@ export function InspectorPanelComponent({
           {/* ── Tab: Work ── */}
           {inspectorTab === 'work' && (
             <div className="inspector-tab-content">
+              {(() => {
+                const files = new Set<string>();
+                let commandCount = 0;
+                let completed = 0;
+                for (const task of selectedAgentTasks) {
+                  for (const edit of task.executionPlan?.fileEdits ?? []) { files.add(edit.filePath); }
+                  commandCount += task.executionPlan?.terminalCommands.length ?? 0;
+                  if (task.status === 'done') { completed += 1; }
+                }
+                return (
+                  <section className="agent-worklog">
+                    <p className="eyebrow">Work Log</p>
+                    <div className="task-meta">
+                      <span className="task-chip task-chip--worklog">Tasks {completed}/{selectedAgentTasks.length}</span>
+                      <span className="task-chip task-chip--worklog">Files touched {files.size}</span>
+                      <span className="task-chip task-chip--worklog">Commands run {commandCount}</span>
+                    </div>
+                  </section>
+                );
+              })()}
               <div className="agent-work">
                 {selectedAgentTasks.length === 0 ? <p className="inspector-copy">No tasks assigned yet.</p> : null}
                 {selectedAgentTasks.length > 0 ? (

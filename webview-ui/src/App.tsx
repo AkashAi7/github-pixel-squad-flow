@@ -653,6 +653,14 @@ function App() {
               >
                 Auto-execute: {snapshot.settings.autoExecute ? 'On' : 'Off'}
               </button>
+              <button
+                type="button"
+                className={`stat-toggle stat-toggle--mcp${snapshot.settings.forceMcpForAllTasks ? ' stat-toggle--on' : ''}`}
+                onClick={() => vscode.postMessage({ type: 'toggleForceMcpForAllTasks' })}
+                title="Force MCP-first routing for every task, not only external-access tasks"
+              >
+                Force MCP-first: {snapshot.settings.forceMcpForAllTasks ? 'On' : 'Off'}
+              </button>
             </div>
           </div>
 

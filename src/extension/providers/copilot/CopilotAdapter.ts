@@ -154,7 +154,9 @@ export class CopilotAdapter implements ProviderAdapter {
       let activeModel = resolvedModel;
       let loopResult;
       try {
-        loopResult = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk);
+        loopResult = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk, {
+          preferExternalTools: task.toolPreference === 'mcp-first',
+        });
       } catch (error) {
         if (!this.isQuotaExhaustedError(error)) {
           throw error;
@@ -164,7 +166,9 @@ export class CopilotAdapter implements ProviderAdapter {
           throw error;
         }
         activeModel = alternateModel;
-        loopResult = await runToolCallLoop(alternateModel, prompt, rootPath, token, onChunk);
+        loopResult = await runToolCallLoop(alternateModel, prompt, rootPath, token, onChunk, {
+          preferExternalTools: task.toolPreference === 'mcp-first',
+        });
       }
       const { text, toolCalls } = loopResult;
 
@@ -331,7 +335,7 @@ export class CopilotAdapter implements ProviderAdapter {
       '',
       'You have access to workspace tools: readFile, editFile, writeFile, listFiles, searchText, getDiagnostics, runCommand, sendAgentMessage, routeTask.',
       'Use routeTask whenever your completed work should automatically hand off to another owning persona in the current run.',
-      'You also have access to any MCP or extension-provided tools surfaced by VS Code for this session. Use them when they are the best tool for the job.',
+      'If the task requires external data, cloud resources, hosted search, repo metadata, API access, or other non-workspace context, prefer any MCP or extension-provided tool surfaced by VS Code before relying only on local workspace tools.',
       'Use editFile for targeted changes to existing files (preferred over writeFile for modifications).',
       'If the task names a file path or asks to update an existing doc/spec/plan, modify that file directly instead of replying with only a prose plan.',
       'Treat the active file and pinned files as likely edit targets when they match the request, even if the prompt does not explicitly say "create file".',

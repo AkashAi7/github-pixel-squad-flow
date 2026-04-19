@@ -183,8 +183,15 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
 
     if (message.type === 'toggleAutoExecute') {
       const config = vscode.workspace.getConfiguration('pixelSquad');
-      const current = config.get<boolean>('autoExecute', false);
+      const current = config.get<boolean>('autoExecute', true);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
+      syncSnapshot();
+    }
+
+    if (message.type === 'toggleForceMcpForAllTasks') {
+      const config = vscode.workspace.getConfiguration('pixelSquad');
+      const current = config.get<boolean>('forceMcpForAllTasks', false);
+      await config.update('forceMcpForAllTasks', !current, vscode.ConfigurationTarget.Workspace);
       syncSnapshot();
     }
 
@@ -378,6 +385,111 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Chat: /ask <agentOrPersona> <question>
+   * Lets the developer talk to a specific teammate. Falls back to persona
+   * routing if no agent matches by name.
+   */
+  async askAgentFromChat(target: string, question: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const normalizedTarget = target.trim().toLowerCase();
+    const normalizedQuestion = question.trim();
+    if (!normalizedTarget) {
+      return 'Usage: `@pixel-squad /ask <agent or persona> <question>`. Example: `/ask Nova what is the plan for the login page?`.';
+    }
+    if (!normalizedQuestion) {
+      return `Tell me what you want to ask ${target}. Usage: \`/ask ${target} <question>\`.`;
+    }
+    const snapshot = this.coordinator.getSnapshot();
+    const agent = snapshot.agents.find((entry) => entry.name.toLowerCase() === normalizedTarget)
+      ?? snapshot.agents.find((entry) => entry.name.toLowerCase().startsWith(normalizedTarget));
+    if (agent) {
+      const summary = await this.coordinator.assignTask(agent.id, normalizedQuestion, model, token);
+      this.syncSnapshot();
+      return `**Asked ${agent.name}**\n\n${summary}`;
+    }
+    const persona = snapshot.personas.find((entry) => entry.id.toLowerCase() === normalizedTarget)
+      ?? snapshot.personas.find((entry) => entry.title.toLowerCase() === normalizedTarget);
+    if (persona) {
+      const summary = await this.coordinator.assignTaskToPersona(persona.id, normalizedQuestion, undefined, model, token, 'copilot-chat');
+      this.syncSnapshot();
+      return `**Asked the ${persona.title} lane**\n\n${summary}`;
+    }
+    return `No agent named "${target}" and no persona matching "${target}". Try \`/status\` to list current teammates.`;
+  }
+
+  /**
+   * Chat: /team <theme> <task>
+   * Rally every agent currently staffed in the theme room on the same task.
+   */
+  async teamFromChat(themeInput: string, prompt: string, model?: vscode.LanguageModelChat, token?: vscode.CancellationToken): Promise<string> {
+    const normalizedTheme = themeInput.trim().toLowerCase() as RoomTheme;
+    const themeKeys = Object.keys(ROOM_THEME_META) as RoomTheme[];
+    const theme = themeKeys.includes(normalizedTheme) ? normalizedTheme : themeKeys.find((candidate) => candidate.startsWith(normalizedTheme));
+    const work = prompt.trim();
+    if (!theme) {
+      return `Unknown team theme "${themeInput}". Available: ${themeKeys.join(', ')}.`;
+    }
+    if (!work) {
+      return `Tell the ${theme} team what to do. Usage: \`/team ${theme} <task>\`.`;
+    }
+    const snapshot = this.coordinator.getSnapshot();
+    const rooms = snapshot.rooms.filter((room) => room.theme === theme);
+    const agents = snapshot.agents.filter((agent) => rooms.some((room) => room.id === agent.roomId));
+    if (agents.length === 0) {
+      return `No agents staffed for the ${theme} team yet. Run \`/provision <persona>\` to staff the room first.`;
+    }
+    const summaries: string[] = [];
+    for (const agent of agents) {
+      const summary = await this.coordinator.assignTask(agent.id, work, model, token);
+      summaries.push(`- ${agent.name}: ${summary}`);
+    }
+    this.syncSnapshot();
+    return [`**Rallied ${agents.length} ${theme} teammate(s)**`, '', ...summaries].join('\n');
+  }
+
+  /**
+   * Chat: /worklog [agent or team theme]
+   * Compact rollup of what the squad has been doing.
+   */
+  renderWorkLogForChat(target: string): string {
+    const snapshot = this.coordinator.getSnapshot();
+    const normalized = target.trim().toLowerCase();
+    const agents = snapshot.agents;
+    const tasks = snapshot.tasks;
+    const themeKeys = Object.keys(ROOM_THEME_META) as RoomTheme[];
+
+    const describeAgent = (agentId: string, name: string) => {
+      const agentTasks = tasks.filter((task) => task.assigneeId === agentId);
+      const files = new Set<string>();
+      let commandCount = 0;
+      let completed = 0;
+      for (const task of agentTasks) {
+        for (const edit of task.executionPlan?.fileEdits ?? []) { files.add(edit.filePath); }
+        commandCount += task.executionPlan?.terminalCommands.length ?? 0;
+        if (task.status === 'done') { completed += 1; }
+      }
+      return `- **${name}**: ${completed}/${agentTasks.length} tasks done · ${files.size} files touched · ${commandCount} commands run.`;
+    };
+
+    if (!normalized) {
+      if (agents.length === 0) { return 'No agents provisioned yet. Run `/provision lead` to staff your first teammate.'; }
+      return ['**Squad work log**', '', ...agents.map((agent) => describeAgent(agent.id, agent.name))].join('\n');
+    }
+
+    const theme = themeKeys.includes(normalized as RoomTheme) ? (normalized as RoomTheme) : themeKeys.find((candidate) => candidate.startsWith(normalized));
+    if (theme) {
+      const teamAgents = agents.filter((agent) => snapshot.rooms.find((room) => room.id === agent.roomId)?.theme === theme);
+      if (teamAgents.length === 0) { return `No agents staffed for the ${theme} team yet.`; }
+      return [`**${theme} team work log**`, '', ...teamAgents.map((agent) => describeAgent(agent.id, agent.name))].join('\n');
+    }
+
+    const agent = agents.find((entry) => entry.name.toLowerCase() === normalized) ?? agents.find((entry) => entry.name.toLowerCase().startsWith(normalized));
+    if (!agent) {
+      return `No agent or team matched "${target}". Try \`/status\` to list current teammates.`;
+    }
+    return [`**${agent.name}'s work log**`, '', describeAgent(agent.id, agent.name)].join('\n');
   }
 
   renderMcpToolsForChat(): string {

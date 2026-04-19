@@ -558,6 +558,16 @@ summary:focus-visible {
   color: #70c1b3;
 }
 
+.stat-toggle--mcp {
+  border-color: rgba(115, 215, 255, 0.28);
+}
+
+.stat-toggle--mcp.stat-toggle--on {
+  border-color: rgba(115, 215, 255, 0.55);
+  background: rgba(115, 215, 255, 0.14);
+  color: var(--ps-accent);
+}
+
 .dialog-toggle {
   display: flex;
   align-items: center;
@@ -3127,6 +3137,29 @@ summary:focus-visible {
   padding: 3px 8px;
   border: 1px solid rgba(245, 239, 225, 0.12);
   color: rgba(245, 239, 225, 0.72);
+}
+
+.task-chip--mcp {
+  border-color: rgba(115, 215, 255, 0.4);
+  background: rgba(115, 215, 255, 0.1);
+  color: var(--ps-accent);
+}
+
+.task-chip--mcp-forced {
+  border-color: rgba(255, 191, 71, 0.42);
+  background: rgba(255, 191, 71, 0.12);
+  color: var(--ps-amber);
+}
+
+.task-chip--worklog {
+  border-color: rgba(115, 215, 255, 0.28);
+  background: rgba(115, 215, 255, 0.08);
+  color: var(--ps-accent);
+  font-weight: 600;
+}
+
+.agent-worklog {
+  margin: 4px 0 10px;
 }
 
 .task-card__footer {

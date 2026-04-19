@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { exec, type ExecException } from 'node:child_process';
 import * as vscode from 'vscode';
 
-import type { ActivityCategory, ActivityEntry, AgentMessage, AgentSession, AgentSessionMessage, AgentSessionMessageRole, AgentSessionStatus, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, RunRecord, RunStatus, RunStage, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskSource, TaskStatus, WorkspaceSnapshot } from '../../shared/model/index.js';
+import type { ActivityCategory, ActivityEntry, AgentMessage, AgentSession, AgentSessionMessage, AgentSessionMessageRole, AgentSessionStatus, AgentStatus, CommandExecutionResult, CustomPersonaDraft, HandoffPacket, PersonaTemplate, Provider, ProviderHealth, Room, RoomTheme, RunRecord, RunStatus, RunStage, SquadAgent, TaskCard, TaskExecutionPlan, TaskProgress, TaskSource, TaskStatus, ToolPreference, ToolPreferenceReason, WorkspaceSnapshot } from '../../shared/model/index.js';
 import { ROOM_THEME_META, createActivityEntry } from '../../shared/model/index.js';
 import type { ActivityMessage, AgentChatMessage, TaskOutputMessage, TaskStreamChunkMessage } from '../../shared/protocol/messages.js';
 import { EventBus } from './EventBus.js';
@@ -14,6 +14,7 @@ import { ClaudeAdapter } from '../providers/claude/ClaudeAdapter.js';
 import type { ProviderAdapter } from '../providers/types.js';
 import { ProjectStateStore } from '../persistence/ProjectStateStore.js';
 import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js';
+import { taskLikelyNeedsExternalAccess } from '../tools/toolCallLoop.js';
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
 const MAX_MAILBOX_TURNS = 2;
@@ -65,6 +66,7 @@ export class Coordinator {
     const config = vscode.workspace.getConfiguration('pixelSquad');
     return {
       autoExecute: config.get<boolean>('autoExecute', true),
+      forceMcpForAllTasks: config.get<boolean>('forceMcpForAllTasks', false),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
@@ -114,7 +116,7 @@ export class Coordinator {
     const batchId = this.makeId('batch');
     const stagedTaskIds = plan.assignments.map(() => this.makeId('task'));
     const personaTaskMap = new Map<string, string>();
-    const autoExecute = this.getSettings().autoExecute;
+    const autoExecute = settings.autoExecute;
 
     for (const [index, assignment] of plan.assignments.entries()) {
       // Load-balance across agents that share this persona so a split task
@@ -154,6 +156,7 @@ export class Coordinator {
       // Only use explicit dependencies — never force sequential chaining when
       // tasks could run in parallel on different agents.
       const inferredDependencyIds = dependencyIds;
+      const { toolPreference, toolPreferenceReason } = this.resolveToolPreference(assignment.detail, settings.forceMcpForAllTasks);
 
       const nextStatus: TaskStatus = inferredDependencyIds.length === 0
         ? (autoExecute ? 'active' : 'queued')
@@ -177,6 +180,8 @@ export class Coordinator {
         detail: assignment.detail,
         dependsOn: inferredDependencyIds,
         requiredSkillIds: assignment.requiredSkillIds ?? [],
+        toolPreference,
+        toolPreferenceReason,
         workspaceContext: lightContext,
         progress: this.progressForStatus(nextStatus, assignment.progressLabel ?? (nextStatus === 'queued' ? 'Ready to start' : 'Executing'), undefined, 5),
         batchId,
@@ -258,6 +263,7 @@ export class Coordinator {
       status: settings.autoExecute ? 'executing' : 'planning',
       summary: normalizedPrompt,
     };
+    const { toolPreference, toolPreferenceReason } = this.resolveToolPreference(normalizedPrompt, settings.forceMcpForAllTasks);
 
     const task: TaskCard = {
       id: this.makeId('task'),
@@ -269,6 +275,8 @@ export class Coordinator {
       detail: options?.detail?.trim() || normalizedPrompt,
       dependsOn: options?.dependsOn ?? [],
       requiredSkillIds: [],
+      toolPreference,
+      toolPreferenceReason,
       workspaceContext: lightContext,
       progress: this.progressForStatus(initialStatus, initialStatus === 'queued' ? 'Ready to start' : 'Preparing workspace'),
       batchId,
@@ -695,6 +703,7 @@ export class Coordinator {
     const createdAt = Date.now();
     const tasks: TaskCard[] = [];
     const lightContext = this.workspaceContext.captureLightweight();
+    const { toolPreference, toolPreferenceReason } = this.resolveToolPreference(normalizedPrompt, this.getSettings().forceMcpForAllTasks);
 
     for (const agent of idleAgents) {
       const persona = this.snapshot.personas.find((p) => p.id === agent.personaId);
@@ -709,6 +718,8 @@ export class Coordinator {
         detail: `[Fleet] ${normalizedPrompt}`,
         dependsOn: [],
         requiredSkillIds: [],
+        toolPreference,
+        toolPreferenceReason,
         workspaceContext: lightContext,
         progress: this.progressForStatus('active', 'Fleet executing'),
         batchId,
@@ -1411,6 +1422,8 @@ export class Coordinator {
       detail: `${route.detail.trim()}\n\nAuto-routed from ${sourceAgent.name} after completing "${sourceTask.title}".`,
       dependsOn: [sourceTask.id],
       requiredSkillIds: [],
+      toolPreference: sourceTask.toolPreference,
+      toolPreferenceReason: sourceTask.toolPreferenceReason,
       workspaceContext: sourceTask.workspaceContext,
       handoffPackets: this.collectHandoffPackets(sourceTask).concat({
         fromTaskId: sourceTask.id,
@@ -1639,6 +1652,19 @@ export class Coordinator {
 
   private agentNameById(agentId: string): string {
     return this.snapshot.agents.find((a) => a.id === agentId)?.name ?? agentId;
+  }
+
+  private resolveToolPreference(detail: string, forceMcpForAllTasks: boolean): {
+    toolPreference: ToolPreference;
+    toolPreferenceReason?: ToolPreferenceReason;
+  } {
+    if (forceMcpForAllTasks) {
+      return { toolPreference: 'mcp-first', toolPreferenceReason: 'forced' };
+    }
+    if (taskLikelyNeedsExternalAccess(detail)) {
+      return { toolPreference: 'mcp-first', toolPreferenceReason: 'external-access' };
+    }
+    return { toolPreference: 'workspace-first' };
   }
 
   /**

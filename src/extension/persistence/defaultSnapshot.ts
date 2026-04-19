@@ -192,6 +192,7 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
     ],
     settings: {
       autoExecute: false,
+      forceMcpForAllTasks: false,
       modelFamily: 'copilot',
       autoPopulateWorkspaceContext: true,
       workspaceContextMaxFiles: 3,

@@ -271,6 +271,14 @@ export function TaskCardComponent({
           {task.provider === 'copilot' ? '⚡' : '🧠'} {task.provider}
         </span>
         <span className="task-chip">{sourceLabel(task)}</span>
+        {task.toolPreference === 'mcp-first' ? (
+          <span
+            className={`task-chip task-chip--mcp${task.toolPreferenceReason === 'forced' ? ' task-chip--mcp-forced' : ''}`}
+            title={task.toolPreferenceReason === 'forced' ? 'Forced by workspace setting' : 'Detected external-access task'}
+          >
+            MCP-first
+          </span>
+        ) : null}
         {task.batchId ? <span className="task-chip">Run</span> : null}
         {dependencyCount > 0 ? <span className="task-chip">Depends on {dependencyCount}</span> : null}
         {task.approvalState ? <span className="task-chip">{task.approvalState}</span> : null}

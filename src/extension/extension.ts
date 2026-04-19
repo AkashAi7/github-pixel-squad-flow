@@ -47,6 +47,31 @@ export function activate(context: vscode.ExtensionContext): void {
       return;
     }
 
+    if (command === 'ask') {
+      const trimmed = request.prompt.trim();
+      const firstSpace = trimmed.indexOf(' ');
+      const target = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+      const question = firstSpace === -1 ? '' : trimmed.slice(firstSpace + 1);
+      const summary = await provider.askAgentFromChat(target, question, request.model, token);
+      stream.markdown(summary);
+      return;
+    }
+
+    if (command === 'team') {
+      const trimmed = request.prompt.trim();
+      const firstSpace = trimmed.indexOf(' ');
+      const theme = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+      const work = firstSpace === -1 ? '' : trimmed.slice(firstSpace + 1);
+      const summary = await provider.teamFromChat(theme, work, request.model, token);
+      stream.markdown(summary);
+      return;
+    }
+
+    if (command === 'worklog') {
+      stream.markdown(provider.renderWorkLogForChat(request.prompt));
+      return;
+    }
+
     const selectedPersona = command && personaCommandMap.has(command) ? command : undefined;
     const summary = selectedPersona
       ? await provider.assignTaskToPersona(selectedPersona, request.prompt, 'copilot', request.model, token)
@@ -72,17 +97,24 @@ export function activate(context: vscode.ExtensionContext): void {
         command: 'status',
       },
       {
+        label: 'Squad work log',
+        prompt: '/worklog',
+        command: 'worklog',
+      },
+      {
         label: 'List MCP tools available to agents',
         prompt: '/mcp',
         command: 'mcp',
       },
       {
-        label: 'Break this into frontend and backend tasks',
-        prompt: 'Break this into frontend and backend tasks for Pixel Squad Flow.',
+        label: 'Ask a specific teammate',
+        prompt: '/ask ',
+        command: 'ask',
       },
       {
-        label: 'Add a tester pass',
-        prompt: 'Add a tester validation pass and update the Pixel Squad Flow task wall.',
+        label: 'Rally a whole team',
+        prompt: '/team ',
+        command: 'team',
       },
     ]
   };
@@ -285,10 +317,17 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('pixelSquad.toggleAutoExecute', async () => {
       const config = vscode.workspace.getConfiguration('pixelSquad');
-      const current = config.get<boolean>('autoExecute', false);
+      const current = config.get<boolean>('autoExecute', true);
       await config.update('autoExecute', !current, vscode.ConfigurationTarget.Workspace);
       provider.refresh();
       void vscode.window.showInformationMessage(`Pixel Squad Flow auto-execute: ${!current ? 'ON' : 'OFF'}`);
+    }),
+    vscode.commands.registerCommand('pixelSquad.toggleForceMcpForAllTasks', async () => {
+      const config = vscode.workspace.getConfiguration('pixelSquad');
+      const current = config.get<boolean>('forceMcpForAllTasks', false);
+      await config.update('forceMcpForAllTasks', !current, vscode.ConfigurationTarget.Workspace);
+      provider.refresh();
+      void vscode.window.showInformationMessage(`Pixel Squad Flow force MCP-first: ${!current ? 'ON' : 'OFF'}`);
     }),
 
     /* ── Cleanup ──────────────────────────────────── */
