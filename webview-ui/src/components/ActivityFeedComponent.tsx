@@ -1,4 +1,4 @@
-import type { ActivityEntry, ActivityCategory } from '../../../src/shared/model/index.js';
+import type { ActivityEntry, ActivityCategory, AgentMessage, Room, SquadAgent } from '../../../src/shared/model/index.js';
 
 export const ACTIVITY_FILTERS: Array<ActivityCategory | 'all'> = ['all', 'task', 'agent', 'agent-chat', 'provider', 'system'];
 
@@ -6,6 +6,9 @@ export interface ActivityFeedProps {
   filteredActivity: ActivityEntry[];
   activityFilter: ActivityCategory | 'all';
   setActivityFilter: (filter: ActivityCategory | 'all') => void;
+  roomFeeds?: Record<string, AgentMessage[]>;
+  agentsById?: Map<string, SquadAgent>;
+  rooms?: Room[];
 }
 
 function formatActivityTime(timestamp: number): string {
@@ -31,21 +34,74 @@ function activityCategoryMeta(category: ActivityCategory): { icon: string; label
   }
 }
 
+function latestRoomMessages(
+  roomFeeds: Record<string, AgentMessage[]> | undefined,
+  limit = 12,
+): AgentMessage[] {
+  if (!roomFeeds) return [];
+  const all: AgentMessage[] = [];
+  for (const messages of Object.values(roomFeeds)) {
+    all.push(...messages);
+  }
+  return all.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+}
+
 export function ActivityFeedComponent({
   filteredActivity,
   activityFilter,
   setActivityFilter,
+  roomFeeds,
+  agentsById,
+  rooms,
 }: ActivityFeedProps) {
+  const conversations = latestRoomMessages(roomFeeds);
+  const roomsById = new Map((rooms ?? []).map((room) => [room.id, room]));
 
   return (
     <section className="workspace-stack" aria-labelledby="activity-feed-title">
       <aside className="column column--side column--stacked">
+        {conversations.length > 0 ? (
+          <section className="panel activity-conversations" aria-label="Agent-to-agent conversations">
+            <div className="task-wall__header">
+              <div>
+                <p className="eyebrow">Crew Chat</p>
+                <p className="task-wall__copy">
+                  Live messages between your agents — this is what your teammates are saying to each other while they work.
+                </p>
+              </div>
+              <span className="hero-summary-pill">{conversations.length} recent</span>
+            </div>
+            <ul className="agent-chat-stream" role="list">
+              {conversations.map((message) => {
+                const fromAgent = agentsById?.get(message.fromAgentId);
+                const toAgent = agentsById?.get(message.toAgentId);
+                const room = roomsById.get(message.roomId);
+                return (
+                  <li key={message.id} className={`agent-chat-bubble agent-chat-bubble--${message.type}`} role="listitem">
+                    <div className="agent-chat-bubble__head">
+                      <strong>
+                        {(fromAgent?.name ?? message.fromAgentId)} → {(toAgent?.name ?? message.toAgentId)}
+                      </strong>
+                      <span className={`agent-chat-bubble__type agent-chat-bubble__type--${message.type}`}>{message.type}</span>
+                      <time dateTime={new Date(message.timestamp).toISOString()}>
+                        {formatActivityTime(message.timestamp)}
+                      </time>
+                    </div>
+                    <p className="agent-chat-bubble__body">{message.content}</p>
+                    {room ? <span className="agent-chat-bubble__room">{room.name}</span> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="panel">
           <div className="task-wall__header">
             <div>
               <p className="eyebrow" id="activity-feed-title">Activity Feed</p>
               <p className="task-wall__copy">
-                Structured events are now grouped by category so provider chatter and task flow are easier to scan.
+                Structured events are grouped by category so provider chatter and task flow are easier to scan.
               </p>
             </div>
             <label className="task-filter task-filter--compact">

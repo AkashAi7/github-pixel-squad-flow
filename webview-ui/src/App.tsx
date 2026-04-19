@@ -9,14 +9,15 @@ import { ActivityFeedComponent, ACTIVITY_FILTERS } from './components/ActivityFe
 import { ProvidersViewComponent } from './components/ProvidersViewComponent.js';
 import { InspectorPanelComponent } from './components/InspectorPanelComponent.js';
 import { TaskWallComponent, TASK_STATUS_ORDER } from './components/TaskWallComponent.js';
+import { AgentJournalComponent } from './components/AgentJournalComponent.js';
 
 declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
 const vscode = typeof acquireVsCodeApi === 'function'
   ? acquireVsCodeApi()
   : { postMessage: (_message: unknown) => undefined };
-type WorkspaceView = 'factory' | 'tasks' | 'providers' | 'activity';
-const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'tasks', 'providers', 'activity'];
+type WorkspaceView = 'factory' | 'tasks' | 'providers' | 'activity' | 'journal';
+const WORKSPACE_VIEWS: WorkspaceView[] = ['factory', 'tasks', 'journal', 'activity'];
 
 function taskProgressForStatus(status: TaskStatus) {
   switch (status) {
@@ -814,6 +815,18 @@ function App() {
           <button
             type="button"
             role="tab"
+            aria-selected={activeView === 'journal'}
+            tabIndex={activeView === 'journal' ? 0 : -1}
+            className={`workspace-nav__tab${activeView === 'journal' ? ' workspace-nav__tab--active' : ''}`}
+            onClick={() => setActiveView('journal')}
+            title={selectedAgent ? `Open ${selectedAgent.name}'s journal` : "Per-agent timeline of tasks, files, commands and handoffs"}
+          >
+            <span>Journal</span>
+            <strong>{selectedAgent ? selectedAgentTasks.length : snapshot.agents.length}</strong>
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeView === 'activity'}
             tabIndex={activeView === 'activity' ? 0 : -1}
             className={`workspace-nav__tab${activeView === 'activity' ? ' workspace-nav__tab--active' : ''}`}
@@ -903,6 +916,24 @@ function App() {
           filteredActivity={filteredActivity}
           activityFilter={activityFilter}
           setActivityFilter={setActivityFilter}
+          roomFeeds={snapshot.roomFeeds ?? {}}
+          agentsById={agentsById}
+          rooms={snapshot.rooms}
+        />
+      ) : null}
+
+      {activeView === 'journal' ? (
+        <AgentJournalComponent
+          selectedAgent={selectedAgent}
+          displayAgents={displayAgents}
+          snapshot={snapshot}
+          personas={personas}
+          rooms={snapshot.rooms}
+          agentsById={agentsById}
+          onSelectAgent={(agentId) => {
+            setSelectedAgentId(agentId);
+            vscode.postMessage({ type: 'showAgent', agentId });
+          }}
         />
       ) : null}
     </main>

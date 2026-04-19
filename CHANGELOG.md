@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0] — 2026-04-19
+### Added
+- **Agent Journal view**: New `Journal` tab in the Crew Board opens a chronological per-agent notebook — every task assigned, every file `created` or `edited` (with path + summary), every terminal command with exit status, every handoff sent or received, and every session turn. Entries are grouped by day (Today / Yesterday / date) with a time rail on the left, so glancing at a teammate's week is one click. A sidebar roster lets you switch between teammates without leaving the view, and a "Files touched" panel lists the paths that agent has worked on most recently.
+- **Crew Chat bubbles in Activity view**: Inter-agent mailbox messages (`request` / `inform` / `query` / `response`) now render as chat bubbles at the top of Activity showing `FromAgent → ToAgent`, message type, room, and timestamp. The agent-to-agent communication your crew is already doing is finally visible instead of staying as internal state.
+### Changed
+- **Navigation re-ordered**: Workspace nav is now `Factory · Tasks · Journal · Activity`. Providers view is still reachable programmatically but no longer takes real estate in the top-level tabs.
+### Notes
+- **Scope**: Additive view-layer changes only. No changes to `Coordinator.ts`, adapters, persistence, or orchestration paths.
+- **Validation**: `npm run build` passes clean (webview 278 KB JS / 89 KB CSS, extension 206 KB).
+
 ## [1.1.2] — 2026-04-19
 ### Fixed
 - **Manifest activation hardening**: Marked the extension as a workspace extension and added an explicit chat-participant activation hook so the installed VSIX is less likely to appear present-but-inactive.
