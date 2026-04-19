@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2] — 2026-04-19
+### Fixed
+- **Manifest activation hardening**: Marked the extension as a workspace extension and added an explicit chat-participant activation hook so the installed VSIX is less likely to appear present-but-inactive.
+- **Visible command surface alignment**: Renamed the side container, command titles, settings title, walkthrough text, and orchestrator full name to **Pixel Crew** while keeping the internal `pixelSquad.*` command ids and `@pixel-squad` chat handle stable for compatibility.
+- **Release metadata sync**: Updated the root `package-lock.json` version to match the shipped extension version.
+### Notes
+- **Validation**: `npm run typecheck` and `npm run build` should pass for `1.1.2`.
+
 ## [1.1.1] — 2026-04-19
 ### Added
 - **Room Chat feed**: The inspector Channel tab now shows a live room-scoped feed of inter-agent messages (who said what to whom), so you can actually watch teammates coordinate instead of guessing.

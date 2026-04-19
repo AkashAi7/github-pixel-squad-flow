@@ -1,8 +1,8 @@
 {
   "name": "github-pixel-squad-flow",
-  "displayName": "Pixel Crew — Your Dev Teammates (Pixel Squad Flow)",
+  "displayName": "Pixel Crew",
   "description": "Your one-person-army dev crew in VS Code. Talk to frontend, backend, tester, devops and designer teammates from GitHub Copilot Chat — they plan, code, run commands, and keep a shared work log.",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -21,12 +21,18 @@
     "Other"
   ],
   "main": "./dist/extension/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onChatParticipant:pixelSquad.orchestrator"
+  ],
   "contributes": {
     "viewsContainers": {
       "secondarySideBar": [
         {
           "id": "pixelSquad",
-          "title": "Pixel Squad Flow",
+          "title": "Pixel Crew",
           "icon": "assets/icon-activitybar.svg"
         }
       ]
@@ -36,63 +42,63 @@
         {
           "type": "webview",
           "id": "pixelSquad.factoryView",
-          "name": "Agent Factory"
+          "name": "Crew Board"
         }
       ]
     },
     "commands": [
       {
         "command": "pixelSquad.showFactory",
-        "title": "Pixel Squad Flow: Show Agent Factory"
+        "title": "Pixel Crew: Show Crew Board"
       },
       {
         "command": "pixelSquad.createTask",
-        "title": "Pixel Squad Flow: Route Task From Command Palette"
+        "title": "Pixel Crew: Route Task From Command Palette"
       },
       {
         "command": "pixelSquad.openInEditor",
-        "title": "Pixel Squad Flow: Open in Editor Panel",
-        "category": "Pixel Squad Flow"
+        "title": "Pixel Crew: Open in Editor Panel",
+        "category": "Pixel Crew"
       },
       {
         "command": "pixelSquad.assignTask",
-        "title": "Pixel Squad Flow: Assign Task to Agent"
+        "title": "Pixel Crew: Assign Task to Agent"
       },
       {
         "command": "pixelSquad.createRoom",
-        "title": "Pixel Squad Flow: Create Room"
+        "title": "Pixel Crew: Create Room"
       },
       {
         "command": "pixelSquad.spawnAgent",
-        "title": "Pixel Squad Flow: Provision Agent"
+        "title": "Pixel Crew: Provision Agent"
       },
       {
         "command": "pixelSquad.listAgents",
-        "title": "Pixel Squad Flow: List Agents"
+        "title": "Pixel Crew: List Agents"
       },
       {
         "command": "pixelSquad.resetWorkspace",
-        "title": "Pixel Squad Flow: Reset Workspace State"
+        "title": "Pixel Crew: Reset Workspace State"
       },
       {
         "command": "pixelSquad.runSmokeTest",
-        "title": "Pixel Squad Flow: Run Smoke Test"
+        "title": "Pixel Crew: Run Smoke Test"
       },
       {
         "command": "pixelSquad.fleetExecute",
-        "title": "Pixel Squad Flow: Fleet Execute"
+        "title": "Pixel Crew: Fleet Execute"
       },
       {
         "command": "pixelSquad.toggleAutoExecute",
-        "title": "Pixel Squad Flow: Toggle Auto-Execute"
+        "title": "Pixel Crew: Toggle Auto-Execute"
       },
       {
         "command": "pixelSquad.toggleForceMcpForAllTasks",
-        "title": "Pixel Squad Flow: Toggle Force MCP-First"
+        "title": "Pixel Crew: Toggle Force MCP-First"
       }
     ],
     "configuration": {
-      "title": "Pixel Squad Flow",
+      "title": "Pixel Crew",
       "properties": {
         "pixelSquad.autoExecute": {
           "type": "boolean",
@@ -134,16 +140,16 @@
     "walkthroughs": [
       {
         "id": "pixelSquad.getStarted",
-        "title": "Get Started with Pixel Squad Flow",
-        "description": "Learn how to route tasks through your chat-first multi-agent factory powered by GitHub Copilot.",
+        "title": "Get Started with Pixel Crew",
+        "description": "Learn how to route tasks through your chat-first multi-agent crew powered by GitHub Copilot.",
         "steps": [
           {
             "id": "openFactory",
             "title": "Open the Agent Factory",
-            "description": "Open the Pixel Squad Flow panel to see your rooms, agents, and task wall.\n\n[Open Agent Factory](command:pixelSquad.showFactory)",
+            "description": "Open the Pixel Crew panel to see your rooms, agents, and task wall.\n\n[Open Crew Board](command:pixelSquad.showFactory)",
             "media": {
               "image": "assets/icon.svg",
-              "altText": "Pixel Squad Flow icon"
+              "altText": "Pixel Crew icon"
             }
           },
           {
@@ -189,8 +195,8 @@
       {
         "id": "pixelSquad.orchestrator",
         "name": "pixel-squad",
-        "fullName": "Pixel Squad Flow Orchestrator",
-        "description": "Route a task through Pixel Squad Flow (Copilot + Claude) and update the Agent Factory.",
+        "fullName": "Pixel Crew Orchestrator",
+        "description": "Route a task through Pixel Crew (Copilot + Claude) and update the Crew Board.",
         "isSticky": true,
         "commands": [
           {
