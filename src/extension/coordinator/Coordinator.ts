@@ -65,13 +65,16 @@ export class Coordinator {
 
   getSettings() {
     const config = vscode.workspace.getConfiguration('pixelSquad');
-    return {
+    const settings = {
       autoExecute: config.get<boolean>('autoExecute', true),
       forceMcpForAllTasks: config.get<boolean>('forceMcpForAllTasks', false),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
+      copilotRuntime: config.get<'vscode-lm' | 'sdk-hybrid'>('copilotRuntime', 'sdk-hybrid'),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
     };
+    this.copilot.setRuntime(settings.copilotRuntime);
+    return settings;
   }
 
   /** Resolve a LanguageModelChat for the given provider (used for token counting). */

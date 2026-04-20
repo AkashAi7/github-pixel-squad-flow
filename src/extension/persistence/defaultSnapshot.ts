@@ -195,6 +195,7 @@ export function createDefaultSnapshot(): WorkspaceSnapshot {
       autoExecute: false,
       forceMcpForAllTasks: false,
       modelFamily: 'copilot',
+      copilotRuntime: 'sdk-hybrid',
       autoPopulateWorkspaceContext: true,
       workspaceContextMaxFiles: 3,
     },

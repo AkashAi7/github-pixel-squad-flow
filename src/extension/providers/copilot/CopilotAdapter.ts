@@ -4,15 +4,21 @@ import type { AgentMessage, HandoffPacket, PersonaTemplate, ProviderHealth, Prop
 import type { ExecutionResult, OutgoingAgentMessage, PlanningResult, ProviderAdapter } from '../types.js';
 import { createDeterministicAssignments, describePersonasForPrompt, enrichAssignments, tryFastRoute } from '../planningHints.js';
 import { runToolCallLoop, buildPlanFromToolCalls } from '../../tools/toolCallLoop.js';
+import { runCopilotSdkPrompt } from './CopilotSdkBridge.js';
 
 export class CopilotAdapter implements ProviderAdapter {
   readonly id = 'copilot' as const;
   private cachedModels: vscode.LanguageModelChat[] | undefined;
+  private preferredRuntime: 'vscode-lm' | 'sdk-hybrid' = 'vscode-lm';
   private lastHealth: ProviderHealth = {
     provider: 'copilot',
     state: 'ready',
     detail: 'GitHub Copilot powers all planning and task execution for Pixel Squad.'
   };
+
+  setRuntime(runtime: 'vscode-lm' | 'sdk-hybrid'): void {
+    this.preferredRuntime = runtime;
+  }
 
   getHealth(): ProviderHealth {
     return this.lastHealth;
@@ -35,6 +41,36 @@ export class CopilotAdapter implements ProviderAdapter {
         assignments: fastAssignments,
         providerDetail: this.lastHealth.detail,
       };
+    }
+
+    if (this.preferredRuntime === 'sdk-hybrid') {
+      try {
+        const sdkResponse = await runCopilotSdkPrompt({
+          model: this.pickSdkModel(),
+          prompt: this.buildPrompt(prompt, personas, workspaceContext),
+          cwd: workspaceContext.workspaceRoot,
+        });
+        const parsed = this.parsePlan(sdkResponse.content, personas);
+        this.lastHealth = {
+          provider: 'copilot',
+          state: 'ready',
+          detail: `Planned via GitHub Copilot SDK (${sdkResponse.model}).`,
+        };
+
+        return {
+          ...parsed,
+          providerDetail: this.lastHealth.detail,
+        };
+      } catch (error) {
+        const detail = error instanceof Error
+          ? `Copilot SDK planning failed (${error.message}). Falling back to VS Code LM.`
+          : 'Copilot SDK planning failed. Falling back to VS Code LM.';
+        this.lastHealth = {
+          provider: 'copilot',
+          state: 'ready',
+          detail,
+        };
+      }
     }
 
     const resolvedModel = await this.pickModel(model);
@@ -140,6 +176,19 @@ export class CopilotAdapter implements ProviderAdapter {
     }
 
     if (this.isPlanningOnlyTask(task)) {
+      if (this.preferredRuntime === 'sdk-hybrid') {
+        try {
+          return await this.executePlanningTaskWithSdk(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages, onChunk);
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : 'Unknown SDK error';
+          onChunk?.('\n⚠️ Copilot SDK planning unavailable, falling back to VS Code LM...\n');
+          this.lastHealth = {
+            provider: 'copilot',
+            state: 'ready',
+            detail: `Copilot SDK planning unavailable (${detail}). Falling back to VS Code LM.`,
+          };
+        }
+      }
       return this.executePlanningTask(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
     }
 
@@ -214,6 +263,9 @@ export class CopilotAdapter implements ProviderAdapter {
       // Tool-calling failed (model doesn't support tools, etc.) — fall back to JSON plan mode
       onChunk?.('\n⚠️ Tool-calling unavailable, falling back to plan mode...\n');
       try {
+        if (this.preferredRuntime === 'sdk-hybrid') {
+          return await this.executeTaskJsonFallbackWithSdk(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages, onChunk);
+        }
         return await this.executeTaskJsonFallback(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
       } catch (fallbackError) {
         const detail = fallbackError instanceof Error ? fallbackError.message : 'Unknown error';
@@ -317,6 +369,56 @@ export class CopilotAdapter implements ProviderAdapter {
         success: false,
       };
     }
+  }
+
+  private async executePlanningTaskWithSdk(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
+  ): Promise<ExecutionResult> {
+    const promptLines = [
+      `You are ${agent.name}, a ${persona.specialty} agent in Pixel Squad.`,
+      'This task is planning-only. Do not use tools, do not propose file edits, and do not run commands.',
+      'Return a concise execution plan as plain text with these sections: Goal, Recommended implementation path, Step-by-step plan, Risks, Validation.',
+      room ? `Room: ${room.name} (${room.theme}) — ${room.purpose}` : '',
+      `Task: ${task.title}`,
+      `Details: ${task.detail}`,
+      `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
+      `Active file: ${workspaceContext.activeFile || 'none'}`,
+      handoffPackets?.length ? `Prior handoff: ${handoffPackets.map((packet) => packet.summary).join(' | ')}` : '',
+      inboxMessages?.length ? `Agent messages: ${inboxMessages.map((message) => message.content).join(' | ')}` : '',
+    ].filter(Boolean);
+
+    const response = await runCopilotSdkPrompt({
+      model: this.pickSdkModel(),
+      prompt: promptLines.join('\n'),
+      stream: onChunk,
+      cwd: workspaceContext.workspaceRoot,
+    });
+    const normalized = response.content.trim() || `Plan prepared for ${task.title}.`;
+    this.lastHealth = {
+      provider: 'copilot',
+      state: 'ready',
+      detail: `Planned via GitHub Copilot SDK (${response.model}).`,
+    };
+    return {
+      output: normalized,
+      success: true,
+      plan: {
+        summary: `Planning response for "${task.title}"`,
+        fileEdits: [],
+        terminalCommands: [],
+        commandResults: [],
+        tests: [],
+        notes: [normalized.slice(0, 2000)],
+      },
+      done: true,
+    };
   }
 
   /** Build the natural-language prompt for tool-calling execution. */
@@ -508,6 +610,94 @@ export class CopilotAdapter implements ProviderAdapter {
         success: false,
       };
     }
+  }
+
+  private async executeTaskJsonFallbackWithSdk(
+    task: TaskCard,
+    agent: SquadAgent,
+    persona: PersonaTemplate,
+    workspaceContext: WorkspaceContext,
+    room?: Room,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+    onChunk?: (chunk: string) => void,
+  ): Promise<ExecutionResult> {
+    const promptLines = [
+      `You are ${agent.name}, a ${persona.specialty} agent in a multi-agent software factory called Pixel Squad.`,
+      `Your role: ${persona.title}.`,
+      'Return valid JSON only with this exact shape:',
+      '{"summary":"string","output":"string","fileEdits":[{"filePath":"relative/path","action":"create|replace","summary":"string","content":"full file content"}],"terminalCommands":[{"command":"string","summary":"string"}],"tests":["string"],"notes":["string"],"agentMessages":[{"toAgentId":"string","content":"string"}],"done":true}',
+      'Use only workspace-relative paths for fileEdits.',
+      'fileEdits should contain at most 3 items and only when you are confident.',
+      'If you are changing an existing file, return the full replacement content.',
+      'If the task mentions a named file or asks to update an existing plan/doc/spec, include that file in fileEdits instead of returning only notes.',
+      'If no file change is appropriate, return an empty array.',
+      'agentMessages: optional array of messages to send to other agents in your room. Use this to request help, share findings, or coordinate work. Set toAgentId to the target agent ID.',
+      'done: set to true when your work is complete. Set to false if you need to wait for a reply from another agent.',
+    ];
+
+    if (room) {
+      promptLines.push(`Room: ${room.name} (${room.theme}) — ${room.purpose}`);
+    }
+
+    if (handoffPackets && handoffPackets.length > 0) {
+      promptLines.push('--- Handoff from predecessor tasks ---');
+      for (const packet of handoffPackets) {
+        promptLines.push(`[From ${packet.fromAgentName} (task ${packet.fromTaskId})]`);
+        promptLines.push(`Summary: ${packet.summary}`);
+        if (packet.filesChanged.length > 0) { promptLines.push(`Files changed: ${packet.filesChanged.join(', ')}`); }
+        if (packet.commandsRun.length > 0) { promptLines.push(`Commands run: ${packet.commandsRun.join('; ')}`); }
+        if (packet.openIssues.length > 0) { promptLines.push(`Open issues/notes: ${packet.openIssues.join('; ')}`); }
+        if (packet.output) { promptLines.push(`Output: ${packet.output.slice(0, 500)}`); }
+      }
+      promptLines.push('--- End handoff ---');
+    }
+
+    if (inboxMessages && inboxMessages.length > 0) {
+      promptLines.push('--- Messages from other agents ---');
+      for (const msg of inboxMessages) {
+        promptLines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${msg.content}`);
+      }
+      promptLines.push('--- End messages ---');
+    }
+
+    promptLines.push(
+      `Task: ${task.title}`,
+      `Details: ${task.detail}`,
+      `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
+      `Active file: ${workspaceContext.activeFile || 'none'}`,
+      `Selected text: ${workspaceContext.selectedText || 'none'}`,
+      `Git status: ${(workspaceContext.gitStatus ?? []).join(' | ') || 'clean or unavailable'}`,
+      `Relevant files:\n${this.describeRelevantFiles(workspaceContext)}`,
+      '',
+      'Be direct and practical.',
+    );
+
+    const response = await runCopilotSdkPrompt({
+      model: this.pickSdkModel(),
+      prompt: promptLines.join('\n'),
+      stream: onChunk,
+      cwd: workspaceContext.workspaceRoot,
+    });
+
+    this.lastHealth = {
+      provider: 'copilot',
+      state: 'ready',
+      detail: `Executed via GitHub Copilot SDK (${response.model}).`,
+    };
+
+    const parsed = this.parseExecutionPlan(response.content);
+    return {
+      output: parsed.output,
+      success: true,
+      plan: parsed.plan,
+      outgoingMessages: parsed.outgoingMessages,
+      done: parsed.done,
+    };
+  }
+
+  private pickSdkModel(): string {
+    return 'gpt-5';
   }
 
   private buildPrompt(prompt: string, personas: PersonaTemplate[], workspaceContext: WorkspaceContext): string {

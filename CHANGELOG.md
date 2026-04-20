@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.0] — 2026-04-20
+### Added
+- **Hybrid Copilot runtime**: Copilot-backed agents now default to `sdk-hybrid` mode via the new `pixelSquad.copilotRuntime` setting. In this mode, Pixel Crew keeps ownership of runs, sessions, handoffs, journals, and UI state while routing Copilot planning and JSON-fallback execution through the GitHub Copilot SDK.
+- **Graceful SDK fallback**: The Copilot adapter now attempts the SDK first in hybrid mode, then falls back to VS Code `vscode.lm` automatically if the SDK or CLI path is unavailable. Tool-driven execution still stays on the existing VS Code LM path so workspace tools and current orchestration semantics remain stable.
+### Changed
+- **Copilot SDK dependency**: Added `@github/copilot-sdk` to the extension runtime so hybrid mode is available without external code changes.
+### Notes
+- **Validation**: `npm run build`, `npm run package:vsix`, and GitHub release publishing should pass for `1.3.0`.
+
 ## [1.2.0] — 2026-04-19
 ### Added
 - **Agent Journal view**: New `Journal` tab in the Crew Board opens a chronological per-agent notebook — every task assigned, every file `created` or `edited` (with path + summary), every terminal command with exit status, every handoff sent or received, and every session turn. Entries are grouped by day (Today / Yesterday / date) with a time rail on the left, so glancing at a teammate's week is one click. A sidebar roster lets you switch between teammates without leaving the view, and a "Files touched" panel lists the paths that agent has worked on most recently.

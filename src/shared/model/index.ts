@@ -15,6 +15,7 @@ export type AgentSessionStatus = 'queued' | 'active' | 'review' | 'done' | 'fail
 export type AgentSessionMessageRole = 'user' | 'agent' | 'system';
 export type ToolPreference = 'workspace-first' | 'mcp-first';
 export type ToolPreferenceReason = 'forced' | 'external-access';
+export type CopilotRuntime = 'vscode-lm' | 'sdk-hybrid';
 
 /* ── Room theme palette ────────────────────────────────── */
 
@@ -206,6 +207,7 @@ export interface SquadSettings {
   autoExecute: boolean;
   forceMcpForAllTasks: boolean;
   modelFamily: string;
+  copilotRuntime: CopilotRuntime;
   autoPopulateWorkspaceContext: boolean;
   workspaceContextMaxFiles: number;
 }
