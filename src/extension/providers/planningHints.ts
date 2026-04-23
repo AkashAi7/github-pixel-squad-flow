@@ -18,6 +18,16 @@ function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values));
 }
 
+function includesAny(haystack: string, needles: string[]): boolean {
+  return needles.some((needle) => haystack.includes(needle));
+}
+
+function hasSplitAssignmentIntent(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  return /\b(create\s*tasks?|createtask|assign(?:ments?|ed|ing)?|split|handoff|delegate|route)\b/.test(lower)
+    || includesAny(lower, ['front end', 'frontend', 'back end', 'backend', 'tester', 'testers', 'testing', 'devops', 'designer']);
+}
+
 function personaSkillIds(persona: PersonaTemplate): string[] {
   return persona.skills?.map((skill) => skill.id) ?? [];
 }
@@ -94,6 +104,7 @@ export function createDeterministicAssignments(prompt: string, personas: Persona
   const lower = prompt.toLowerCase();
   const assignments: PersonaAssignment[] = [];
   const has = (value: string): boolean => lower.includes(value);
+  const hasAnyKeyword = (...values: string[]): boolean => values.some((value) => has(value));
   const ensure = (personaId: string, title: string, detail: string): void => {
     if (assignments.some((assignment) => assignment.personaId === personaId)) {
       return;
@@ -105,13 +116,13 @@ export function createDeterministicAssignments(prompt: string, personas: Persona
   };
 
   ensure('lead', 'Shape the delivery plan', `Break down the request and coordinate the implementation path for: ${prompt}`);
-  if (has('ui') || has('frontend') || has('webview') || has('design') || has('theme')) {
+  if (hasAnyKeyword('ui', 'frontend', 'front end', 'webview', 'design', 'theme')) {
     ensure('frontend', 'Build the interface slice', 'Implement the visible user experience, interaction states, and view wiring for the request.');
   }
-  if (has('api') || has('backend') || has('persist') || has('storage') || has('coordinator') || assignments.length < 2) {
+  if (hasAnyKeyword('api', 'backend', 'back end', 'persist', 'storage', 'coordinator') || assignments.length < 2) {
     ensure('backend', 'Implement the runtime changes', 'Update extension-host, coordinator, persistence, or provider logic needed to support the request.');
   }
-  if (has('test') || has('verify') || has('qa') || has('regression') || assignments.length < 3) {
+  if (hasAnyKeyword('test', 'tester', 'testing', 'verify', 'qa', 'regression') || assignments.length < 3) {
     ensure('tester', 'Validate the flow', 'Check error handling, smoke-test the feature, and call out any residual risks or regressions.');
   }
 
@@ -129,6 +140,11 @@ export function tryFastRoute(prompt: string, personas: PersonaTemplate[]): Perso
   const lower = prompt.toLowerCase();
   const planningIntent = /\b(plan|strategy|roadmap|proposal|architecture|approach|business plan|deployment plan|migration plan|design doc|outline)\b/.test(lower);
   const implementationIntent = /\b(write|implement|fix|edit|modify|change|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(lower);
+  const splitAssignmentIntent = hasSplitAssignmentIntent(prompt);
+
+  if (splitAssignmentIntent) {
+    return createDeterministicAssignments(prompt, personas);
+  }
 
   if (planningIntent && !implementationIntent) {
     const leadPersona = personas.find((persona) => persona.id === 'lead');
@@ -153,19 +169,19 @@ export function tryFastRoute(prompt: string, personas: PersonaTemplate[]): Perso
     },
     {
       personaId: 'frontend',
-      keywords: ['frontend', 'ui', 'webview', 'component', 'layout', 'css', 'theme'],
+      keywords: ['frontend', 'front end', 'ui', 'webview', 'component', 'layout', 'css', 'theme'],
       title: 'Frontend task',
       detail: prompt,
     },
     {
       personaId: 'backend',
-      keywords: ['backend', 'api', 'runtime', 'coordinator', 'persist', 'storage', 'service'],
+      keywords: ['backend', 'back end', 'api', 'runtime', 'coordinator', 'persist', 'storage', 'service'],
       title: 'Backend task',
       detail: prompt,
     },
     {
       personaId: 'tester',
-      keywords: ['test', 'regression', 'qa', 'verify', 'validation', 'spec', 'coverage', 'failing test'],
+      keywords: ['test', 'tester', 'testing', 'regression', 'qa', 'verify', 'validation', 'spec', 'coverage', 'failing test'],
       title: 'Validate and test',
       detail: prompt,
     },

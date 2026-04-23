@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] — 2026-04-23
+### Fixed
+- **Task split routing for plan-driven requests**: Prompts that ask Pixel Crew to create a plan and then spawn frontend, backend, or tester work no longer collapse into a single lead-only planning task. The deterministic planner now recognizes split-assignment intent and spaced lane names like `front end` and `back end`.
+### Changed
+- **Release metadata sync**: Refreshed package metadata and top-level docs so the shipped release better matches the current extension defaults and release line.
+
 ## [1.3.0] — 2026-04-20
 ### Added
 - **Hybrid Copilot runtime**: Copilot-backed agents now default to `sdk-hybrid` mode via the new `pixelSquad.copilotRuntime` setting. In this mode, Pixel Crew keeps ownership of runs, sessions, handoffs, journals, and UI state while routing Copilot planning and JSON-fallback execution through the GitHub Copilot SDK.

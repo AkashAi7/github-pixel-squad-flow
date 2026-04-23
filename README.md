@@ -2,16 +2,12 @@
 
 Pixel Squad Flow is a VS Code extension for chat-first multi-agent orchestration that supports both **GitHub Copilot** and **Claude Code** language models inside VS Code.
 
-## What's New in v1.0.5
+## What's New in v1.3.1
 
-- **Independent release line** — Pixel Squad Flow now publishes from its own clean release stream starting at `v1.0.0`.
-- **Chat-first runtime orchestration** — GitHub Copilot Chat drives task routing while the extension visualizes active runs, agent lanes, transcripts, and pipeline progress.
-- **Safer release workflow** — The repo now includes release guidance and a GitHub release helper that preserve proper markdown notes and avoid pushing unrelated legacy tags.
-- **Professional mission-control shell** — The runtime surface is now tighter and more intentional, with a calmer lane continuation action instead of a large hero CTA.
-- **Control Deck** — The old Providers tab is replaced by a Control Deck that shows provider load and explains why a lane is active, queued, blocked, or idle.
-- **Astronaut lane sprites** — Factory characters now read more clearly as astronaut-style specialists instead of plain placeholders.
-- **Panel provisioning controls** — The runtime panel now includes visible `Create Room` and `Provision Agent` buttons.
-- **Run visualization** — Selected agent channels can show a visual run flow with stage status and dependency hints.
+- **Hybrid Copilot runtime** — Copilot-backed agents can plan through the GitHub Copilot SDK while keeping Pixel Crew’s run state, UI, and orchestration in extension code.
+- **Agent Journal and Crew Chat visibility** — The runtime now exposes per-agent journals and inter-agent room chatter so you can see what each teammate did, touched, and said.
+- **Plan-to-lane split routing fix** — Requests that ask for a plan and then downstream frontend/backend/tester task creation now split into the intended lanes instead of stalling on a single lead planning task.
+- **Chat-first control surface** — `@pixel-squad` flows, room provisioning, lane follow-ups, work logs, and team prompts remain the primary UX rather than a command-palette-first workflow.
 
 ## Commands
 
@@ -55,7 +51,7 @@ When an agent is active, the launchpad now shows a smaller `Continue lane` actio
 
 | Setting | Default | Description |
 |---|---|---|
-| `pixelSquad.autoExecute` | `false` | Auto-execute tasks after routing |
+| `pixelSquad.autoExecute` | `true` | Auto-execute tasks after routing |
 | `pixelSquad.modelFamily` | `copilot` | Preferred model family (`copilot` or `claude`) |
 | `pixelSquad.autoPopulateWorkspaceContext` | `true` | Automatically capture active editor, open tabs, git state, and relevant files for each task |
 | `pixelSquad.workspaceContextMaxFiles` | `3` | Maximum number of workspace files auto-included as context |
