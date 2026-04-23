@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.3] — 2026-04-23
+### Fixed
+- **Faster direct dispatch**: Explicit lane-targeted prompts such as `/frontend ...`, `backend: ...`, and `assign to tester ...` now bypass the planner and route straight to the intended lane.
+- **Lower execution overhead for simple work**: Straightforward workspace-only edit tasks now skip the heavier tool loop and default mailbox turn budget, so obvious single-agent file changes start and settle faster.
+### Added
+- **Board-side dispatch controls**: The mission board can now dispatch new work directly, send follow-up prompts to the selected lane, and trigger queue actions without forcing every intervention back through chat first.
+### Changed
+- **Cleaner factory default**: The factory view now auto-focuses the live lane, hides the heavy inspector by default, and only surfaces actual review, failed, or waiting work in the attention queue.
+- **Tighter solo-task watchdogs**: Single-turn local runs now use a shorter timeout, while collaborative and MCP-first tasks keep the broader execution budget.
+
 ## [1.3.2] — 2026-04-23
 ### Fixed
 - **Faster coordination flow**: Coordination-only prompts such as task assignment, routing, and handoff requests now bypass the heavy tool-calling execution loop, which makes inter-agent assignment materially faster and avoids wasting turns on simple orchestration work.

@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "Pixel Crew",
   "description": "Your one-person-army dev crew in VS Code. Talk to frontend, backend, tester, devops and designer teammates from GitHub Copilot Chat — they plan, code, run commands, and keep a shared work log.",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
