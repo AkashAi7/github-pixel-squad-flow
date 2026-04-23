@@ -22,6 +22,11 @@ export interface OpenProvisionAgentMessage {
   type: 'openProvisionAgent';
 }
 
+export interface CreateTaskMessage {
+  type: 'createTask';
+  prompt: string;
+}
+
 export interface ResetWorkspaceMessage {
   type: 'resetWorkspace';
 }
@@ -73,6 +78,7 @@ export type WebviewMessage =
   | FocusAgentChatMessage
   | OpenCreateRoomMessage
   | OpenProvisionAgentMessage
+  | CreateTaskMessage
   | ResetWorkspaceMessage
   | AgentActionMessage
   | TaskActionMessage

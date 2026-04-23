@@ -148,6 +148,17 @@ summary:focus-visible {
   line-height: 1.5;
 }
 
+.mission-run-card__composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mission-run-card__composer .composer-input {
+  flex: 1 1 260px;
+}
+
 .mission-progress-rail {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -204,6 +215,28 @@ summary:focus-visible {
 .mission-queue-row p,
 .mission-activity-row p {
   color: var(--ps-muted);
+}
+
+.mission-queue-row__meta,
+.mission-queue-row__actions,
+.mission-lane-card__composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mission-queue-row__meta {
+  justify-content: space-between;
+}
+
+.mission-queue-row__actions,
+.mission-lane-card__composer {
+  margin-top: 8px;
+}
+
+.mission-lane-card__composer .composer-input {
+  flex: 1 1 220px;
 }
 
 .mission-queue-row--active {
@@ -2545,6 +2578,10 @@ summary:focus-visible {
 .workspace-stack--mission {
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
   align-items: start;
+}
+
+.workspace-stack--mission-compact {
+  grid-template-columns: 1fr;
 }
 
 .workspace-stack__main,

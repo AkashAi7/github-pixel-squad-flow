@@ -299,6 +299,9 @@ function App() {
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [activeView, setActiveView] = useState<WorkspaceView>('factory');
+  const [showFactoryInspector, setShowFactoryInspector] = useState(false);
+  const [dispatchPrompt, setDispatchPrompt] = useState('');
+  const [lanePrompt, setLanePrompt] = useState('');
   const [taskGroupBy, setTaskGroupBy] = useState<'status' | 'assignee' | 'room' | 'pipeline'>('pipeline');
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [taskProviderFilter, setTaskProviderFilter] = useState<Provider | 'all'>('all');
@@ -400,6 +403,27 @@ function App() {
     () => snapshot?.agents.map((agent) => ({ ...agent, status: deriveAgentDisplayStatus(agent, snapshot.tasks) })) ?? [],
     [snapshot],
   );
+
+  useEffect(() => {
+    if (!snapshot || displayAgents.length === 0) {
+      return;
+    }
+
+    const selectedStillExists = selectedAgentId && displayAgents.some((agent) => agent.id === selectedAgentId);
+    if (selectedStillExists) {
+      return;
+    }
+
+    const fallbackAgentId = snapshot.ui.activeAgentId
+      ?? displayAgents.find((agent) => agent.status === 'executing')?.id
+      ?? displayAgents.find((agent) => snapshot.tasks.some((task) => task.assigneeId === agent.id && task.status !== 'done'))?.id
+      ?? displayAgents[0]?.id
+      ?? null;
+
+    if (fallbackAgentId) {
+      setSelectedAgentId(fallbackAgentId);
+    }
+  }, [displayAgents, selectedAgentId, snapshot]);
 
   const selectedAgent = useMemo<SquadAgent | null>(() => {
     if (!snapshot || !selectedAgentId) return null;
@@ -560,14 +584,28 @@ function App() {
   const selectedAgentMood = selectedAgent ? AGENT_MOOD[selectedAgent.status] : null;
   const selectedPersonaTitle = selectedAgent ? personas.get(selectedAgent.personaId)?.title ?? selectedAgent.personaId : '';
   const latestActivity = filteredActivity.slice(0, 3);
-  const nextAttentionTasks = snapshot.tasks
-    .filter((task) => task.status === 'active' || task.status === 'queued' || task.status === 'review' || task.status === 'failed')
-    .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0))
-    .slice(0, 3);
+  const urgentAttentionTasks = snapshot.tasks
+    .filter((task) => task.status === 'review' || task.status === 'failed')
+    .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0));
+  const readyAttentionTasks = snapshot.tasks
+    .filter((task) => task.status === 'queued')
+    .sort((left, right) => (right.updatedAt ?? right.createdAt ?? 0) - (left.updatedAt ?? left.createdAt ?? 0));
+  const nextAttentionTasks = (urgentAttentionTasks.length > 0 ? urgentAttentionTasks : readyAttentionTasks).slice(0, 3);
+  const attentionTitle = urgentAttentionTasks.length > 0
+    ? 'What needs intervention'
+    : readyAttentionTasks.length > 0
+      ? 'What is waiting to start'
+      : 'No interruptions right now';
+  const attentionCountLabel = urgentAttentionTasks.length > 0
+    ? `${nextAttentionTasks.length} action${nextAttentionTasks.length === 1 ? '' : 's'}`
+    : readyAttentionTasks.length > 0
+      ? `${nextAttentionTasks.length} waiting`
+      : 'Clear';
 
   const handleSelectAgent = (agentId: string) => {
     setActiveView('factory');
     setInspectorTab('channel');
+    setShowFactoryInspector(false);
     vscode.postMessage({ type: 'showAgent', agentId });
     vscode.postMessage({ type: 'focusAgentChat', agentId });
   };
@@ -581,8 +619,63 @@ function App() {
     setExpandedTaskId(focusTask?.id ?? null);
     setInspectorTab(focusTask ? 'work' : 'overview');
     setActiveView('factory');
+    setShowFactoryInspector(true);
 
     vscode.postMessage({ type: 'showAgent', agentId });
+  };
+
+  const focusTaskFromQueue = (task: TaskCard) => {
+    setSelectedAgentId(task.assigneeId);
+    setExpandedTaskId(task.id);
+    setInspectorTab('work');
+    setShowFactoryInspector(true);
+    setActiveView('factory');
+    vscode.postMessage({ type: 'showAgent', agentId: task.assigneeId });
+  };
+
+  const runAttentionTaskAction = (task: TaskCard) => {
+    if (task.status === 'queued') {
+      vscode.postMessage({ type: 'taskAction', taskId: task.id, action: 'execute' });
+      addToast(`Started ${task.title}`, 'success');
+      return;
+    }
+
+    if (task.status === 'failed') {
+      vscode.postMessage({ type: 'taskAction', taskId: task.id, action: 'retry' });
+      addToast(`Retrying ${task.title}`, 'info');
+      return;
+    }
+
+    focusTaskFromQueue(task);
+  };
+
+  const sendLanePrompt = () => {
+    if (!selectedAgent || !lanePrompt.trim()) {
+      return;
+    }
+    vscode.postMessage({ type: 'sendAgentPrompt', agentId: selectedAgent.id, prompt: lanePrompt.trim() });
+    addToast(`Sent follow-up to ${selectedAgent.name}`, 'success');
+    setLanePrompt('');
+  };
+
+  const dispatchTaskFromBoard = (target: 'squad' | 'lane') => {
+    const prompt = dispatchPrompt.trim();
+    if (!prompt) {
+      return;
+    }
+
+    if (target === 'lane' && selectedAgent) {
+      vscode.postMessage({
+        type: 'createTask',
+        prompt: `/${selectedAgent.personaId} ${prompt}`,
+      });
+      addToast(`Dispatched to ${selectedAgent.name}`, 'success');
+    } else {
+      vscode.postMessage({ type: 'createTask', prompt });
+      addToast('Dispatched to Pixel Squad', 'success');
+    }
+
+    setDispatchPrompt('');
   };
 
   return (
@@ -673,26 +766,79 @@ function App() {
                 Force MCP-first: {snapshot.settings.forceMcpForAllTasks ? 'On' : 'Off'}
               </button>
             </div>
+            <div className="mission-run-card__composer">
+              <input
+                type="text"
+                className="composer-input"
+                value={dispatchPrompt}
+                onChange={(event) => setDispatchPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    dispatchTaskFromBoard(selectedAgent ? 'lane' : 'squad');
+                  }
+                }}
+                placeholder={selectedAgent ? `Dispatch work to ${selectedAgent.name} or the selected lane` : 'Dispatch new work to the squad'}
+                aria-label="Dispatch work from the mission board"
+              />
+              <button
+                type="button"
+                className="composer-button composer-button--accent"
+                onClick={() => dispatchTaskFromBoard('squad')}
+                disabled={!dispatchPrompt.trim()}
+              >
+                Dispatch
+              </button>
+              {selectedAgent ? (
+                <button
+                  type="button"
+                  className="composer-button composer-button--lane"
+                  onClick={() => dispatchTaskFromBoard('lane')}
+                  disabled={!dispatchPrompt.trim()}
+                >
+                  Send to lane
+                </button>
+              ) : null}
+            </div>
           </div>
 
           <div className="mission-queue-card">
             <div className="mission-queue-card__header">
               <div>
                 <p className="eyebrow">Attention Queue</p>
-                <h3>What needs attention now</h3>
+                <h3>{attentionTitle}</h3>
               </div>
-              <span className="hero-summary-pill">{nextAttentionTasks.length} signals</span>
+              <span className="hero-summary-pill">{attentionCountLabel}</span>
             </div>
             <div className="mission-queue-list">
               {nextAttentionTasks.length > 0 ? nextAttentionTasks.map((task) => (
                 <article key={task.id} className={`mission-queue-row mission-queue-row--${task.status}`}>
-                  <strong>{task.title}</strong>
+                  <div className="mission-queue-row__meta">
+                    <strong>{task.title}</strong>
+                    <span className="task-chip">{agentsById.get(task.assigneeId)?.name ?? 'Unassigned'}</span>
+                  </div>
                   <p>{summarizeTaskDetail(task.detail)}</p>
+                  <div className="mission-queue-row__actions">
+                    <button
+                      type="button"
+                      className="composer-button composer-button--lane"
+                      onClick={() => runAttentionTaskAction(task)}
+                    >
+                      {task.status === 'queued' ? 'Start now' : task.status === 'failed' ? 'Retry' : 'Open review'}
+                    </button>
+                    <button
+                      type="button"
+                      className="composer-button composer-button--ghost"
+                      onClick={() => focusTaskFromQueue(task)}
+                    >
+                      Jump to lane
+                    </button>
+                  </div>
                 </article>
               )) : (
                 <article className="mission-queue-row">
                   <strong>No open attention items</strong>
-                  <p>The queue will populate when Pixel Squad routes the next run.</p>
+                  <p>Active lanes stay on the factory floor. This queue only lights up for blocked, review, or waiting work.</p>
                 </article>
               )}
             </div>
@@ -724,6 +870,40 @@ function App() {
                     onClick={() => handleSelectAgent(selectedAgent.id)}
                   >
                     Continue lane
+                  </button>
+                  <button
+                    type="button"
+                    className="composer-button composer-button--ghost"
+                    onClick={() => {
+                      setShowFactoryInspector((current) => !current);
+                      setInspectorTab(selectedAgentFocusTask ? 'work' : 'overview');
+                    }}
+                  >
+                    {showFactoryInspector ? 'Hide details' : 'Show details'}
+                  </button>
+                </div>
+                <div className="mission-lane-card__composer">
+                  <input
+                    type="text"
+                    className="composer-input"
+                    value={lanePrompt}
+                    onChange={(event) => setLanePrompt(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        sendLanePrompt();
+                      }
+                    }}
+                    placeholder={`Give ${selectedAgent.name} the next step`}
+                    aria-label={`Send a follow-up prompt to ${selectedAgent.name}`}
+                  />
+                  <button
+                    type="button"
+                    className="composer-button composer-button--accent"
+                    onClick={sendLanePrompt}
+                    disabled={!lanePrompt.trim()}
+                  >
+                    Send
                   </button>
                 </div>
               </>
@@ -849,7 +1029,7 @@ function App() {
       </section>
 
       {activeView === 'factory' ? (
-        <section className="workspace-stack workspace-stack--mission">
+        <section className={`workspace-stack workspace-stack--mission${showFactoryInspector ? '' : ' workspace-stack--mission-compact'}`}>
           <div className="workspace-stack__main">
             <FactoryBoard
               rooms={snapshot.rooms}
@@ -862,30 +1042,32 @@ function App() {
             />
           </div>
 
-          <div className="workspace-stack__side">
-            <InspectorPanelComponent
-              selectedAgent={selectedAgent}
-              selectedAgentTasks={selectedAgentTasks}
-              selectedAgentFocusTask={selectedAgentFocusTask}
-              personas={personas}
-              rooms={snapshot.rooms}
-              selectedRun={selectedRun}
-              selectedSession={selectedSession}
-              roomFeeds={snapshot.roomFeeds ?? {}}
-              agentsById={agentsById}
-              inspectorTab={inspectorTab}
-              setInspectorTab={setInspectorTab}
-              expandedTaskId={expandedTaskId}
-              setExpandedTaskId={setExpandedTaskId}
-              showFilePicker={showFilePicker}
-              setShowFilePicker={setShowFilePicker}
-              fileSearchQuery={fileSearchQuery}
-              setFileSearchQuery={setFileSearchQuery}
-              workspaceFiles={workspaceFiles}
-              streamingOutputs={streamingOutputs}
-              vscode={vscode}
-            />
-          </div>
+          {showFactoryInspector ? (
+            <div className="workspace-stack__side">
+              <InspectorPanelComponent
+                selectedAgent={selectedAgent}
+                selectedAgentTasks={selectedAgentTasks}
+                selectedAgentFocusTask={selectedAgentFocusTask}
+                personas={personas}
+                rooms={snapshot.rooms}
+                selectedRun={selectedRun}
+                selectedSession={selectedSession}
+                roomFeeds={snapshot.roomFeeds ?? {}}
+                agentsById={agentsById}
+                inspectorTab={inspectorTab}
+                setInspectorTab={setInspectorTab}
+                expandedTaskId={expandedTaskId}
+                setExpandedTaskId={setExpandedTaskId}
+                showFilePicker={showFilePicker}
+                setShowFilePicker={setShowFilePicker}
+                fileSearchQuery={fileSearchQuery}
+                setFileSearchQuery={setFileSearchQuery}
+                workspaceFiles={workspaceFiles}
+                streamingOutputs={streamingOutputs}
+                vscode={vscode}
+              />
+            </div>
+          ) : null}
         </section>
       ) : null}
 

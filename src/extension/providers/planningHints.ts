@@ -10,6 +10,15 @@ const KEYWORD_SKILL_HINTS: Record<string, string[]> = {
   designer: ['ux', 'research', 'visual', 'design', 'copy', 'journey'],
 };
 
+const PERSONA_ROUTE_ALIASES: Array<{ personaId: string; aliases: string[] }> = [
+  { personaId: 'lead', aliases: ['lead'] },
+  { personaId: 'frontend', aliases: ['frontend', 'front end'] },
+  { personaId: 'backend', aliases: ['backend', 'back end'] },
+  { personaId: 'tester', aliases: ['tester', 'testing', 'qa'] },
+  { personaId: 'devops', aliases: ['devops', 'dev ops'] },
+  { personaId: 'designer', aliases: ['designer', 'design'] },
+];
+
 function normalizeText(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -26,6 +35,51 @@ function hasSplitAssignmentIntent(prompt: string): boolean {
   const lower = prompt.toLowerCase();
   return /\b(create\s*tasks?|createtask|assign(?:ments?|ed|ing)?|split|handoff|delegate|route)\b/.test(lower)
     || includesAny(lower, ['front end', 'frontend', 'back end', 'backend', 'tester', 'testers', 'testing', 'devops', 'designer']);
+}
+
+function matchPersonaAlias(value: string, personas: PersonaTemplate[]): string | undefined {
+  const normalized = normalizeText(value).replace(/\s+/g, ' ');
+  const matched = PERSONA_ROUTE_ALIASES.find((candidate) => candidate.aliases.includes(normalized));
+  if (!matched) {
+    return undefined;
+  }
+  return personas.some((persona) => persona.id === matched.personaId) ? matched.personaId : undefined;
+}
+
+export function tryDirectPersonaRoute(prompt: string, personas: PersonaTemplate[]): { personaId: string; prompt: string } | undefined {
+  const trimmed = prompt.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const prefixMatch = trimmed.match(/^(?:@|\/)(lead|frontend|front end|backend|back end|tester|testing|qa|devops|dev ops|designer|design)\b\s*(?<detail>.+)$/i);
+  if (prefixMatch?.[1]) {
+    const personaId = matchPersonaAlias(prefixMatch[1], personas);
+    const detail = prefixMatch.groups?.detail?.trim();
+    if (personaId && detail) {
+      return { personaId, prompt: detail };
+    }
+  }
+
+  const labeledMatch = trimmed.match(/^(lead|frontend|front end|backend|back end|tester|testing|qa|devops|dev ops|designer|design)\s*[:\-]\s*(?<detail>.+)$/i);
+  if (labeledMatch?.[1]) {
+    const personaId = matchPersonaAlias(labeledMatch[1], personas);
+    const detail = labeledMatch.groups?.detail?.trim();
+    if (personaId && detail) {
+      return { personaId, prompt: detail };
+    }
+  }
+
+  const delegateMatch = trimmed.match(/^(?:assign|route|delegate)\s+(?:this|it|task)?\s*(?:to\s+)?(lead|frontend|front end|backend|back end|tester|testing|qa|devops|dev ops|designer|design)\b\s*[:\-]?\s*(?<detail>.+)$/i);
+  if (delegateMatch?.[1]) {
+    const personaId = matchPersonaAlias(delegateMatch[1], personas);
+    const detail = delegateMatch.groups?.detail?.trim();
+    if (personaId && detail) {
+      return { personaId, prompt: detail };
+    }
+  }
+
+  return undefined;
 }
 
 function personaSkillIds(persona: PersonaTemplate): string[] {

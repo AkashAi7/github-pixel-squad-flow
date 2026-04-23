@@ -15,6 +15,7 @@ import type { ProviderAdapter } from '../providers/types.js';
 import { ProjectStateStore } from '../persistence/ProjectStateStore.js';
 import { WorkspaceContextService } from '../workspace/WorkspaceContextService.js';
 import { taskLikelyNeedsExternalAccess } from '../tools/toolCallLoop.js';
+import { tryDirectPersonaRoute } from '../providers/planningHints.js';
 
 /** Maximum multi-turn iterations per task execution to prevent infinite loops. */
 const MAX_MAILBOX_TURNS = 2;
@@ -32,6 +33,7 @@ const MAX_HANDOFF_FILES = 4;
 const MAX_HANDOFF_COMMANDS = 3;
 const MAX_HANDOFF_NOTES = 4;
 const MAX_HANDOFF_OUTPUT_CHARS = 240;
+const SINGLE_TURN_EXECUTION_TIMEOUT_MS = 30_000;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -108,6 +110,11 @@ export class Coordinator {
     const normalizedPrompt = prompt.trim();
     if (!normalizedPrompt) {
       return 'Pixel Squad ignored an empty task request.';
+    }
+
+    const directRoute = tryDirectPersonaRoute(normalizedPrompt, this.snapshot.personas);
+    if (directRoute) {
+      return this.assignTaskToPersona(directRoute.personaId, directRoute.prompt, provider, model, token, source);
     }
 
     const settings = this.getSettings();
@@ -475,14 +482,17 @@ export class Coordinator {
 
     const adapter = this.providers[task.provider] ?? this.copilot;
     const pendingTaskRoutes: Array<{ personaId: string; title: string; detail: string }> = [];
+    const pendingInboxCount = this.mailbox.count(agent.id);
+    let maxTurns = this.initialExecutionTurnBudget(task, handoffPackets, pendingInboxCount);
+    const executionTimeoutMs = this.executionTimeoutForTask(task, maxTurns);
 
     // ── Multi-turn mailbox execution loop ──
     let lastResult: import('../providers/types.js').ExecutionResult = { output: '', success: false };
-    for (let turn = 0; turn < MAX_MAILBOX_TURNS; turn++) {
+    for (let turn = 0; turn < maxTurns; turn++) {
       // Keep task alive — the reaper uses updatedAt to detect stale work
       if (turn > 0) {
         this.updateTask(taskId, {
-          progress: this.progressForStatus('active', `Agent turn ${turn + 1}/${MAX_MAILBOX_TURNS}`, 3, 5),
+          progress: this.progressForStatus('active', `Agent turn ${turn + 1}/${maxTurns}`, 3, 5),
         });
       }
       const inboxMessages = this.mailbox.drain(agent.id);
@@ -506,7 +516,7 @@ export class Coordinator {
         (chunk) => this.streamBus.publish({ type: 'taskChunk', taskId, chunk }),
       );
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Execution timeout after ${EXECUTION_TIMEOUT_MS / 1000}s`)), EXECUTION_TIMEOUT_MS),
+        setTimeout(() => reject(new Error(`Execution timeout after ${executionTimeoutMs / 1000}s`)), executionTimeoutMs),
       );
       let result: import('../providers/types.js').ExecutionResult;
       try {
@@ -547,6 +557,10 @@ export class Coordinator {
 
       if (result.outgoingTaskRoutes && result.outgoingTaskRoutes.length > 0) {
         pendingTaskRoutes.push(...result.outgoingTaskRoutes);
+      }
+
+      if (turn === 0 && maxTurns === 1 && result.done === false && this.mailbox.count(agent.id) > 0) {
+        maxTurns = MAX_MAILBOX_TURNS;
       }
 
       // If the agent says it's done (or didn't set done=false), stop the loop
@@ -2028,5 +2042,32 @@ export class Coordinator {
         });
       }
     }
+  }
+
+  private initialExecutionTurnBudget(task: TaskCard, handoffPackets: HandoffPacket[], pendingInboxCount: number): number {
+    if (pendingInboxCount > 0 || handoffPackets.length > 0 || task.dependsOn.length > 0) {
+      return MAX_MAILBOX_TURNS;
+    }
+
+    if (task.source === 'copilot-chat' || task.source === 'claude-chat') {
+      return MAX_MAILBOX_TURNS;
+    }
+
+    const text = `${task.title}\n${task.detail}`.toLowerCase();
+    const coordinationIntent = /\b(assign|assignment|route|delegate|handoff|hand off|split|send to|post this assign)\b/.test(text);
+    const collaborationIntent = /\b(ask|message|reply|coordinate|collaborate|wait for|follow up|handoff)\b/.test(text);
+    if (coordinationIntent || collaborationIntent) {
+      return MAX_MAILBOX_TURNS;
+    }
+
+    return 1;
+  }
+
+  private executionTimeoutForTask(task: TaskCard, maxTurns: number): number {
+    if (maxTurns > 1 || task.toolPreference === 'mcp-first') {
+      return EXECUTION_TIMEOUT_MS;
+    }
+
+    return SINGLE_TURN_EXECUTION_TIMEOUT_MS;
   }
 }

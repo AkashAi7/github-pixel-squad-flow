@@ -138,6 +138,11 @@ export class PixelSquadViewProvider implements vscode.WebviewViewProvider {
       syncSnapshot();
     }
 
+    if (message.type === 'createTask') {
+      await this.coordinator.createTask(message.prompt);
+      syncSnapshot();
+    }
+
     if (message.type === 'resetWorkspace') {
       this.coordinator.resetWorkspace();
       syncSnapshot();

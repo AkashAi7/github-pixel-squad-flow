@@ -209,6 +209,18 @@ export class CopilotAdapter implements ProviderAdapter {
       return coordinationResult;
     }
 
+    if (this.isSimpleExecutionTask(task, workspaceContext, handoffPackets, inboxMessages)) {
+      this.lastHealth = {
+        provider: 'copilot',
+        state: 'ready',
+        detail: 'Executed via compact JSON mode for a straightforward workspace edit.',
+      };
+      if (this.preferredRuntime === 'sdk-hybrid') {
+        return this.executeTaskJsonFallbackWithSdk(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages, onChunk);
+      }
+      return this.executeTaskJsonFallback(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
+    }
+
     const rootPath = workspaceContext.workspaceRoot;
     if (!rootPath) {
       // No workspace root — fall back to JSON plan mode
@@ -311,6 +323,29 @@ export class CopilotAdapter implements ProviderAdapter {
     const implementationIntent = /\b(write|implement|fix|edit|modify|change|update|revise|append|populate|sync|save|replace|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
     const artifactIntent = /\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b/.test(text);
     return coordinationIntent && !implementationIntent && !artifactIntent;
+  }
+
+  private isSimpleExecutionTask(
+    task: TaskCard,
+    workspaceContext: WorkspaceContext,
+    handoffPackets?: HandoffPacket[],
+    inboxMessages?: AgentMessage[],
+  ): boolean {
+    if ((handoffPackets?.length ?? 0) > 0 || (inboxMessages?.length ?? 0) > 0) {
+      return false;
+    }
+    if (task.toolPreference === 'mcp-first') {
+      return false;
+    }
+
+    const text = `${task.title}\n${task.detail}`.toLowerCase();
+    const editIntent = /\b(write|implement|fix|edit|modify|change|update|revise|append|populate|sync|save|replace|create)\b/.test(text);
+    const commandHeavyIntent = /\b(run|execute|debug|install|build|test|verify|smoke|benchmark|profile)\b/.test(text);
+    const planningOrRoutingIntent = /\b(plan|strategy|roadmap|proposal|architecture|route|delegate|handoff|split)\b/.test(text);
+    const namedFileIntent = /\b[\w./-]+\.(md|markdown|txt|json|ya?ml|toml|tsx?|jsx?|css|scss|html|py|java|go|rs|cs|sql)\b/.test(text);
+    const concreteWorkspaceTarget = namedFileIntent || Boolean(workspaceContext.activeFile) || workspaceContext.relevantFiles.length > 0;
+
+    return editIntent && concreteWorkspaceTarget && !planningOrRoutingIntent && !commandHeavyIntent;
   }
 
   private executeCoordinationTask(task: TaskCard, agent: SquadAgent, persona: PersonaTemplate): ExecutionResult | undefined {
