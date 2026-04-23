@@ -248,7 +248,7 @@ export class CopilotAdapter implements ProviderAdapter {
           preferExternalTools: task.toolPreference === 'mcp-first',
         });
       }
-      const { text, toolCalls } = loopResult;
+      const { text, toolCalls, exhausted } = loopResult;
 
       this.lastHealth = {
         provider: 'copilot',
@@ -281,11 +281,11 @@ export class CopilotAdapter implements ProviderAdapter {
 
       return {
         output: text || plan.summary,
-        success: true,
+        success: !exhausted,
         plan,
         outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
         outgoingTaskRoutes: outgoingTaskRoutes.length > 0 ? outgoingTaskRoutes : undefined,
-        done: true,
+        done: !exhausted,
         toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'editFile' || c.name === 'runCommand'),
       };
     } catch {

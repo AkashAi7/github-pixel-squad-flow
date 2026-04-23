@@ -133,7 +133,7 @@ export class ClaudeAdapter implements ProviderAdapter {
 
     try {
       const prompt = this.buildExecutionPrompt(task, agent, persona, workspaceContext, room, handoffPackets, inboxMessages);
-      const { text, toolCalls } = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk, {
+      const { text, toolCalls, exhausted } = await runToolCallLoop(resolvedModel, prompt, rootPath, token, onChunk, {
         preferExternalTools: task.toolPreference === 'mcp-first',
       });
 
@@ -167,11 +167,11 @@ export class ClaudeAdapter implements ProviderAdapter {
 
       return {
         output: text || plan.summary,
-        success: true,
+        success: !exhausted,
         plan,
         outgoingMessages: outgoingMessages.length > 0 ? outgoingMessages : undefined,
         outgoingTaskRoutes: outgoingTaskRoutes.length > 0 ? outgoingTaskRoutes : undefined,
-        done: true,
+        done: !exhausted,
         toolsExecuted: toolCalls.some((c) => c.name === 'writeFile' || c.name === 'editFile' || c.name === 'runCommand'),
       };
     } catch {

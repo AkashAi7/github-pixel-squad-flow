@@ -56,6 +56,7 @@ async function invokeExternalTool(
 export interface ToolCallLoopResult {
   text: string;
   toolCalls: ToolCallRecord[];
+  exhausted: boolean;
 }
 
 export interface ToolCallLoopOptions {
@@ -123,7 +124,7 @@ export async function runToolCallLoop(
 
     // If no tool calls, we've reached the final answer
     if (toolCallParts.length === 0) {
-      return { text: textChunks.join(''), toolCalls: allToolCallRecords };
+      return { text: textChunks.join(''), toolCalls: allToolCallRecords, exhausted: false };
     }
 
     // Execute each tool call and feed results back to the model
@@ -179,6 +180,7 @@ export async function runToolCallLoop(
   return {
     text: 'Agent reached the maximum number of tool-calling rounds.',
     toolCalls: allToolCallRecords,
+    exhausted: true,
   };
 }
 
@@ -270,5 +272,5 @@ function summarizeInput(input: object): string {
 }
 
 export function taskLikelyNeedsExternalAccess(prompt: string): boolean {
-  return /\b(mcp|external|github|gitlab|repo metadata|pull request|issue|cloud|azure|aws|gcp|search|knowledge|documentation|docs|api|service|deployment|resource|subscription|tenant|database|postgres|mysql|sql|redis|cosmos|storage|kubernetes|aks)\b/i.test(prompt);
+  return /\b(mcp|external|github|gitlab|repo metadata|pull request|issue|cloud|azure|aws|gcp|hosted search|hosted knowledge|subscription|tenant|resource group|kubernetes|aks)\b/i.test(prompt);
 }

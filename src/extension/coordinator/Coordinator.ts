@@ -684,7 +684,12 @@ export class Coordinator {
         this.scheduleSave();
       }
     } else {
-      this.updateTask(taskId, { status: 'failed', output: result.output, progress: this.progressForStatus('failed') });
+      this.updateTask(taskId, {
+        status: 'failed',
+        output: result.output,
+        progress: this.progressForStatus('failed'),
+        executionPlan: result.plan ?? task.executionPlan,
+      });
       this.updateAgent(agent.id, { status: 'failed', summary: `Failed: ${task.title}` });
       this.appendActivity(`${agent.name} failed on "${task.title}".`, {
         category: 'task',

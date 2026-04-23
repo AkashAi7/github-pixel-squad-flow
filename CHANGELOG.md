@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.4] — 2026-04-23
+### Fixed
+- **Correct exhausted-run status**: Tasks that hit the tool-calling round cap now fail instead of showing up as completed, so the board no longer reports misleading success states.
+- **Preserved partial failure context**: Failed runs now keep the partial execution plan that was generated before the stop condition, which makes inspection and debugging clearer from the UI.
+- **Less accidental MCP-first routing**: Local greenfield prompts no longer drift toward external-tool-first execution just because they mention generic words like APIs, docs, services, or databases.
+
 ## [1.3.3] — 2026-04-23
 ### Fixed
 - **Faster direct dispatch**: Explicit lane-targeted prompts such as `/frontend ...`, `backend: ...`, and `assign to tester ...` now bypass the planner and route straight to the intended lane.
