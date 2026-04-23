@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.2] — 2026-04-23
+### Fixed
+- **Faster coordination flow**: Coordination-only prompts such as task assignment, routing, and handoff requests now bypass the heavy tool-calling execution loop, which makes inter-agent assignment materially faster and avoids wasting turns on simple orchestration work.
+- **Prompt bloat control**: Continuation details, handoff packets, and attention-queue previews are now compacted so follow-up tasks stop recursively carrying oversized context blobs through the run.
+### Added
+- **Exact model pinning**: Added `pixelSquad.copilotModelId` and `pixelSquad.claudeModelId` so you can pin a specific model instead of relying only on provider-family heuristics.
+### Changed
+- **Lower token overhead**: Session logs, handoff summaries, inbox messages, and prompt serialization now clip and cap payload size to reduce token consumption during agent-to-agent calls.
+- **Tighter execution bounds**: Reduced the maximum tool-calling rounds from 12 to 8 so confused runs fail faster instead of burning extra time and tokens.
+
 ## [1.3.1] — 2026-04-23
 ### Fixed
 - **Task split routing for plan-driven requests**: Prompts that ask Pixel Crew to create a plan and then spawn frontend, backend, or tester work no longer collapse into a single lead-only planning task. The deterministic planner now recognizes split-assignment intent and spaced lane names like `front end` and `back end`.

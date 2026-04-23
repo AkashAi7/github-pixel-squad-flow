@@ -135,6 +135,16 @@ function planHasArtifacts(plan: TaskExecutionPlan | undefined): boolean {
   return Boolean(plan && (plan.fileEdits.length > 0 || plan.terminalCommands.length > 0 || plan.tests.length > 0 || plan.notes.length > 0));
 }
 
+function summarizeTaskDetail(detail: string, limit = 180): string {
+  const preview = detail
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0 && !/^(Current lane focus|Focus detail|Latest lane output|Relevant changed files|Predecessor handoff|Recent lane transcript|Treat this as a continuation)/.test(line))
+    ?? detail.trim();
+
+  return preview.length > limit ? `${preview.slice(0, limit - 3)}...` : preview;
+}
+
 type DiffPreviewLine = {
   kind: 'context' | 'add' | 'remove';
   before?: number;
@@ -677,7 +687,7 @@ function App() {
               {nextAttentionTasks.length > 0 ? nextAttentionTasks.map((task) => (
                 <article key={task.id} className={`mission-queue-row mission-queue-row--${task.status}`}>
                   <strong>{task.title}</strong>
-                  <p>{task.detail}</p>
+                  <p>{summarizeTaskDetail(task.detail)}</p>
                 </article>
               )) : (
                 <article className="mission-queue-row">

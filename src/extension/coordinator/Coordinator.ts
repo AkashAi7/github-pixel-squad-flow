@@ -26,6 +26,12 @@ const PLAN_TIMEOUT_MS = 20_000;
 const STALE_TASK_THRESHOLD_MS = 5 * 60_000;
 /** Debounce interval for coalescing disk writes (ms). */
 const SAVE_DEBOUNCE_MS = 500;
+const MAX_SESSION_MESSAGES = 12;
+const MAX_SESSION_MESSAGE_CHARS = 600;
+const MAX_HANDOFF_FILES = 4;
+const MAX_HANDOFF_COMMANDS = 3;
+const MAX_HANDOFF_NOTES = 4;
+const MAX_HANDOFF_OUTPUT_CHARS = 240;
 
 export class Coordinator {
   private readonly copilot = new CopilotAdapter();
@@ -70,10 +76,14 @@ export class Coordinator {
       forceMcpForAllTasks: config.get<boolean>('forceMcpForAllTasks', false),
       modelFamily: config.get<string>('modelFamily', 'copilot'),
       copilotRuntime: config.get<'vscode-lm' | 'sdk-hybrid'>('copilotRuntime', 'sdk-hybrid'),
+      copilotModelId: config.get<string>('copilotModelId', ''),
+      claudeModelId: config.get<string>('claudeModelId', ''),
       autoPopulateWorkspaceContext: config.get<boolean>('autoPopulateWorkspaceContext', true),
       workspaceContextMaxFiles: config.get<number>('workspaceContextMaxFiles', 3),
     };
     this.copilot.setRuntime(settings.copilotRuntime);
+    this.copilot.setPreferredModelId(settings.copilotModelId);
+    this.claude.setPreferredModelId(settings.claudeModelId);
     return settings;
   }
 
@@ -1149,6 +1159,16 @@ export class Coordinator {
       ?? tasks[0];
   }
 
+  private summarizeTaskDetail(detail: string, limit = 220): string {
+    const normalized = detail
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0 && !/^(Current lane focus|Focus detail|Latest lane output|Relevant changed files|Predecessor handoff|Recent lane transcript|Treat this as a continuation)/.test(line))
+      ?? detail.trim();
+
+    return normalized.length > limit ? `${normalized.slice(0, limit - 3)}...` : normalized;
+  }
+
   private buildContinuationTaskDetail(agentId: string, prompt: string, runId?: string): string {
     const focusTask = this.pickFocusTaskForAgent(agentId);
     const session = runId ? this.snapshot.agentSessions.find((entry) => entry.runId === runId && entry.agentId === agentId) : undefined;
@@ -1162,8 +1182,8 @@ export class Coordinator {
     return [
       prompt.trim(),
       focusTask ? `\nCurrent lane focus: ${focusTask.title}` : '',
-      focusTask?.detail ? `Focus detail: ${focusTask.detail}` : '',
-      focusTask?.output ? `Latest lane output: ${focusTask.output.slice(0, 500)}` : '',
+      focusTask?.detail ? `Focus detail: ${this.summarizeTaskDetail(focusTask.detail, 180)}` : '',
+      focusTask?.output ? `Latest lane output: ${focusTask.output.slice(0, 240)}` : '',
       changedFiles.length > 0 ? `Relevant changed files: ${changedFiles.slice(0, 4).join(', ')}` : '',
       handoffSummaries.length > 0 ? `Predecessor handoff: ${handoffSummaries.slice(0, 2).join(' | ')}` : '',
       recentMessages.length > 0 ? `Recent lane transcript:\n${recentMessages.join('\n')}` : '',
@@ -1211,12 +1231,12 @@ export class Coordinator {
     const nextMessage: AgentSessionMessage = {
       id: `session-message-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       role,
-      content: trimmed,
+      content: this.clipText(trimmed, MAX_SESSION_MESSAGE_CHARS),
       timestamp: Date.now(),
       taskId,
     };
 
-    const messageLog = [...(existing?.messageLog ?? []), nextMessage].slice(-20);
+    const messageLog = [...(existing?.messageLog ?? []), nextMessage].slice(-MAX_SESSION_MESSAGES);
     const session: AgentSession = {
       id: sessionId,
       runId,
@@ -1424,7 +1444,7 @@ export class Coordinator {
       assigneeId: targetAgent.id,
       provider: targetAgent.provider,
       source: sourceTask.source,
-      detail: `${route.detail.trim()}\n\nAuto-routed from ${sourceAgent.name} after completing "${sourceTask.title}".`,
+      detail: `${this.clipText(route.detail.trim(), 320)}\n\nAuto-routed from ${sourceAgent.name} after completing "${sourceTask.title}".`,
       dependsOn: [sourceTask.id],
       requiredSkillIds: [],
       toolPreference: sourceTask.toolPreference,
@@ -1433,12 +1453,12 @@ export class Coordinator {
       handoffPackets: this.collectHandoffPackets(sourceTask).concat({
         fromTaskId: sourceTask.id,
         fromAgentName: sourceAgent.name,
-        summary: sourceTask.executionPlan?.summary ?? sourceTask.detail,
-        filesChanged: sourceTask.executionPlan?.fileEdits.map((edit) => edit.filePath) ?? [],
-        commandsRun: sourceTask.executionPlan?.terminalCommands.map((command) => command.command) ?? [],
-        testsRun: sourceTask.executionPlan?.tests ?? [],
-        openIssues: sourceTask.executionPlan?.notes ?? [],
-        output: sourceTask.output ?? '',
+        summary: this.clipText(sourceTask.executionPlan?.summary ?? sourceTask.detail, 200),
+        filesChanged: sourceTask.executionPlan?.fileEdits.map((edit) => edit.filePath).slice(0, MAX_HANDOFF_FILES) ?? [],
+        commandsRun: sourceTask.executionPlan?.terminalCommands.map((command) => this.clipText(command.command, 80)).slice(0, MAX_HANDOFF_COMMANDS) ?? [],
+        testsRun: sourceTask.executionPlan?.tests.map((entry) => this.clipText(entry, 100)).slice(0, MAX_HANDOFF_COMMANDS) ?? [],
+        openIssues: sourceTask.executionPlan?.notes.map((entry) => this.clipText(entry, 120)).slice(0, MAX_HANDOFF_NOTES) ?? [],
+        output: this.clipText(sourceTask.output ?? '', MAX_HANDOFF_OUTPUT_CHARS),
       }),
       progress: this.progressForStatus('queued', 'Waiting for predecessor handoff', 1, 5),
       batchId: sourceTask.batchId,
@@ -1645,14 +1665,19 @@ export class Coordinator {
         return {
           fromTaskId: dep.id,
           fromAgentName: depAgent?.name ?? 'unknown',
-          summary: dep.executionPlan?.summary ?? dep.detail,
-          filesChanged: dep.executionPlan?.fileEdits.map((e) => e.filePath) ?? [],
-          commandsRun: dep.executionPlan?.terminalCommands.map((c) => c.command) ?? [],
-          testsRun: dep.executionPlan?.tests ?? [],
-          openIssues: dep.executionPlan?.notes ?? [],
-          output: dep.output ?? '',
+          summary: this.clipText(dep.executionPlan?.summary ?? dep.detail, 200),
+          filesChanged: dep.executionPlan?.fileEdits.map((e) => e.filePath).slice(0, MAX_HANDOFF_FILES) ?? [],
+          commandsRun: dep.executionPlan?.terminalCommands.map((c) => this.clipText(c.command, 80)).slice(0, MAX_HANDOFF_COMMANDS) ?? [],
+          testsRun: dep.executionPlan?.tests.map((entry) => this.clipText(entry, 100)).slice(0, MAX_HANDOFF_COMMANDS) ?? [],
+          openIssues: dep.executionPlan?.notes.map((entry) => this.clipText(entry, 120)).slice(0, MAX_HANDOFF_NOTES) ?? [],
+          output: this.clipText(dep.output ?? '', MAX_HANDOFF_OUTPUT_CHARS),
         } satisfies HandoffPacket;
       });
+  }
+
+  private clipText(value: string, limit: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > limit ? `${normalized.slice(0, limit - 3)}...` : normalized;
   }
 
   private agentNameById(agentId: string): string {

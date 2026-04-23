@@ -208,6 +208,8 @@ export interface SquadSettings {
   forceMcpForAllTasks: boolean;
   modelFamily: string;
   copilotRuntime: CopilotRuntime;
+  copilotModelId: string;
+  claudeModelId: string;
   autoPopulateWorkspaceContext: boolean;
   workspaceContextMaxFiles: number;
 }

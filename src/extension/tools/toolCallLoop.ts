@@ -4,7 +4,7 @@ import { WORKSPACE_TOOLS } from './definitions.js';
 import type { ProposedFileEdit, ProposedTerminalCommand, TaskExecutionPlan, CommandExecutionResult } from '../../shared/model/index.js';
 
 /** Maximum rounds of tool-calling before we force-stop. */
-const MAX_TOOL_ROUNDS = 12;
+const MAX_TOOL_ROUNDS = 8;
 
 /* ── MCP / external tool discovery ──────────────────────── */
 

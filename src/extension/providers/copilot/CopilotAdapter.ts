@@ -10,6 +10,7 @@ export class CopilotAdapter implements ProviderAdapter {
   readonly id = 'copilot' as const;
   private cachedModels: vscode.LanguageModelChat[] | undefined;
   private preferredRuntime: 'vscode-lm' | 'sdk-hybrid' = 'vscode-lm';
+  private preferredModelId = '';
   private lastHealth: ProviderHealth = {
     provider: 'copilot',
     state: 'ready',
@@ -18,6 +19,10 @@ export class CopilotAdapter implements ProviderAdapter {
 
   setRuntime(runtime: 'vscode-lm' | 'sdk-hybrid'): void {
     this.preferredRuntime = runtime;
+  }
+
+  setPreferredModelId(modelId: string): void {
+    this.preferredModelId = modelId.trim();
   }
 
   getHealth(): ProviderHealth {
@@ -134,7 +139,14 @@ export class CopilotAdapter implements ProviderAdapter {
     for (const model of this.cachedModels) {
       deduped.set(model.id, model);
     }
-    return [...deduped.values()].find((candidate) => !excludedIds.includes(candidate.id));
+    const candidates = [...deduped.values()].filter((candidate) => !excludedIds.includes(candidate.id));
+    if (this.preferredModelId) {
+      const preferred = candidates.find((candidate) => candidate.id === this.preferredModelId);
+      if (preferred) {
+        return preferred;
+      }
+    }
+    return candidates[0];
   }
 
   private scoreModel(model: vscode.LanguageModelChat): number {
@@ -190,6 +202,11 @@ export class CopilotAdapter implements ProviderAdapter {
         }
       }
       return this.executePlanningTask(task, agent, persona, workspaceContext, resolvedModel, token, room, handoffPackets, inboxMessages, onChunk);
+    }
+
+    const coordinationResult = this.executeCoordinationTask(task, agent, persona);
+    if (coordinationResult) {
+      return coordinationResult;
     }
 
     const rootPath = workspaceContext.workspaceRoot;
@@ -288,6 +305,79 @@ export class CopilotAdapter implements ProviderAdapter {
     return planningIntent && !implementationIntent && !artifactIntent;
   }
 
+  private isCoordinationOnlyTask(task: TaskCard): boolean {
+    const text = `${task.title}\n${task.detail}`.toLowerCase();
+    const coordinationIntent = /\b(assign|assignment|route|delegate|handoff|hand off|split|send to|post this assign)\b/.test(text);
+    const implementationIntent = /\b(write|implement|fix|edit|modify|change|update|revise|append|populate|sync|save|replace|run|execute|test|refactor|build|code|ship|patch|debug|install)\b/.test(text);
+    const artifactIntent = /\b(brd|doc|docs|document|documentation|spec|specification|readme|markdown|md|file|files)\b/.test(text);
+    return coordinationIntent && !implementationIntent && !artifactIntent;
+  }
+
+  private executeCoordinationTask(task: TaskCard, agent: SquadAgent, persona: PersonaTemplate): ExecutionResult | undefined {
+    if (!this.isCoordinationOnlyTask(task)) {
+      return undefined;
+    }
+
+    const detail = `${task.title}\n${task.detail}`.toLowerCase();
+    const baseRequest = this.summarizeCoordinationRequest(task.detail || task.title);
+    const routes: Array<{ personaId: string; title: string; detail: string }> = [];
+    const pushRoute = (personaId: string, title: string, routeDetail: string) => {
+      if (personaId === persona.id || routes.some((route) => route.personaId === personaId)) {
+        return;
+      }
+      routes.push({ personaId, title, detail: routeDetail });
+    };
+
+    if (/\b(frontend|front end|ui|webview)\b/.test(detail)) {
+      pushRoute('frontend', 'Frontend handoff', `${baseRequest}\nFocus on frontend UI, webview, and interaction work.`);
+    }
+    if (/\b(backend|back end|api|server|data)\b/.test(detail)) {
+      pushRoute('backend', 'Backend handoff', `${baseRequest}\nFocus on backend logic, API, runtime, and data work.`);
+    }
+    if (/\b(tester|testing|qa|verify|validation|regression|test)\b/.test(detail)) {
+      pushRoute('tester', 'Testing handoff', `${baseRequest}\nFocus on validation, smoke testing, and regression coverage.`);
+    }
+    if (/\b(devops|deploy|pipeline|ci|release|infra)\b/.test(detail)) {
+      pushRoute('devops', 'DevOps handoff', `${baseRequest}\nFocus on CI, deployment, release, or infrastructure follow-up.`);
+    }
+    if (/\b(design|ux|copy|journey|visual)\b/.test(detail)) {
+      pushRoute('designer', 'Design handoff', `${baseRequest}\nFocus on UX, visual design, and product copy follow-up.`);
+    }
+
+    if (routes.length === 0) {
+      return undefined;
+    }
+
+    return {
+      output: `Routed ${routes.length} downstream task(s): ${routes.map((route) => route.personaId).join(', ')}.`,
+      success: true,
+      plan: {
+        summary: `Coordination response for "${task.title}"`,
+        fileEdits: [],
+        terminalCommands: [],
+        commandResults: [],
+        tests: [],
+        notes: [`Deterministically routed downstream work from ${agent.name}.`],
+      },
+      outgoingTaskRoutes: routes,
+      done: true,
+    };
+  }
+
+  private summarizeCoordinationRequest(detail: string): string {
+    const firstUsefulLine = detail
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0 && !/^(Current lane focus|Focus detail|Latest lane output|Relevant changed files|Predecessor handoff|Recent lane transcript|Treat this as a continuation)/.test(line));
+    const normalized = firstUsefulLine ?? detail.trim();
+    return normalized.length > 220 ? `${normalized.slice(0, 217)}...` : normalized;
+  }
+
+  private clipPromptText(value: string, limit: number): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > limit ? `${normalized.slice(0, limit - 3)}...` : normalized;
+  }
+
   private async executePlanningTask(
     task: TaskCard,
     agent: SquadAgent,
@@ -309,8 +399,8 @@ export class CopilotAdapter implements ProviderAdapter {
       `Details: ${task.detail}`,
       `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
       `Active file: ${workspaceContext.activeFile || 'none'}`,
-      handoffPackets?.length ? `Prior handoff: ${handoffPackets.map((packet) => packet.summary).join(' | ')}` : '',
-      inboxMessages?.length ? `Agent messages: ${inboxMessages.map((message) => message.content).join(' | ')}` : '',
+      handoffPackets?.length ? `Prior handoff: ${handoffPackets.slice(0, 2).map((packet) => this.clipPromptText(packet.summary, 120)).join(' | ')}` : '',
+      inboxMessages?.length ? `Agent messages: ${inboxMessages.slice(0, 3).map((message) => this.clipPromptText(message.content, 120)).join(' | ')}` : '',
     ].filter(Boolean);
 
     try {
@@ -390,8 +480,8 @@ export class CopilotAdapter implements ProviderAdapter {
       `Details: ${task.detail}`,
       `Workspace branch: ${workspaceContext.branch || 'unknown'}`,
       `Active file: ${workspaceContext.activeFile || 'none'}`,
-      handoffPackets?.length ? `Prior handoff: ${handoffPackets.map((packet) => packet.summary).join(' | ')}` : '',
-      inboxMessages?.length ? `Agent messages: ${inboxMessages.map((message) => message.content).join(' | ')}` : '',
+      handoffPackets?.length ? `Prior handoff: ${handoffPackets.slice(0, 2).map((packet) => this.clipPromptText(packet.summary, 120)).join(' | ')}` : '',
+      inboxMessages?.length ? `Agent messages: ${inboxMessages.slice(0, 3).map((message) => this.clipPromptText(message.content, 120)).join(' | ')}` : '',
     ].filter(Boolean);
 
     const response = await runCopilotSdkPrompt({
@@ -451,21 +541,21 @@ export class CopilotAdapter implements ProviderAdapter {
 
     if (handoffPackets && handoffPackets.length > 0) {
       lines.push('\n--- Handoff from predecessor tasks ---');
-      for (const packet of handoffPackets) {
+      for (const packet of handoffPackets.slice(0, 2)) {
         lines.push(`[From ${packet.fromAgentName} (task ${packet.fromTaskId})]`);
-        lines.push(`Summary: ${packet.summary}`);
-        if (packet.filesChanged.length > 0) { lines.push(`Files changed: ${packet.filesChanged.join(', ')}`); }
-        if (packet.commandsRun.length > 0) { lines.push(`Commands run: ${packet.commandsRun.join('; ')}`); }
-        if (packet.openIssues.length > 0) { lines.push(`Open issues: ${packet.openIssues.join('; ')}`); }
-        if (packet.output) { lines.push(`Output: ${packet.output.slice(0, 500)}`); }
+        lines.push(`Summary: ${this.clipPromptText(packet.summary, 160)}`);
+        if (packet.filesChanged.length > 0) { lines.push(`Files changed: ${packet.filesChanged.slice(0, 4).join(', ')}`); }
+        if (packet.commandsRun.length > 0) { lines.push(`Commands run: ${packet.commandsRun.slice(0, 3).map((entry) => this.clipPromptText(entry, 60)).join('; ')}`); }
+        if (packet.openIssues.length > 0) { lines.push(`Open issues: ${packet.openIssues.slice(0, 3).map((entry) => this.clipPromptText(entry, 80)).join('; ')}`); }
+        if (packet.output) { lines.push(`Output: ${this.clipPromptText(packet.output, 180)}`); }
       }
       lines.push('--- End handoff ---');
     }
 
     if (inboxMessages && inboxMessages.length > 0) {
       lines.push('\n--- Messages from other agents ---');
-      for (const msg of inboxMessages) {
-        lines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${msg.content}`);
+      for (const msg of inboxMessages.slice(0, 3)) {
+        lines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${this.clipPromptText(msg.content, 140)}`);
       }
       lines.push('--- End messages ---');
     }
@@ -526,13 +616,13 @@ export class CopilotAdapter implements ProviderAdapter {
       // Handoff packets from predecessors
       if (handoffPackets && handoffPackets.length > 0) {
         promptLines.push('--- Handoff from predecessor tasks ---');
-        for (const packet of handoffPackets) {
+        for (const packet of handoffPackets.slice(0, 2)) {
           promptLines.push(`[From ${packet.fromAgentName} (task ${packet.fromTaskId})]`);
-          promptLines.push(`Summary: ${packet.summary}`);
-          if (packet.filesChanged.length > 0) { promptLines.push(`Files changed: ${packet.filesChanged.join(', ')}`); }
-          if (packet.commandsRun.length > 0) { promptLines.push(`Commands run: ${packet.commandsRun.join('; ')}`); }
-          if (packet.openIssues.length > 0) { promptLines.push(`Open issues/notes: ${packet.openIssues.join('; ')}`); }
-          if (packet.output) { promptLines.push(`Output: ${packet.output.slice(0, 500)}`); }
+          promptLines.push(`Summary: ${this.clipPromptText(packet.summary, 160)}`);
+          if (packet.filesChanged.length > 0) { promptLines.push(`Files changed: ${packet.filesChanged.slice(0, 4).join(', ')}`); }
+          if (packet.commandsRun.length > 0) { promptLines.push(`Commands run: ${packet.commandsRun.slice(0, 3).map((entry) => this.clipPromptText(entry, 60)).join('; ')}`); }
+          if (packet.openIssues.length > 0) { promptLines.push(`Open issues/notes: ${packet.openIssues.slice(0, 3).map((entry) => this.clipPromptText(entry, 80)).join('; ')}`); }
+          if (packet.output) { promptLines.push(`Output: ${this.clipPromptText(packet.output, 180)}`); }
         }
         promptLines.push('--- End handoff ---');
       }
@@ -540,8 +630,8 @@ export class CopilotAdapter implements ProviderAdapter {
       // Inbox messages from other agents
       if (inboxMessages && inboxMessages.length > 0) {
         promptLines.push('--- Messages from other agents ---');
-        for (const msg of inboxMessages) {
-          promptLines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${msg.content}`);
+        for (const msg of inboxMessages.slice(0, 3)) {
+          promptLines.push(`[${msg.type.toUpperCase()} from agent ${msg.fromAgentId}]: ${this.clipPromptText(msg.content, 140)}`);
         }
         promptLines.push('--- End messages ---');
       }

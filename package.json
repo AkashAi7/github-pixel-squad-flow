@@ -2,7 +2,7 @@
   "name": "github-pixel-squad-flow",
   "displayName": "Pixel Crew",
   "description": "Your one-person-army dev crew in VS Code. Talk to frontend, backend, tester, devops and designer teammates from GitHub Copilot Chat — they plan, code, run commands, and keep a shared work log.",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "publisher": "akashai7",
   "license": "MIT",
   "repository": {
@@ -135,6 +135,16 @@
             "Default: use GitHub Copilot SDK for Copilot planning and fallback execution while leaving tool-driven execution on the existing VS Code LM path."
           ],
           "description": "Runtime backend for Copilot-backed agents. 'sdk-hybrid' keeps Pixel Crew orchestration but routes Copilot planning and fallback execution through the GitHub Copilot SDK when available."
+        },
+        "pixelSquad.copilotModelId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional exact Copilot chat model id to pin for Pixel Crew. Leave empty to use the built-in speed and cost heuristics."
+        },
+        "pixelSquad.claudeModelId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional exact Claude/Anthropic chat model id to pin for Pixel Crew. Leave empty to use the default Claude model selection logic."
         },
         "pixelSquad.autoPopulateWorkspaceContext": {
           "type": "boolean",
